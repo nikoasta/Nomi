@@ -30,7 +30,11 @@ const WHITELIST_PREFIXES = ["--mantine-", "--tw-"];
 
 function gitFiles(globs) {
   const out = execSync(`git ls-files ${globs}`, { cwd: ROOT, encoding: "utf8" });
-  return out.split("\n").map((l) => l.trim()).filter(Boolean);
+  return out
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((f) => fs.existsSync(path.join(ROOT, f)));
 }
 
 // 扫描范围：src 下的 ts/tsx/css + 仓库根的 tailwind.config.ts。

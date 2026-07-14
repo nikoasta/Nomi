@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { buildClipFromGenerationNode } from './buildClipFromGenerationNode'
-import { canDragGenerationNodeToTimeline, TIMELINE_DRAG_HANDLE_LABEL } from './timelineDragAffordance'
+import { canDragGenerationNodeToTimeline, getTimelineDragHandleLabel } from './timelineDragAffordance'
 import type { GenerationCanvasNode } from './generationCanvasTypes'
 
 function makeNode(overrides: Partial<GenerationCanvasNode> = {}): GenerationCanvasNode {
@@ -24,6 +24,10 @@ function makeNode(overrides: Partial<GenerationCanvasNode> = {}): GenerationCanv
 }
 
 describe('timeline drag affordance', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
   it('marks generated image and video assets with a result url as draggable to the timeline', () => {
     expect(canDragGenerationNodeToTimeline(makeNode({ kind: 'image' }))).toBe(true)
     expect(canDragGenerationNodeToTimeline(makeNode({ kind: 'video', result: { id: 'video-1', type: 'video', url: 'file:///asset.mp4', durationSeconds: 4, createdAt: 1 } }))).toBe(true)
@@ -37,7 +41,8 @@ describe('timeline drag affordance', () => {
   })
 
   it('uses user-facing copy that tells users where to drag the asset', () => {
-    expect(TIMELINE_DRAG_HANDLE_LABEL).toBe('拖拽到时间轴')
+    vi.stubGlobal('document', { documentElement: { lang: 'en' } })
+    expect(getTimelineDragHandleLabel()).toBe('Drag to timeline')
   })
 
   it('can turn generated image and video assets into timeline clips', () => {

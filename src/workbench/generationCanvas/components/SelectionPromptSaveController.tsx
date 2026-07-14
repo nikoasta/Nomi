@@ -13,6 +13,8 @@ import { toast } from '../../../ui/toast'
 import { cn } from '../../../utils/cn'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { getGenerationNodeExecutionKind } from '../model/generationNodeKinds'
+import { useI18n } from '../../../i18n/i18nContext'
+import { canvasTranslate } from '../canvasI18n'
 
 type SelectionToolbarState = {
   text: string
@@ -62,6 +64,8 @@ function referenceImagesFromNode(node: GenerationCanvasNode | null): DraftState[
 }
 
 export function SelectionPromptSaveController({ nodes, disabled = false }: Props): JSX.Element | null {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const nodeById = React.useMemo(() => new Map(nodes.map((node) => [node.id, node])), [nodes])
   const [toolbar, setToolbar] = React.useState<SelectionToolbarState | null>(null)
   const [draft, setDraft] = React.useState<DraftState | null>(null)
@@ -145,12 +149,12 @@ export function SelectionPromptSaveController({ nodes, disabled = false }: Props
       referenceImages: draft.referenceImages,
     })
     if (saved) {
-      toast('已保存到素材盒提示词库', 'success')
+      toast(tCanvas('promptSave.toast'), 'success')
       setDraft(null)
       setToolbar(null)
       window.getSelection()?.removeAllRanges()
     }
-  }, [draft])
+  }, [draft, tCanvas])
 
   if (typeof document === 'undefined') return null
 
@@ -170,7 +174,7 @@ export function SelectionPromptSaveController({ nodes, disabled = false }: Props
           onClick={openDraft}
         >
           <NomiLogoMark size={18} />
-          <span className="text-caption font-semibold">保存提示词</span>
+          <span className="text-caption font-semibold">{tCanvas('promptSave.open')}</span>
         </button>
       ) : null}
       {draft ? (
@@ -183,13 +187,13 @@ export function SelectionPromptSaveController({ nodes, disabled = false }: Props
         >
           <section
             className="flex max-h-[min(680px,calc(100vh-48px))] w-[min(560px,calc(100vw-40px))] flex-col overflow-hidden rounded-nomi border border-nomi-line bg-nomi-paper shadow-nomi-lg"
-            aria-label="保存提示词"
+            aria-label={tCanvas('promptSave.open')}
             onPointerDown={(event) => event.stopPropagation()}
           >
             <header className="flex h-14 shrink-0 items-center justify-between border-b border-nomi-line-soft px-5">
               <div className="flex items-center gap-2.5 text-body font-semibold text-nomi-ink">
                 <NomiLogoMark size={22} />
-                保存提示词
+                {tCanvas('promptSave.open')}
               </div>
               <button type="button" className="grid size-8 place-items-center rounded-nomi-sm border-0 bg-transparent text-nomi-ink-45 hover:bg-nomi-ink-05 hover:text-nomi-ink" onClick={closeDraft}>
                 <IconX size={17} stroke={1.8} aria-hidden />
@@ -202,7 +206,7 @@ export function SelectionPromptSaveController({ nodes, disabled = false }: Props
                   <button
                     type="button"
                     className="absolute right-2 top-2 grid size-7 place-items-center rounded-full border-0 bg-black/55 text-white hover:bg-black/70"
-                    aria-label="移除参考图"
+                    aria-label={tCanvas('promptSave.removeReference')}
                     onClick={() => setDraft((current) => current ? { ...current, referenceImages: [] } : current)}
                   >
                     <IconX size={14} stroke={2} aria-hidden />
@@ -210,7 +214,7 @@ export function SelectionPromptSaveController({ nodes, disabled = false }: Props
                 </div>
               ) : null}
               <label className="grid gap-1.5">
-                <span className="text-caption font-medium text-nomi-ink-60">提示词类型</span>
+                <span className="text-caption font-medium text-nomi-ink-60">{tCanvas('promptSave.type')}</span>
                 <select
                   className="h-11 rounded-nomi-sm border border-nomi-line bg-nomi-bg px-3 text-body-sm text-nomi-ink outline-none"
                   value={draft.promptType}
@@ -224,7 +228,7 @@ export function SelectionPromptSaveController({ nodes, disabled = false }: Props
                 </select>
               </label>
               <label className="grid gap-1.5">
-                <span className="text-caption font-medium text-nomi-ink-60">选中文字</span>
+                <span className="text-caption font-medium text-nomi-ink-60">{tCanvas('promptSave.selectedText')}</span>
                 <textarea
                   className="h-44 min-h-44 resize-none overflow-y-auto rounded-nomi-sm border border-nomi-line bg-nomi-bg p-3 text-body leading-7 text-nomi-ink outline-none"
                   value={draft.text}
@@ -233,10 +237,10 @@ export function SelectionPromptSaveController({ nodes, disabled = false }: Props
               </label>
               <div className="flex items-center justify-end gap-3 pt-1">
                 <button type="button" className="h-10 rounded-nomi-sm border border-nomi-line bg-transparent px-4 text-body-sm text-nomi-ink-60 hover:bg-nomi-ink-05" onClick={closeDraft}>
-                  取消
+                  {tCanvas('promptSave.cancel')}
                 </button>
                 <button type="button" className="h-10 rounded-nomi-sm border-0 bg-nomi-ink px-5 text-body-sm font-semibold text-nomi-paper hover:bg-nomi-accent" onClick={saveDraft}>
-                  保存
+                  {tCanvas('promptSave.save')}
                 </button>
               </div>
             </div>

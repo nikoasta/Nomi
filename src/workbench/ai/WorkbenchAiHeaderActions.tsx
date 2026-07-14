@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn'
 import { ConversationHistoryPopover } from './ConversationHistoryPopover'
 import { ConversationHistoryList } from './ConversationHistoryList'
 import type { ConvArea } from './conversationThreads'
+import { useI18n } from '../../i18n/i18nContext'
 
 export type WorkbenchAiHeaderActionsProps = {
   className?: string
@@ -24,12 +25,13 @@ export function WorkbenchAiHeaderActions({
 }: WorkbenchAiHeaderActionsProps): JSX.Element {
   const [open, setOpen] = React.useState(false)
   const anchorRef = React.useRef<HTMLButtonElement>(null)
+  const { t } = useI18n()
   return (
     <div className={cn('workbench-ai-header-actions inline-flex items-center flex-nowrap gap-1.5', className)}>
       <button
         ref={anchorRef}
         type="button"
-        aria-label="会话历史"
+        aria-label={t('aiHeader.conversationHistory')}
         aria-expanded={open}
         // stopPropagation:压住弹层的「document mousedown 外点关闭」,让本按钮独占 toggle 语义。
         onMouseDown={(event) => event.stopPropagation()}

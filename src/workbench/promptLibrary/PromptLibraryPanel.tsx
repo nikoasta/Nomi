@@ -18,6 +18,7 @@ import { PromptCard } from './PromptCard'
 import { UserPromptCard } from './UserPromptCard'
 import { UserPromptComposer } from './UserPromptComposer'
 import { PromptPreviewOverlay } from './PromptPreviewOverlay'
+import { useI18n } from '../../i18n/i18nContext'
 
 const GRID_GAP = 12 // gap-3
 const MIN_CARD_WIDTH = 200 // 卡片最小宽,据此推列数(窄窗自动减列,不再写死 4 列挤压)
@@ -26,16 +27,9 @@ const CARD_ASPECT = 3 / 4 // PromptCard 为 aspect-[4/3]，行高由实际卡宽
 
 type Source = 'nomi' | 'mine'
 
-const SOURCE_OPTIONS: { value: Source; label: string }[] = [
-  { value: 'mine', label: '我的库' },
-  { value: 'nomi', label: 'Nomi 精选' },
-]
+const SOURCE_OPTIONS: Source[] = ['mine', 'nomi']
 
-const CATEGORY_OPTIONS: { value: PromptCategory; label: string }[] = [
-  { value: 'all', label: '全部' },
-  { value: 'image', label: '图片' },
-  { value: 'video', label: '视频' },
-]
+const CATEGORY_OPTIONS: PromptCategory[] = ['all', 'image', 'video']
 
 type Props = {
   opened: boolean
@@ -59,6 +53,7 @@ export function PromptLibraryContent({
   onClose,
   className,
 }: PromptLibraryContentProps): JSX.Element {
+  const { t } = useI18n()
   const [source, setSource] = React.useState<Source>('nomi')
   const [category, setCategory] = React.useState<PromptCategory>('all')
   const [query, setQuery] = React.useState('')
@@ -134,20 +129,22 @@ export function PromptLibraryContent({
       select: true,
     })
     showUndoToast({
-      message: `已送上画布 · ${prompt.promptType === 'video' ? '视频' : '分镜'}节点`,
+      message: t('promptLibrary.sentToCanvas', {
+        kind: prompt.promptType === 'video' ? t('promptLibrary.videoNode') : t('promptLibrary.canvasNode'),
+      }),
       onUndo: () => useGenerationCanvasStore.getState().deleteNode(node.id),
     })
-  }, [])
+  }, [t])
 
   const handleNew = React.useCallback(() => { setEditing(null); setComposing(true) }, [])
   const handleEdit = React.useCallback((prompt: LibraryPrompt) => { setComposing(false); setEditing(prompt) }, [])
   const handleDelete = React.useCallback((prompt: LibraryPrompt) => {
     void user.remove(prompt.id)
     showUndoToast({
-      message: `已从我的库删除 · ${prompt.title}`,
+      message: t('promptLibrary.deleted', { title: prompt.title }),
       onUndo: () => void user.add({ title: prompt.title, prompt: prompt.prompt, promptType: prompt.promptType }),
     })
-  }, [user])
+  }, [t, user])
 
   const showComposer = isMine && (composing || editing !== null)
   const showNewTile = isMine && !showComposer
@@ -156,13 +153,13 @@ export function PromptLibraryContent({
     <div
       className={cn('inline-flex bg-nomi-ink-05 rounded-full p-0.5', compact ? 'w-full' : 'shrink-0')}
       role="tablist"
-      aria-label="提示词来源"
+      aria-label={t('promptLibrary.source.aria')}
     >
       {SOURCE_OPTIONS.map((option) => {
-        const activeOption = source === option.value
+        const activeOption = source === option
         return (
           <button
-            key={option.value}
+            key={option}
             type="button"
             role="tab"
             aria-selected={activeOption}
@@ -174,9 +171,9 @@ export function PromptLibraryContent({
                 ? 'bg-nomi-paper text-nomi-ink font-semibold shadow-nomi-sm'
                 : 'text-nomi-ink-60 hover:text-nomi-ink',
             )}
-            onClick={() => switchSource(option.value)}
+            onClick={() => switchSource(option)}
           >
-            {option.label}
+            {option === 'mine' ? t('promptLibrary.source.mine') : t('promptLibrary.source.nomi')}
           </button>
         )
       })}
@@ -187,13 +184,13 @@ export function PromptLibraryContent({
     <div
       className={cn('inline-flex bg-nomi-ink-05 rounded-full p-0.5', compact ? 'w-full' : 'shrink-0')}
       role="tablist"
-      aria-label="提示词类型筛选"
+      aria-label={t('promptLibrary.category.aria')}
     >
       {CATEGORY_OPTIONS.map((option) => {
-        const activeOption = category === option.value
+        const activeOption = category === option
         return (
           <button
-            key={option.value}
+            key={option}
             type="button"
             role="tab"
             aria-selected={activeOption}
@@ -205,9 +202,9 @@ export function PromptLibraryContent({
                 ? 'bg-nomi-paper text-nomi-ink font-semibold shadow-nomi-sm'
                 : 'text-nomi-ink-60 hover:text-nomi-ink',
             )}
-            onClick={() => setCategory(option.value)}
+            onClick={() => setCategory(option)}
           >
-            {option.label}
+            {option === 'all' ? t('promptLibrary.category.all') : option === 'image' ? t('mediaType.image') : t('mediaType.video')}
           </button>
         )
       })}
@@ -222,7 +219,7 @@ export function PromptLibraryContent({
           {showHeader ? (
             <div className={cn('flex items-center gap-2 px-5 pt-4 pb-3 border-b border-nomi-line')}>
               <IconBulb size={18} stroke={1.6} className={cn('text-nomi-accent')} />
-              <b className={cn('text-title font-bold text-nomi-ink')}>提示词库</b>
+              <b className={cn('text-title font-bold text-nomi-ink')}>{t('promptLibrary.title')}</b>
               <NomiWordmark fontSize={13} className={cn('text-nomi-ink-40')} />
               <span className={cn('text-caption text-nomi-ink-40')}>· {activeItems.length}</span>
               <span className={cn('flex-1')} />
@@ -230,7 +227,7 @@ export function PromptLibraryContent({
                 <button
                   type="button"
                   className={cn('w-7 h-7 grid place-items-center rounded-nomi-sm cursor-pointer border-0 bg-transparent', 'text-nomi-ink-40 hover:text-nomi-ink hover:bg-nomi-ink-05')}
-                  aria-label="关闭提示词库"
+                  aria-label={t('promptLibrary.close')}
                   onClick={onClose}
                 >
                   <IconX size={16} stroke={2} />
@@ -245,8 +242,8 @@ export function PromptLibraryContent({
             {categoryTabs}
             <DesignSearchInput
               className={compact ? 'w-full' : 'flex-1'}
-              placeholder="搜提示词…"
-              ariaLabel="搜索提示词"
+              placeholder={t('promptLibrary.search')}
+              ariaLabel={t('promptLibrary.search')}
               value={query}
               onChange={setQuery}
             />
@@ -276,7 +273,7 @@ export function PromptLibraryContent({
                     className={cn('flex flex-col items-center justify-center gap-1.5 w-full aspect-[4/3] cursor-pointer', 'rounded-nomi border border-dashed border-nomi-line bg-transparent text-nomi-ink-40', 'hover:border-nomi-accent hover:text-nomi-accent transition-colors')}
                   >
                     <IconPlus size={22} stroke={1.6} />
-                    <span className={cn('text-caption')}>新建</span>
+                    <span className={cn('text-caption')}>{t('promptLibrary.new')}</span>
                   </button>
                 ) : null}
                 {visible.map((prompt) => (
@@ -284,27 +281,27 @@ export function PromptLibraryContent({
                 ))}
                 {!visible.length && !user.loading && (query || category !== 'all') ? (
                   <div className={cn('col-span-full py-10')}>
-                    <DesignEmptyState title="没有匹配的提示词" description="换个筛选或搜索词试试。" />
+                    <DesignEmptyState title={t('promptLibrary.noMatch.title')} description={t('promptLibrary.noMatch.description')} />
                   </div>
                 ) : null}
               </div>
             ) : loading && !items.length ? (
               <div className={cn('flex flex-col items-center justify-center gap-3 py-20 text-nomi-ink-40')}>
                 <NomiLoadingMark size={28} />
-                <span className={cn('text-caption')}>正在从公开库拉取提示词…</span>
+                <span className={cn('text-caption')}>{t('promptLibrary.loading')}</span>
               </div>
             ) : error && !items.length ? (
               <DesignEmptyState
-                title="没拉到提示词"
+                title={t('promptLibrary.fetchEmpty.title')}
                 description={error}
                 action={
                   <button type="button" onClick={reload} className={cn('inline-flex items-center gap-1.5 h-8 px-3.5 rounded-full cursor-pointer', 'border border-nomi-line bg-transparent text-nomi-ink-80 text-caption hover:bg-nomi-ink-05')}>
-                    <IconRefresh size={14} stroke={1.8} />重试
+                    <IconRefresh size={14} stroke={1.8} />{t('promptLibrary.retry')}
                   </button>
                 }
               />
             ) : !visible.length ? (
-              <DesignEmptyState title="没有匹配的提示词" description="换个筛选或搜索词试试。" />
+              <DesignEmptyState title={t('promptLibrary.noMatch.title')} description={t('promptLibrary.noMatch.description')} />
             ) : (
               <div style={{ height: rowVirtualizer.getTotalSize(), width: '100%', position: 'relative' }}>
                 {rowVirtualizer.getVirtualItems().map((virtualRow) => {
@@ -342,6 +339,7 @@ export function PromptLibraryContent({
 }
 
 export function PromptLibraryPanel({ opened, onClose }: Props): JSX.Element | null {
+  const { t } = useI18n()
   if (!opened) return null
 
   return (
@@ -353,7 +351,7 @@ export function PromptLibraryPanel({ opened, onClose }: Props): JSX.Element | nu
       >
         <div
           role="dialog"
-          aria-label="提示词库"
+          aria-label={t('promptLibrary.dialog.aria')}
           className={cn('w-[960px] max-w-full h-[86vh] flex flex-col overflow-hidden', 'bg-nomi-paper border border-nomi-line rounded-nomi-lg shadow-nomi-lg')}
           style={{ animation: 'nomi-panel-pop 160ms cubic-bezier(.2,.7,.3,1)' }}
         >

@@ -9,8 +9,12 @@ import { WorkbenchButton } from '../../../design'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { waveIndexByNode } from '../runner/dependencyWaves'
 import { useBatchPlanPreviewStore } from './batchPlanPreview'
+import { useI18n } from '../../../i18n/i18nContext'
+import { canvasTranslate } from '../canvasI18n'
 
 export function BatchPlanOverlay() {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const plan = useBatchPlanPreviewStore((state) => state.plan)
   const cancel = useBatchPlanPreviewStore((state) => state.cancel)
   const confirm = useBatchPlanPreviewStore((state) => state.confirm)
@@ -43,7 +47,7 @@ export function BatchPlanOverlay() {
                 : 'bg-nomi-accent-soft text-nomi-accent border-nomi-accent',
             )}
             style={{ left, top }}
-            title={blockedInfo ? blockedInfo.detail : `第 ${wave} 波执行`}
+            title={blockedInfo ? blockedInfo.detail : tCanvas('batchPlan.waveTitle', { wave: wave ?? 0 })}
           >
             {blockedInfo ? '⚠' : wave}
           </span>
@@ -57,21 +61,21 @@ export function BatchPlanOverlay() {
       >
         <IconListCheck size={16} className={cn('shrink-0 text-nomi-accent')} aria-hidden />
         <span className={cn('text-body-sm font-medium text-nomi-ink whitespace-nowrap')}>
-          执行计划 · {planCount} 个节点 · {plan.waves.length} 波
+          {tCanvas('batchPlan.summary', { nodes: planCount, waves: plan.waves.length })}
         </span>
         <span className={cn('text-caption text-nomi-ink-60 whitespace-nowrap')}>
-          第 1 波 {firstWaveCount} 个并行,确认前不调用不扣费
-          {plan.blocked.length > 0 ? ` · ${plan.blocked.length} 个被拦(看 ⚠)` : ''}
+          {tCanvas('batchPlan.firstWave', { count: firstWaveCount })}
+          {plan.blocked.length > 0 ? tCanvas('batchPlan.blockedTail', { count: plan.blocked.length }) : ''}
         </span>
         <WorkbenchButton className={cn('h-7 min-h-7 px-3 cursor-pointer')} onClick={cancel}>
-          取消
+          {tCanvas('batchPlan.cancel')}
         </WorkbenchButton>
         <WorkbenchButton
           className={cn('h-7 min-h-7 px-3 cursor-pointer bg-nomi-ink text-nomi-paper border-nomi-ink hover:bg-nomi-ink hover:text-nomi-paper')}
           onClick={() => void confirm()}
           disabled={planCount === 0}
         >
-          按计划生成
+          {tCanvas('batchPlan.confirm')}
         </WorkbenchButton>
       </div>
     </div>

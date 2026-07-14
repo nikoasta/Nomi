@@ -107,8 +107,9 @@ export function summarizeScene3DReferenceTarget(
 }
 
 export function referenceSlotForScene3DCaptureTitle(title: string): Extract<GenerationCanvasEdgeMode, 'first_frame' | 'last_frame'> | null {
-  if (title.includes('运镜首帧')) return 'first_frame'
-  if (title.includes('运镜尾帧')) return 'last_frame'
+  const normalized = title.toLowerCase()
+  if (title.includes('运镜首帧') || normalized.includes('first frame') || normalized.includes('первый кадр')) return 'first_frame'
+  if (title.includes('运镜尾帧') || normalized.includes('last frame') || normalized.includes('последний кадр')) return 'last_frame'
   return null
 }
 
@@ -121,7 +122,7 @@ export function shouldAttachScene3DFrameReference(
 }
 
 export function scene3DReferenceTargetLabel(target: Scene3DReferenceTargetSummary): string {
-  if (target.state === 'not-connected') return '未连接视频镜头'
+  if (target.state === 'not-connected') return 'No video shot connected'
   if (target.state === 'video-ref') return `video_ref · ${target.targetTitle}`
   return `prompt · ${target.targetTitle}`
 }

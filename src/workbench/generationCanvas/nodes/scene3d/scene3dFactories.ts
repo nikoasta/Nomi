@@ -28,7 +28,7 @@ export function makeObject(kind: Scene3DGeometry | 'mannequin' | 'light', roleIn
   if (kind === 'mannequin') {
     return {
       id,
-      name: '假人',
+      name: 'Mannequin',
       type: 'mannequin',
       visible: true,
       position: [0, MANNEQUIN_DEFAULT_SCALE[1] * 0.5, 0],
@@ -40,7 +40,7 @@ export function makeObject(kind: Scene3DGeometry | 'mannequin' | 'light', roleIn
   if (kind === 'light') {
     return {
       id,
-      name: '点光源',
+      name: 'Point light',
       type: 'light',
       visible: true,
       position: [2.5, 3.5, 2.5],
@@ -52,10 +52,10 @@ export function makeObject(kind: Scene3DGeometry | 'mannequin' | 'light', roleIn
     }
   }
   const labels: Record<Scene3DGeometry, string> = {
-    box: '立方体',
-    sphere: '球体',
-    cylinder: '圆柱体',
-    plane: '平面',
+    box: 'Box',
+    sphere: 'Sphere',
+    cylinder: 'Cylinder',
+    plane: 'Plane',
   }
   return {
     id,
@@ -75,7 +75,7 @@ export function makeCrowdObject(options: CrowdAddOptions): Scene3DObject {
   const crowd = clampCrowdOptions(options)
   return {
     id,
-    name: `群众(${crowd.rows}x${crowd.columns})`,
+    name: `Crowd (${crowd.rows}x${crowd.columns})`,
     type: 'mannequinCrowd',
     visible: true,
     position: [0, MANNEQUIN_DEFAULT_SCALE[1] * 0.5, 0],
@@ -92,7 +92,7 @@ export function makeCamera(index: number): Scene3DCamera {
   const target: Scene3DVector3 = [...CAMERA_DEFAULT_TARGET]
   return {
     id: createScene3DCameraId(),
-    name: `相机${index + 1}`,
+    name: `Camera ${index + 1}`,
     visible: true,
     position,
     rotation: cameraLookAtRotation(position, target),
@@ -108,7 +108,7 @@ export function makeCamera(index: number): Scene3DCamera {
 export function makeTrajectory(index: number): Scene3DTrajectory {
   return {
     id: createScene3DTrajectoryId(),
-    name: `轨迹${index + 1}`,
+    name: `Trajectory ${index + 1}`,
     points: [],
     curveControls: [],
     tension: 0.5,
@@ -151,7 +151,7 @@ export function makeTrajectoryBinding(trajectoryId: string, objectId?: string): 
 export function makeTrajectoryGroup(index: number): Scene3DTrajectoryGroup {
   return {
     id: createScene3DTrajectoryGroupId(),
-    name: `组${index + 1}`,
+    name: `Group ${index + 1}`,
     trajectoryIds: [],
   }
 }

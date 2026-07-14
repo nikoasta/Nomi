@@ -7,6 +7,7 @@ import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { getNodeSize } from '../model/generationNodeKinds'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { toast } from '../../../ui/toast'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 export type TextEditNodeSpec = {
   title: string
@@ -20,10 +21,7 @@ export type TextEditNodeSpec = {
 // 实测保住字体/光影/材质的关键（RONIN→SHOGUN 实测，§3.7 T7）。不钉供应商，nano-banana 档案身份由
 // 已连接供应商填（P4 通用第一，同 fixation 回退注释）。
 export function buildTextEditPrompt(): string {
-  return [
-    '把图中的文字「（填原文）」改成「（填新文字）」。',
-    '严格保留原字体、字号、颜色、材质与光影、位置和排版，画面其余部分逐像素不变。',
-  ].join('\n')
+  return canvasRuntimeTranslate('textEdit.prompt')
 }
 
 // nano-banana 改图身份（实测改字最佳）。源节点自带改图模型时优先复用源模型；否则回退到 nano-banana 改图。
@@ -40,7 +38,7 @@ const NANO_BANANA_EDIT_FALLBACK_META: Record<string, unknown> = {
 export function buildTextEditNodeSpec(node: GenerationCanvasNode): TextEditNodeSpec | null {
   const srcUrl = node.result?.url
   if (!srcUrl) return null
-  const name = (node.title || '').trim() || '图片'
+  const name = (node.title || '').trim() || canvasRuntimeTranslate('textEdit.defaultName')
   const srcMeta = (node.meta || {}) as Record<string, unknown>
   const modelMeta = typeof srcMeta.modelKey === 'string' && srcMeta.modelKey
     ? {
@@ -54,7 +52,7 @@ export function buildTextEditNodeSpec(node: GenerationCanvasNode): TextEditNodeS
       }
     : NANO_BANANA_EDIT_FALLBACK_META
   return {
-    title: `${name}·改字`,
+    title: `${name} · ${canvasRuntimeTranslate('textEdit.titleSuffix')}`,
     prompt: buildTextEditPrompt(),
     references: [srcUrl],
     meta: { ...modelMeta, referenceImages: [srcUrl], referenceImageUrls: [srcUrl] },
@@ -70,5 +68,5 @@ export function applyTextEdit(node: GenerationCanvasNode): void {
   const created = store.addNode({ kind: 'image', title: spec.title, position: spec.position, categoryId: node.categoryId })
   store.updateNode(created.id, { prompt: spec.prompt, references: spec.references, meta: spec.meta })
   store.selectNode(created.id)
-  toast('填入原文与新文字后点生成', 'info')
+  toast(canvasRuntimeTranslate('textEdit.nextStep'), 'info')
 }

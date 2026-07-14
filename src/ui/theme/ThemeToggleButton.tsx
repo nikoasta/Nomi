@@ -2,12 +2,14 @@ import React from 'react'
 import { IconMoonStars, IconSun } from '../../vendor/tablerIcons'
 import { cn } from '../../utils/cn'
 import { useNomiColorScheme } from '../../theme/colorScheme'
+import { useI18n } from '../../i18n/i18nContext'
 
 type ThemeToggleButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement>
 
 export function ThemeToggleButton({ className, ...props }: ThemeToggleButtonProps): JSX.Element {
   const { isDark, toggleColorScheme } = useNomiColorScheme()
-  const label = isDark ? '切换到浅色模式' : '切换到深色模式'
+  const { t } = useI18n()
+  const label = isDark ? t('theme.light') : t('theme.dark')
   const Icon = isDark ? IconSun : IconMoonStars
 
   return (

@@ -4,6 +4,7 @@ import { useResultDownload } from './useResultDownload'
 import { FloatingToolbarShell, TOOLBAR_ICON as I, ToolbarButton } from './NodeFloatingToolbar'
 import NodeVideoFrameToolbar from './NodeVideoFrameToolbar'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
+import { useI18n } from '../../../i18n/i18nContext'
 
 // 非图片结果（视频等）的浮条：视频结果 → 抽首帧/抽尾帧 + 下载（NodeVideoFrameToolbar）；
 // 其它非图片结果 → 仅下载。图片结果的下载在 NodeImageEditToolbar。仅在选中且有可下载结果时渲染。
@@ -16,6 +17,7 @@ type Props = {
 
 export default function NodeResultDownloadButton({ node, selected, onPreview }: Props): JSX.Element | null {
   const { canDownload, downloading, download } = useResultDownload(node)
+  const { t } = useI18n()
   if (!selected || !canDownload || node.result?.type === 'image') return null
 
   // 视频结果 → 专用浮条（抽首/尾帧 + 下载）。
@@ -24,11 +26,11 @@ export default function NodeResultDownloadButton({ node, selected, onPreview }: 
   }
 
   return (
-    <FloatingToolbarShell ariaLabel="结果操作">
+    <FloatingToolbarShell ariaLabel={t('resultToolbar.aria')}>
       <ToolbarButton
         icon={<IconDownload size={I.size} stroke={I.stroke} />}
-        label="下载"
-        title="下载 / 另存到本地"
+        label={t('imageEdit.download')}
+        title={t('imageEdit.downloadTitle')}
         disabled={downloading}
         onClick={download}
       />

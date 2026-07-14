@@ -8,12 +8,14 @@ import type { TimelineClip as TimelineClipData } from './timelineTypes'
 import { resolveTimelineClipPreviewMedia } from './timelineClipPreview'
 import { buildVideoPlaybackUrl } from '../../media/videoPlaybackUrl'
 import { diagnoseVideoPlaybackFailure, logVideoPlaybackFailure } from '../../media/videoPlaybackDiagnostics'
+import { useI18n } from '../../i18n/i18nContext'
 
 type TimelineClipProps = {
   clip: TimelineClipData
 }
 
 function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
+  const { t } = useI18n()
   const scale = useWorkbenchStore((state) => state.timeline.scale)
   // 仅订阅"本 clip 是否选中"（布尔），避免选区变化时所有 clip 重渲染
   const isSelected = useWorkbenchStore((state) => state.selectedTimelineClipIds.includes(clip.id))
@@ -321,8 +323,8 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
         <button
           type="button"
           className={cn(handleClasses, 'workbench-timeline-clip__handle--left', 'left-0 rounded-l-[5px]')}
-          aria-label="调整片段起点"
-          title="调整片段起点"
+          aria-label={t('timeline.trimStart')}
+          title={t('timeline.trimStart')}
           onPointerDown={(event) => beginResize(event, 'left')}
         >
           <span className={gripClasses} aria-hidden="true" />
@@ -352,8 +354,8 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
         <button
           type="button"
           className={cn(handleClasses, 'workbench-timeline-clip__handle--right', 'right-0 rounded-r-[5px]')}
-          aria-label="调整片段终点"
-          title="调整片段终点"
+          aria-label={t('timeline.trimEnd')}
+          title={t('timeline.trimEnd')}
           onPointerDown={(event) => beginResize(event, 'right')}
         >
           <span className={gripClasses} aria-hidden="true" />

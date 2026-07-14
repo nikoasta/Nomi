@@ -14,6 +14,8 @@ import TimelineClip from './TimelineClip'
 import type { TimelineTrack as TimelineTrackData } from './timelineTypes'
 import { getTrackTypeForClipType } from './timelineTypes'
 import { toast } from '../../ui/toast'
+import { useI18n } from '../../i18n/i18nContext'
+import { canvasTranslate } from '../generationCanvas/canvasI18n'
 
 type TimelineTrackProps = {
   track: TimelineTrackData
@@ -22,6 +24,8 @@ type TimelineTrackProps = {
 }
 
 function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.Element {
+  const { t, locale } = useI18n()
+  const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const secondary = variant === 'secondary'
   // 只订阅渲染真正用到的 scale/fps，**不订阅整条 timeline**：播放推进每帧换 timeline 引用，
   // 订阅整条会让本轨道（连同所有 clip）每帧重渲；playhead 由独立 overlay 订阅 playheadFrame。
@@ -75,9 +79,9 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
     event.preventDefault()
     setDragPreview(null)
     setIsDragHovering(false)
-    if (result === 'reject') toast('只有音频素材能放到音频轨', 'warning')
+    if (result === 'reject') toast(t('timeline.dropAudioReject'), 'warning')
     return true
-  }, [track.type, resolveFrame, fps])
+  }, [track.type, resolveFrame, fps, t])
 
   const handleDrop = React.useCallback((event: React.DragEvent<HTMLDivElement>) => {
     if (handleAssetAudioDrop(event)) return
@@ -86,11 +90,11 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
     event.preventDefault()
     setDragPreview(null)
     if (!preview.canPlace) {
-      toast(preview.reason || '这里暂时不能放置素材', 'warning')
+      toast(preview.reason || tCanvas('timeline.dropFallback'), 'warning')
       return
     }
     addTimelineClipAtFrame(preview.clip, getTrackTypeForClipType(preview.clip.type), preview.startFrame)
-  }, [handleAssetAudioDrop, addTimelineClipAtFrame, dragPreview, resolveDropPreview])
+  }, [handleAssetAudioDrop, addTimelineClipAtFrame, dragPreview, resolveDropPreview, tCanvas])
 
   return (
     <div className={cn(
@@ -177,7 +181,7 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
             'absolute inset-0 flex items-center justify-center',
             'border border-dashed border-[var(--nomi-line)] rounded-[var(--nomi-radius-sm)]',
             'text-[var(--nomi-ink-40)] leading-none text-micro font-medium pointer-events-none',
-          )}>{track.type === 'audio' ? '从素材库拖入音频当配乐' : '从生成区拖入素材'}</div>
+          )}>{track.type === 'audio' ? t('timeline.emptyAudio') : t('timeline.emptyMedia')}</div>
         ) : null}
         {dragPreview ? (
           <div
@@ -194,7 +198,7 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
             style={{ left: dragPreview.left, width: dragPreview.width }}
           >
             <span className={cn('px-2 whitespace-nowrap rounded-full bg-white/70 shadow-sm')}>
-              {dragPreview.canPlace ? `放到 ${dragPreview.timecode}` : dragPreview.reason}
+              {dragPreview.canPlace ? t('timeline.dropPlace', { timecode: dragPreview.timecode }) : dragPreview.reason}
             </span>
           </div>
         ) : null}

@@ -65,7 +65,7 @@ describe('scene3dReferenceDirector', () => {
     const summary = summarizeScene3DReferenceTarget(scene.id, [scene, image], [edge(scene.id, image.id)])
 
     expect(summary.state).toBe('not-connected')
-    expect(scene3DReferenceTargetLabel(summary)).toBe('未连接视频镜头')
+    expect(scene3DReferenceTargetLabel(summary)).toBe('No video shot connected')
   })
 
   it('maps exported camera move frame capture titles to first/last frame slots', () => {

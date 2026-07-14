@@ -426,18 +426,18 @@ export function assertWorkbenchProjectMediaUrlsPersistable(record: WorkbenchProj
   const payload = record.payload
   for (const node of payload.generationCanvas.nodes) {
     if (isBlobUrl(node.result?.url)) {
-      throw new Error(`本地项目记录包含不可持久化图片地址：${record.id}`)
+      throw new Error(`Local project record contains a non-persistable image URL: ${record.id}`)
     }
     for (const item of node.history || []) {
       if (isBlobUrl(item.url)) {
-        throw new Error(`本地项目记录包含不可持久化图片地址：${record.id}`)
+        throw new Error(`Local project record contains a non-persistable image URL: ${record.id}`)
       }
     }
   }
   for (const track of payload.timeline.tracks) {
     for (const clip of track.clips) {
       if (isBlobUrl((clip as BlobLikeRecord).url)) {
-        throw new Error(`本地项目记录包含不可持久化图片地址：${record.id}`)
+        throw new Error(`Local project record contains a non-persistable image URL: ${record.id}`)
       }
     }
   }

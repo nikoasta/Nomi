@@ -7,6 +7,7 @@ import { createTimelineExportFilename, downloadTimelineBlob, exportTimelineToWeb
 import type { ExportQuality } from './exportTypes'
 import { buildRenderManifestRequest } from './renderManifest'
 import { renderTextOverlays } from './textOverlayPng'
+import { canvasRuntimeTranslate } from '../generationCanvas/canvasI18n'
 
 const MP4_WEBM_IPC_CHUNK_BYTES = 1024 * 1024
 
@@ -25,10 +26,10 @@ export type StartTimelineMp4ExportJobOptions = Omit<ExportTimelineToMp4Options, 
 export async function startTimelineMp4ExportJob(options: StartTimelineMp4ExportJobOptions): Promise<{ jobId: string }> {
   const desktop = getDesktopBridge()
   if (!desktop?.exports?.startJob) {
-    throw new Error('导出任务需要 Electron 桌面运行时')
+    throw new Error(canvasRuntimeTranslate('export.jobRequiresDesktop'))
   }
   const projectId = (options.projectId || getDesktopActiveProjectId()).trim()
-  if (!projectId) throw new Error('导出失败：缺少项目 ID')
+  if (!projectId) throw new Error(canvasRuntimeTranslate('export.missingProject'))
 
   const manifest = buildRenderManifestRequest({
     projectId,
@@ -50,10 +51,10 @@ export async function startTimelineMp4ExportJob(options: StartTimelineMp4ExportJ
 export async function exportTimelineToMp4(options: ExportTimelineToMp4Options): Promise<DesktopMp4ExportResult> {
   const desktop = getDesktopBridge()
   if (!desktop?.exports?.startJob || !desktop.exports.writeTempInput || !desktop.exports.finishTempInput) {
-    throw new Error('导出 MP4 需要 Electron 桌面运行时')
+    throw new Error(canvasRuntimeTranslate('export.mp4RequiresDesktop'))
   }
   const projectId = (options.projectId || getDesktopActiveProjectId()).trim()
-  if (!projectId) throw new Error('导出失败：缺少项目 ID')
+  if (!projectId) throw new Error(canvasRuntimeTranslate('export.missingProject'))
   const resolution = options.resolution || '1080p'
   const quality = options.quality || 'standard'
   const manifest = buildRenderManifestRequest({
@@ -123,13 +124,13 @@ export async function exportTimelineToMp4(options: ExportTimelineToMp4Options): 
         console.warn('Failed to cancel MP4 export job after renderer-side failure', cancelError)
       }
     }
-    const message = error instanceof Error ? error.message : 'MP4 导出失败'
+    const message = error instanceof Error ? error.message : canvasRuntimeTranslate('export.mp4Failed')
     if (!webmBlob) {
       throw new Error(message)
     }
     const fallbackName = createTimelineExportFilename('webm')
     downloadTimelineBlob(webmBlob, fallbackName)
-    throw new Error(`${message}。已自动下载 WebM 备用文件：${fallbackName}`)
+    throw new Error(canvasRuntimeTranslate('export.webmFallback', { message, name: fallbackName }))
   } finally {
     unsubscribe?.()
   }

@@ -40,6 +40,8 @@ import { AttachmentRail } from '../../ai/composer/AttachmentRail'
 import { AutoGrowTextarea } from '../../ai/composer/AutoGrowTextarea'
 import { COMPOSER_ATTACHMENT_ACCEPT, useComposerAttachments } from '../../ai/composer/useComposerAttachments'
 import type { ComposerAttachment } from '../../ai/composer/composerAttachmentTypes'
+import { useI18n } from '../../../i18n/i18nContext'
+import { canvasTranslate, type CanvasI18nKey } from '../canvasI18n'
 
 type PendingToolCall = {
   toolCallId: string
@@ -68,21 +70,22 @@ function createMessageId(): string {
 // 文字里像「要动画布却没动」的意图特征——配合零工具发射判定「只说不做」，提示换模型。
 const AGENT_ACTION_INTENT = /创建|生成|添加|新增|修改|删除|替换|连接|拆镜头|分镜|节点|我将|我会|我来|计划|操作/
 
-// 「只说不做」提示:模型只回文字没发任何工具调用、但话里像要操作时追加。
-const ONLY_TALK_WARNING = '\n\n⚠️ 这一轮 AI 只回复了文字、没有真正动画布。如果你是想生成或修改节点，多半是当前模型不擅长工具调用——点上方「模型」换一个（推荐 GPT / Claude / DeepSeek 系）再试一次。'
-
-// 截断提示:finishReason=length 且有正文 = 模型这条输出到达单次上限被切断(别把半截当完整)。
-const TRUNCATED_WARNING = '\n\n⚠️ 这条回复可能没说完（达到模型单次输出上限被截断）。需要的话直接说「继续」。'
-
 export default function CanvasAssistantPanel({
   onCollapsedChange,
 }: CanvasAssistantPanelProps): JSX.Element {
   const nodes = useGenerationCanvasStore((state) => state.nodes)
   const edges = useGenerationCanvasStore((state) => state.edges)
   const selectedNodeIds = useGenerationCanvasStore((state) => state.selectedNodeIds)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const snapshot = React.useMemo(() => generationCanvasTools.read_canvas(), [nodes, edges, selectedNodeIds])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const selectedNodes = React.useMemo(() => generationCanvasTools.read_selected_nodes(), [nodes, selectedNodeIds])
   const [busy, setBusy] = React.useState(false)
+  const { locale, t } = useI18n()
+  const tCanvas = React.useCallback(
+    (key: CanvasI18nKey, params?: Record<string, string | number>) => canvasTranslate(locale, key, params),
+    [locale],
+  )
   // Cancel handle for the in-flight agent turn (user "Stop"); set once the
   // backend session exists, cleared when the turn ends.
   const cancelRef = React.useRef<(() => void) | null>(null)
@@ -232,10 +235,10 @@ export default function CanvasAssistantPanel({
       {
         id: userMessageId,
         role: 'user',
-        content: options.displayMessage || text || '请看这些附件',
+        content: options.displayMessage || text || tCanvas('assistant.attachmentsFallback'),
         ...(readyAttachments.length ? { attachments: readyAttachments } : {}),
       },
-      { id: firstBubbleId, role: 'assistant', content: '处理中...', status: 'pending' },
+      { id: firstBubbleId, role: 'assistant', content: tCanvas('assistant.processing'), status: 'pending' },
     ])
     setBusy(true)
     void (async () => {
@@ -361,8 +364,12 @@ export default function CanvasAssistantPanel({
             const message = index === outcome.failedIndex
               ? outcome.reason
               : index < outcome.failedIndex
-                ? `已回滚:第 ${outcome.failedIndex + 1} 步(${steps[outcome.failedIndex].toolName})失败——${outcome.reason}`
-                : `未执行:第 ${outcome.failedIndex + 1} 步失败,整批已回滚`
+                ? tCanvas('assistant.rolledBack', {
+                  step: outcome.failedIndex + 1,
+                  tool: steps[outcome.failedIndex].toolName,
+                  reason: outcome.reason,
+                })
+                : tCanvas('assistant.notExecuted', { step: outcome.failedIndex + 1 })
             await steps[index].transport({ ok: false, message })
           }
         }
@@ -376,13 +383,13 @@ export default function CanvasAssistantPanel({
       let streamRaf: number | null = null
       const flush = () => {
         streamRaf = null
-        if (activeId !== null) updateMessage(activeId, activeText || '处理中...')
+        if (activeId !== null) updateMessage(activeId, activeText || tCanvas('assistant.processing'))
       }
       const openBubble = () => {
         const id = createMessageId()
         activeId = id
         activeText = ''
-        setMessages((current) => [...current, { id, role: 'assistant', content: '处理中...', status: 'streaming' }])
+        setMessages((current) => [...current, { id, role: 'assistant', content: tCanvas('assistant.processing'), status: 'streaming' }])
       }
       // 收口当前气泡:有正文→标 done(后续卡锚到它);空壳→删除(不留占位)。
       const sealBubble = () => {
@@ -399,7 +406,7 @@ export default function CanvasAssistantPanel({
       }
       try {
         const result = await sendGenerationCanvasAgentMessage({
-          message: text || '请看这些附件',
+          message: text || tCanvas('assistant.attachmentsFallback'),
           ...(attachmentPayload.length ? { attachments: attachmentPayload } : {}),
           snapshot,
           selectedNodes,
@@ -456,7 +463,7 @@ export default function CanvasAssistantPanel({
         // 截断只在「模型真出了正文又被切断」时提示(空文本+length 是弱模型空响应,backend 已另说人话)。
         const truncated = result.response.finishReason === 'length' && finalText !== ''
         const withNotes = (text: string): string =>
-          `${text}${warn ? ONLY_TALK_WARNING : ''}${truncated ? TRUNCATED_WARNING : ''}`
+          `${text}${warn ? tCanvas('assistant.onlyTalkWarning') : ''}${truncated ? tCanvas('assistant.truncatedWarning') : ''}`
         if (activeId !== null && activeText.trim() !== '') {
           // 尾段有正文(纯聊天整段 / 卡后总结)。
           updateMessage(activeId, withNotes(activeText))
@@ -466,17 +473,19 @@ export default function CanvasAssistantPanel({
           if (toolActionCount > 0) {
             removeMessage(activeId)
           } else {
-            updateMessage(activeId, withNotes(finalText || '已完成。'))
+            updateMessage(activeId, withNotes(finalText || tCanvas('assistant.done')))
             setMessageStatus(activeId, 'done')
           }
         } else if (toolActionCount === 0) {
           // 无打开气泡且整轮零动作零文字 → 补一条「已完成。」(末尾是卡时不补,卡已叙述)。
           const id = createMessageId()
-          setMessages((current) => [...current, { id, role: 'assistant', content: withNotes(finalText || '已完成。'), status: 'done' }])
+          setMessages((current) => [...current, { id, role: 'assistant', content: withNotes(finalText || tCanvas('assistant.done')), status: 'done' }])
         }
       } catch (error: unknown) {
         if (streamRaf !== null) cancelAnimationFrame(streamRaf)
-        const message = `生成区 Agent 执行失败：${error instanceof Error && error.message ? error.message : '未知错误'}`
+        const message = tCanvas('assistant.executionFailed', {
+          message: error instanceof Error && error.message ? error.message : tCanvas('assistant.unknownError'),
+        })
         if (activeId !== null) {
           updateMessage(activeId, activeText ? `${activeText}\n\n${message}` : message)
           setMessageStatus(activeId, 'error')
@@ -491,7 +500,7 @@ export default function CanvasAssistantPanel({
         setMemoryRefreshKey((key) => key + 1) // S9:本轮事件可能提炼出新记忆
       }
     })()
-  }, [attachments, busy, clearAttachments, mode, removeMessage, selectedNodes, setDraft, setMessages, setMessageStatus, snapshot, updateMessage])
+  }, [attachments, busy, clearAttachments, mode, removeMessage, selectedNodes, setDraft, setMessages, setMessageStatus, snapshot, tCanvas, updateMessage])
 
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -512,12 +521,12 @@ export default function CanvasAssistantPanel({
       const message = buildFixationPlanningMessage(storyText)
       submitAgentMessage(message, {
         skill: FIXATION_PLANNER_SKILL,
-        displayMessage: `💄 定妆\n\n${storyText}`,
+        displayMessage: `${tCanvas('assistant.fixationTitle')}\n\n${storyText}`,
       })
     }
     window.addEventListener(FIXATION_PLANNING_EVENT, handler as EventListener)
     return () => window.removeEventListener(FIXATION_PLANNING_EVENT, handler as EventListener)
-  }, [setCollapsed, submitAgentMessage])
+  }, [setCollapsed, submitAgentMessage, tCanvas])
 
   const handleNewConversation = React.useCallback(() => {
     pendingByIdRef.current.clear()
@@ -540,7 +549,7 @@ export default function CanvasAssistantPanel({
           'block w-auto h-auto rounded-full',
         )}
         data-collapsed="true"
-        aria-label="生成区 AI 启动器"
+        aria-label={t('canvasAssistant.launcher')}
       >
         <WorkbenchButton
           className={cn(
@@ -553,7 +562,7 @@ export default function CanvasAssistantPanel({
           )}
           onClick={() => setCollapsed(false)}
         >
-          <NomiAILabel markSize={18} wordSize={13} suffix="生成" />
+          <NomiAILabel markSize={18} wordSize={13} suffix={t('canvasAssistant.suffix')} />
         </WorkbenchButton>
       </aside>
     )
@@ -576,7 +585,7 @@ export default function CanvasAssistantPanel({
         'max-[900px]:border max-[900px]:border-nomi-line max-[900px]:rounded-nomi max-[900px]:shadow-nomi-lg',
       )}
       data-collapsed="false"
-      aria-label="生成区 AI 助手"
+      aria-label={t('canvasAssistant.panel')}
       {...dragHandlers}
     >
       {isDragging ? (
@@ -589,8 +598,8 @@ export default function CanvasAssistantPanel({
           aria-hidden="true"
         >
           <IconPaperclip size={26} stroke={1.5} />
-          <div>拖到这里添加附件</div>
-          <div className={cn('text-micro font-normal text-nomi-ink-60')}>图片 / PDF / Word / Excel / txt · 单个上限 30MB</div>
+          <div>{t('canvasAssistant.dropTitle')}</div>
+          <div className={cn('text-micro font-normal text-nomi-ink-60')}>{t('canvasAssistant.dropHint')}</div>
         </div>
       ) : null}
       {/* 头部：Nomi 标 + 「助手」+ 动作（含 token 计数）+ 收起。 */}
@@ -601,7 +610,7 @@ export default function CanvasAssistantPanel({
         <div className={cn('flex items-center gap-2 min-w-0')}>
           <NomiLogoMark size={18} />
           {/* 审计 A14：与入口词「生成」一致，不再裸叫「助手」 */}
-          <span className={cn('text-body-sm font-semibold text-nomi-ink')}>生成助手</span>
+          <span className={cn('text-body-sm font-semibold text-nomi-ink')}>{t('canvasAssistant.title')}</span>
         </div>
         <div className={cn('inline-flex items-center gap-2 ml-auto min-w-0')}>
           <WorkbenchAiHeaderActions
@@ -620,7 +629,7 @@ export default function CanvasAssistantPanel({
               'p-0 border-0 rounded-nomi-sm bg-transparent text-nomi-ink-60 cursor-pointer',
               'hover:bg-nomi-ink-05 hover:text-nomi-ink',
             )}
-            label="收起 AI"
+            label={t('canvasAssistant.collapse')}
             onClick={() => setCollapsed(true)}
             icon={<IconX size={14} />}
           />
@@ -652,9 +661,7 @@ export default function CanvasAssistantPanel({
         onDeviationDismiss={() => { setDeviationReport(null); setDeviationAnchorId(null) }}
         onDeviationAiFix={() => {
           // 让 AI 读画布、用所选模型支持的方式把没接上的参考连接重连(或换支持的模型)。
-          submitAgentMessage(
-            '刚才有几条参考连接没接上（所选模型不支持那种连接方式）。请先读画布，把这些没连上的参考连接，用所选模型支持的连接方式重连；如果模型确实不支持，就换成支持的模型再连。',
-          )
+          submitAgentMessage(tCanvas('assistant.fixConnectionsPrompt'))
           setDeviationReport(null)
           setDeviationAnchorId(null)
         }}
@@ -694,8 +701,8 @@ export default function CanvasAssistantPanel({
             'bg-nomi-paper text-nomi-ink text-body-sm leading-[1.45]',
             'placeholder:text-nomi-ink-40',
           )}
-          aria-label="给生成助手发送消息"
-          placeholder="告诉我画布上想怎么搭..."
+          aria-label={t('canvasAssistant.sendMessage')}
+          placeholder={t('canvasAssistant.placeholder')}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => handleAiComposerKeyDown(event, () => {
@@ -712,20 +719,20 @@ export default function CanvasAssistantPanel({
                 'border-0 rounded-nomi-sm bg-transparent text-nomi-ink-60 cursor-pointer',
                 'hover:bg-nomi-ink-05 hover:text-nomi-ink',
               )}
-              label="添加附件"
-              aria-label="添加附件（也可拖拽 / 粘贴）"
+              label={t('canvasAssistant.addAttachment')}
+              aria-label={t('canvasAssistant.addAttachmentLong')}
               onClick={openFilePicker}
               icon={<IconPaperclip size={16} />}
             />
             <NomiSelect
-              ariaLabel="AI 模式"
-              leadingLabel="模式"
+              ariaLabel={t('canvasAssistant.modeAria')}
+              leadingLabel={t('canvasAssistant.modeLeading')}
               size="sm"
               value={mode}
               options={[
                 { value: 'agent', label: 'Agent' },
-                { value: 'chat', label: '问答' },
-                { value: 'refine', label: '润色' },
+                { value: 'chat', label: t('canvasAssistant.mode.chat') },
+                { value: 'refine', label: t('canvasAssistant.mode.refine') },
               ]}
               onChange={(value) => setMode(value as 'agent' | 'chat' | 'refine')}
             />
@@ -740,8 +747,8 @@ export default function CanvasAssistantPanel({
                 'border-0 rounded-full bg-nomi-ink text-nomi-paper cursor-pointer',
                 'hover:enabled:bg-nomi-accent',
               )}
-              label="停止"
-              aria-label="停止生成"
+              label={t('canvasAssistant.stop')}
+              aria-label={t('canvasAssistant.stop')}
               icon={<IconPlayerStopFilled size={13} />}
             />
           ) : (
@@ -754,8 +761,8 @@ export default function CanvasAssistantPanel({
                 'disabled:bg-nomi-ink-20 disabled:text-nomi-ink-40 disabled:cursor-not-allowed',
               )}
               disabled={!draft.trim() && !attachments.some((item) => item.status === 'ready')}
-              label="发送"
-              aria-label="生成 AI 发送"
+              label={t('canvasAssistant.send')}
+              aria-label={t('canvasAssistant.send')}
               icon={<IconSend2 size={15} />}
             />
           )}

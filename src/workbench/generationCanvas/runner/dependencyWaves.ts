@@ -3,6 +3,7 @@
 // 纯函数:同一份计划既给确认 UI 画,也给调度器跑——显示的 ≡ 执行的(可断言)。
 import type { GenerationCanvasEdge, GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { isTextPromptEdge } from '../agent/referenceEdgeCapability'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 export type DependencyWavePlan = {
   /** 执行波次:waves[0] 全部并行,waves[n] 等 waves[n-1] 完成。 */
@@ -56,7 +57,7 @@ export function buildDependencyWaves(
       if (!blockedIds.has(edge.target)) {
         blockedIds.add(edge.target)
         const sourceTitle = sourceNode?.title || edge.source
-        blocked.push({ nodeId: edge.target, reason: 'missing-upstream', detail: `上游「${sourceTitle}」还没有生成结果` })
+        blocked.push({ nodeId: edge.target, reason: 'missing-upstream', detail: canvasRuntimeTranslate('dependency.missingUpstream', { title: sourceTitle }) })
       }
     } else {
       edgesUsed.push(edge)
@@ -66,12 +67,11 @@ export function buildDependencyWaves(
   // Kahn 分层(排除已 blocked 的;依赖 blocked 节点的也传染 blocked)
   const waves: string[][] = []
   const placed = new Set<string>(blockedIds)
-  let frontier: string[] = []
   let remaining = [...selection].filter((id) => !blockedIds.has(id))
   let guard = remaining.length + 1
   while (remaining.length > 0 && guard > 0) {
     guard -= 1
-    frontier = remaining.filter((id) => {
+    const frontier = remaining.filter((id) => {
       const deps = internalDeps.get(id) ?? new Set()
       for (const dep of deps) {
         if (blockedIds.has(dep)) return false // 依赖被拦 → 自己也跑不了(下面传染处理)
@@ -85,7 +85,7 @@ export function buildDependencyWaves(
       if (!blockedIds.has(id)) {
         blockedIds.add(id)
         placed.add(id)
-        blocked.push({ nodeId: id, reason: 'missing-upstream', detail: '依赖的节点本批被拦下' })
+        blocked.push({ nodeId: id, reason: 'missing-upstream', detail: canvasRuntimeTranslate('dependency.blockedBatch') })
       }
     }
     const wave = frontier.filter((id) => !blockedIds.has(id))
@@ -93,7 +93,7 @@ export function buildDependencyWaves(
       // 剩下的互相依赖 = 环
       for (const id of remaining.filter((candidate) => !blockedIds.has(candidate))) {
         blockedIds.add(id)
-        blocked.push({ nodeId: id, reason: 'cycle', detail: '与其他节点构成循环引用' })
+        blocked.push({ nodeId: id, reason: 'cycle', detail: canvasRuntimeTranslate('dependency.cycle') })
       }
       break
     }

@@ -50,6 +50,7 @@ function listFiles() {
     .split("\n")
     .map((l) => l.trim())
     .filter(Boolean)
+    .filter((f) => fs.existsSync(path.join(ROOT, f)))
     .filter((f) => /\.tsx?$/.test(f))
     .filter((f) => !/\.test\.tsx?$/.test(f))
     // 3D 预设动作校准台：仅 dev 工具（独立 Three.js 渲染页，非产品 UI），不纳入设计 token 门禁。

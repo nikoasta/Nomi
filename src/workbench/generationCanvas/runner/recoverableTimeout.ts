@@ -1,4 +1,5 @@
 import type { TaskKind } from '../../api/taskApi'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 /** 续查所需的最小上下文（全可由节点 derive，taskId 已落盘）。 */
 export type RecoverableTimeoutDetail = {
@@ -17,7 +18,7 @@ export class RecoverableTimeoutError extends Error {
   readonly recoverable = true as const
   readonly detail: RecoverableTimeoutDetail
   constructor(detail: RecoverableTimeoutDetail) {
-    super(`生成超时(可找回): ${detail.taskId}`)
+    super(canvasRuntimeTranslate('recover.timeout', { taskId: detail.taskId }))
     this.name = 'RecoverableTimeoutError'
     this.detail = detail
   }

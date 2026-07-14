@@ -14,18 +14,21 @@ import { STRIPED_BG_CLASS, UsageDot, UploadFallback } from './CardCommon'
 import { useNodeImageUpload } from '../../adapters/useNodeImageUpload'
 import { EditableNodeTitle } from './EditableNodeTitle'
 import { DeferredNodeImage } from '../DeferredNodeMedia'
+import { useI18n } from '../../../../i18n/i18nContext'
 
 type Props = {
   node: GenerationCanvasNode
 }
 
 function PropCardNodeImpl({ node }: Props): JSX.Element {
+  const { t } = useI18n()
   const meta = readPropMeta(node)
   const usageCount = useNodeUsageCount(node.id, node.title)
   const hasImage = Boolean(node.result?.url)
   const handleUpload = useNodeImageUpload(node.id, 'prop-card-upload')
 
-  const hasOwner = Boolean(meta.ownedBy)
+  const ownerName = meta.ownedBy || ''
+  const hasOwner = ownerName.length > 0
   const hasUsage = usageCount > 0
   const hasInfoArea = hasImage || hasOwner || hasUsage
 
@@ -39,7 +42,7 @@ function PropCardNodeImpl({ node }: Props): JSX.Element {
             className="w-full h-full object-contain object-center select-none pointer-events-none"
           />
         ) : (
-          <UploadFallback accept="image/*" label="道具图" onUpload={handleUpload} />
+          <UploadFallback accept="image/*" label={t('card.propImage')} onUpload={handleUpload} />
         )}
       </div>
 
@@ -49,15 +52,15 @@ function PropCardNodeImpl({ node }: Props): JSX.Element {
             <EditableNodeTitle
               nodeId={node.id}
               value={node.title || ''}
-              placeholder="未命名道具"
+              placeholder={t('card.unnamedProp')}
             />
             <UsageDot count={usageCount} />
           </div>
           {hasOwner ? (
             <span className="inline-flex items-center gap-1 text-caption font-medium text-nomi-accent">
               <IconLink size={13} stroke={1.8} aria-hidden />
-              <span className="truncate" title={`属于 ${meta.ownedBy}`}>
-                {meta.ownedBy}的
+              <span className="truncate" title={t('card.ownerPrefix', { name: ownerName })}>
+                {t('card.ownerPrefix', { name: ownerName })}
               </span>
             </span>
           ) : null}

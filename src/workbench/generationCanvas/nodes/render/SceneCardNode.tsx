@@ -14,12 +14,14 @@ import { STRIPED_BG_CLASS, UsageDot, VariantChip, UploadFallback } from './CardC
 import { useNodeImageUpload } from '../../adapters/useNodeImageUpload'
 import { EditableNodeTitle } from './EditableNodeTitle'
 import { DeferredNodeImage } from '../DeferredNodeMedia'
+import { useI18n } from '../../../../i18n/i18nContext'
 
 type Props = {
   node: GenerationCanvasNode
 }
 
 function SceneCardNodeImpl({ node }: Props): JSX.Element {
+  const { t } = useI18n()
   const meta = readSceneMeta(node)
   const usageCount = useNodeUsageCount(node.id, node.title)
   const variantCount = useNodeVariantCount(node.id)
@@ -40,7 +42,7 @@ function SceneCardNodeImpl({ node }: Props): JSX.Element {
             className="w-full h-full object-contain object-center select-none pointer-events-none"
           />
         ) : (
-          <UploadFallback accept="image/*" label="场景图" onUpload={handleUpload} />
+          <UploadFallback accept="image/*" label={t('card.sceneImage')} onUpload={handleUpload} />
         )}
       </div>
 
@@ -57,7 +59,7 @@ function SceneCardNodeImpl({ node }: Props): JSX.Element {
             <EditableNodeTitle
               nodeId={node.id}
               value={node.title || ''}
-              placeholder="未命名场景"
+              placeholder={t('card.unnamedScene')}
               className="text-nomi-paper"
             />
             <span className="flex items-center gap-1">

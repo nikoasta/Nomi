@@ -13,6 +13,7 @@ import { ensureArchetypeNodeMeta, normalizeArchetypeVariantMeta, resolveArchetyp
 import { remapArchetypeMode } from '../runner/usableVendorModel'
 import { showInfoToast } from '../../../utils/showInfoToast'
 import { chooseDefaultModelOption, resolveArchetypeForOption } from './nodeModelArchetype'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 type UseNodeModelAutoSelectArgs = {
   node: GenerationCanvasNode
@@ -59,7 +60,7 @@ export function useNodeModelAutoSelect({
           : { imageModel: firstOption.value, imageModelVendor: firstOption.vendor || null }),
       },
     })
-  }, [isGenerationNode, isVideoLike, modelOptions, node.id, node.meta, selectedModelValue, updateNode])
+  }, [isGenerationNode, isImageLike, isVideoLike, modelOptions, node.id, node.meta, selectedModelValue, updateNode])
 
   React.useEffect(() => {
     if (!isGenerationNode || !selectedModelOption) return
@@ -146,7 +147,7 @@ export function useNodeModelAutoSelect({
           : { imageModel: target.value, imageModelVendor: optionVendor }),
       },
     })
-    showInfoToast(`原供应商已断开，已自动切换到「${target.label}」`)
+    showInfoToast(canvasRuntimeTranslate('modelAutoSelect.switched', { label: target.label }))
   }, [isGenerationNode, isVideoLike, meta, modelOptions, node.id, node.meta, selectedModelOption, selectedModelValue, updateNode])
 
   // 选到一个有内置档案的模型、还没有命名空间 meta 时，初始化 node.meta.archetype（落到默认模式）。

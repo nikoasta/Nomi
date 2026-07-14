@@ -1,5 +1,7 @@
 import type { CSSProperties, HTMLAttributes } from 'react'
 import { cn } from '../utils/cn'
+import { useI18n } from '../i18n/i18nContext'
+import type { TranslationKey } from '../i18n/translations'
 
 type NomiBrandProps = {
   markSize?: number
@@ -119,15 +121,17 @@ export function NomiAILabel({ markSize = 22, wordSize = 14, className, suffix = 
   )
 }
 
-const NOMI_TABS: { mode: NomiStepperProps['value']; label: string }[] = [
-  { mode: 'creation', label: '创作' },
-  { mode: 'generation', label: '生成' },
-  { mode: 'preview', label: '预览' },
+const NOMI_TABS: { mode: NomiStepperProps['value']; labelKey: TranslationKey }[] = [
+  { mode: 'creation', labelKey: 'studio.stepper.creation' },
+  { mode: 'generation', labelKey: 'studio.stepper.generation' },
+  { mode: 'preview', labelKey: 'studio.stepper.preview' },
 ]
 
 export function NomiStepper({ value, onChange }: NomiStepperProps): JSX.Element {
+  const { t } = useI18n()
+
   return (
-    <nav className={cn('nomi-stepper', 'inline-flex items-center gap-0.5 p-1 border border-nomi-line-soft rounded-full bg-[var(--nomi-ink-05)]')} aria-label="工作区切换">
+    <nav className={cn('nomi-stepper', 'inline-flex items-center gap-0.5 p-1 border border-nomi-line-soft rounded-full bg-[var(--nomi-ink-05)]')} aria-label={t('studio.stepper.aria')}>
       {NOMI_TABS.map((tab) => (
         <button
           key={tab.mode}
@@ -144,7 +148,7 @@ export function NomiStepper({ value, onChange }: NomiStepperProps): JSX.Element 
           data-mode={tab.mode}
           onClick={() => onChange(tab.mode)}
         >
-          {tab.label}
+          {t(tab.labelKey)}
         </button>
       ))}
     </nav>

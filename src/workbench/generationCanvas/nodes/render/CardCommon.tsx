@@ -10,6 +10,7 @@
 import React from 'react'
 import { cn } from '../../../../utils/cn'
 import { NomiLoadingMark } from '../../../../design'
+import { useI18n } from '../../../../i18n/i18nContext'
 
 export const STRIPED_BG_CLASS =
   'bg-[repeating-linear-gradient(45deg,var(--nomi-ink-05)_0_23px,var(--nomi-ink-20)_23px_24px)]'
@@ -231,15 +232,17 @@ function RemoveBackgroundProgressMark({ progress }: { progress?: number }): JSX.
   )
 }
 
-function RemoveBackgroundPendingStatus({ title, message = '抠图中', progress }: { title?: string; message?: string; progress?: number }): JSX.Element {
+function RemoveBackgroundPendingStatus({ title, message, progress }: { title?: string; message?: string; progress?: number }): JSX.Element {
+  const { t } = useI18n()
+  const resolvedMessage = message || t('cardCommon.cutout')
   const percent = clampProgressPercent(progress)
   return (
-    <div className="grid place-items-center gap-2" role="status" aria-label="抠图中" aria-busy="true">
+    <div className="grid place-items-center gap-2" role="status" aria-label={t('cardCommon.cutout')} aria-busy="true">
       <RemoveBackgroundProgressMark progress={progress} />
       <span className="rounded-full bg-nomi-paper/[0.88] px-2.5 py-1 text-micro font-medium text-nomi-ink-80 shadow-nomi-sm backdrop-blur-[8px]">
-        {percent !== null && percent > 0 ? `${message} ${percent}%` : message}
+        {percent !== null && percent > 0 ? `${resolvedMessage} ${percent}%` : resolvedMessage}
       </span>
-      <span className="sr-only">{title || '抠图节点'} 正在生成透明 PNG</span>
+      <span className="sr-only">{t('cardCommon.cutoutProgress', { title: title || t('cardCommon.cutoutNode') })}</span>
     </div>
   )
 }
@@ -253,15 +256,17 @@ export function RemoveBackgroundPendingPlaceholder({ title, progress }: { title?
 }
 
 export function RemoveBackgroundPendingOverlay({ message, progress }: { message?: string; progress?: number }): JSX.Element {
+  const { t } = useI18n()
+  const resolvedMessage = message || t('cardCommon.cutout')
   const percent = clampProgressPercent(progress)
   return (
     <span
       className="sr-only"
       role="status"
-      aria-label="抠图中"
+      aria-label={t('cardCommon.cutout')}
       aria-busy="true"
     >
-      {percent !== null && percent > 0 ? `${message || '抠图中'} ${percent}%` : (message || '抠图中')}
+      {percent !== null && percent > 0 ? `${resolvedMessage} ${percent}%` : resolvedMessage}
     </span>
   )
 }
@@ -272,6 +277,7 @@ export function RemoveBackgroundPendingOverlay({ message, progress }: { message?
  * header 的状态文字徽标（z-[2]，仍显「生成中」），pointer-events-none 不挡交互。
  */
 export function GeneratingOverlay(): JSX.Element {
+  const { t } = useI18n()
   return (
     <div
       className={cn(
@@ -281,7 +287,7 @@ export function GeneratingOverlay(): JSX.Element {
       )}
       aria-hidden="true"
     >
-      <NomiLoadingMark size={32} label="生成中" />
+      <NomiLoadingMark size={32} label={t('cardCommon.generating')} />
     </div>
   )
 }
@@ -301,6 +307,7 @@ export function UploadFallback({
   label: string
   onUpload: (dataUrl: string, file: File) => void
 }): JSX.Element {
+  const { t } = useI18n()
   const handleChange = React.useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.currentTarget.files?.[0]
@@ -325,7 +332,7 @@ export function UploadFallback({
         'text-nomi-ink-60 hover:text-nomi-ink hover:bg-nomi-ink-05/50 transition-colors',
       )}
     >
-      <span className="text-body-sm font-medium tabular-nums pointer-events-none">+ 上传{label}</span>
+      <span className="text-body-sm font-medium tabular-nums pointer-events-none">{t('cardCommon.upload', { label })}</span>
       <input className="hidden" type="file" accept={accept} onChange={handleChange} />
     </label>
   )

@@ -15,16 +15,11 @@ import { useWorkbenchStore } from '../workbenchStore'
 import type { SkillListItemDto } from '../api/skillApi'
 import { useWorkbenchSkills } from './useWorkbenchSkills'
 import { SkillCard } from './SkillCard'
+import { useI18n } from '../../i18n/i18nContext'
 
 type Source = 'mine' | 'builtin'
 
-const SOURCE_OPTIONS: { value: Source; label: string }[] = [
-  { value: 'mine', label: '我的技能' },
-  { value: 'builtin', label: 'Nomi 内置' },
-]
-
-// 「让 AI 帮我写技能」激活的元 skill（与 ActiveSkillChip 的 SKILL_AUTHOR 同口径）。
-const SKILL_AUTHOR = { key: 'workbench.creation.skill-author', name: 'AI 写技能' }
+const SOURCE_OPTIONS: Source[] = ['mine', 'builtin']
 
 type Props = {
   opened: boolean
@@ -46,6 +41,7 @@ export function SkillLibraryContent({
   onClose,
   className,
 }: SkillLibraryContentProps): JSX.Element {
+  const { t } = useI18n()
   const [source, setSource] = React.useState<Source>('mine')
   const [query, setQuery] = React.useState('')
   const fileInputRef = React.useRef<HTMLInputElement>(null)
@@ -87,14 +83,17 @@ export function SkillLibraryContent({
     [gotoCreationWith],
   )
 
-  const handleNewWithAi = React.useCallback(() => gotoCreationWith(SKILL_AUTHOR), [gotoCreationWith])
+  const handleNewWithAi = React.useCallback(
+    () => gotoCreationWith({ key: 'workbench.creation.skill-author', name: t('skillLibrary.authorName') }),
+    [gotoCreationWith, t],
+  )
 
   // 导出：技能包对象 → JSON Blob → 浏览器下载，不弹系统对话框。
   const handleExport = React.useCallback(
     (skill: SkillListItemDto) => {
       const pkg = exportPackage(skill.directoryName)
       if (!pkg) {
-        showInfoToast('导出失败：没找到这个技能')
+        showInfoToast(t('skillLibrary.exportFailed'))
         return
       }
       const blob = new Blob([JSON.stringify(pkg, null, 2)], { type: 'application/json' })
@@ -105,7 +104,7 @@ export function SkillLibraryContent({
       a.click()
       URL.revokeObjectURL(url)
     },
-    [exportPackage],
+    [exportPackage, t],
   )
 
   // 删除可撤销：删前先把包抓在手里，撤销 = 重新导入（落回用户目录，目录名冲突会自动避让）。
@@ -114,17 +113,17 @@ export function SkillLibraryContent({
       const snapshot = exportPackage(skill.directoryName)
       const res = remove(skill.directoryName)
       if (!res.ok) {
-        showInfoToast(res.error ?? '删除失败')
+        showInfoToast(res.error ?? t('skillLibrary.deleteFailed'))
         return
       }
       showUndoToast({
-        message: `已删除 · ${skill.label}`,
+        message: t('skillLibrary.deleted', { name: skill.label }),
         onUndo: () => {
           if (snapshot) importPackage(snapshot)
         },
       })
     },
-    [exportPackage, remove, importPackage],
+    [exportPackage, remove, importPackage, t],
   )
 
   // 导入：渲染层读文件 → 解析 JSON → 落用户目录（后端校验版本/形状/路径安全）。
@@ -136,16 +135,20 @@ export function SkillLibraryContent({
         try {
           parsed = JSON.parse(String(reader.result || ''))
         } catch {
-          showInfoToast('导入失败：不是合法的技能包文件（JSON 解析失败）')
+          showInfoToast(t('skillLibrary.importInvalid'))
           return
         }
         const res = importPackage(parsed)
-        showInfoToast(res.ok ? `已导入 · ${res.skillName ?? '新技能'}` : `导入失败：${res.error ?? '未知错误'}`)
+        showInfoToast(
+          res.ok
+            ? t('skillLibrary.importSuccess', { name: res.skillName ?? t('skillLibrary.newSkill') })
+            : t('skillLibrary.importFailed', { message: res.error ?? t('modelSetup.actionFailed') }),
+        )
       }
-      reader.onerror = () => showInfoToast('导入失败：读不出这个文件')
+      reader.onerror = () => showInfoToast(t('skillLibrary.importReadFailed'))
       reader.readAsText(file)
     },
-    [importPackage],
+    [importPackage, t],
   )
 
   const showNewTile = source === 'mine' && !query.trim()
@@ -154,13 +157,13 @@ export function SkillLibraryContent({
     <div
       className={cn('inline-flex bg-nomi-ink-05 rounded-full p-0.5', compact ? 'w-full' : 'shrink-0')}
       role="tablist"
-      aria-label="技能来源"
+      aria-label={t('skillLibrary.source.aria')}
     >
       {SOURCE_OPTIONS.map((option) => {
-        const activeOption = source === option.value
+        const activeOption = source === option
         return (
           <button
-            key={option.value}
+            key={option}
             type="button"
             role="tab"
             aria-selected={activeOption}
@@ -172,9 +175,9 @@ export function SkillLibraryContent({
                 ? 'bg-nomi-paper text-nomi-ink font-semibold shadow-nomi-sm'
                 : 'text-nomi-ink-60 hover:text-nomi-ink',
             )}
-            onClick={() => setSource(option.value)}
+            onClick={() => setSource(option)}
           >
-            {option.label}
+            {option === 'mine' ? t('skillLibrary.source.mine') : t('skillLibrary.source.builtin')}
           </button>
         )
       })}
@@ -192,7 +195,7 @@ export function SkillLibraryContent({
       )}
     >
       <IconUpload size={14} stroke={1.7} />
-      导入文件
+      {t('skillLibrary.importFile')}
     </button>
   )
 
@@ -207,7 +210,7 @@ export function SkillLibraryContent({
       )}
     >
       <IconWand size={14} stroke={1.7} />
-      {compact ? 'AI 新建' : '用 AI 新建'}
+      {compact ? t('skillLibrary.newAiCompact') : t('skillLibrary.newAi')}
     </button>
   )
 
@@ -218,7 +221,7 @@ export function SkillLibraryContent({
         {showHeader ? (
           <div className={cn('flex items-center gap-2 px-5 pt-4 pb-3 border-b border-nomi-line')}>
             <IconBooks size={18} stroke={1.6} className={cn('text-nomi-accent')} />
-            <b className={cn('text-title font-bold text-nomi-ink')}>技能库</b>
+            <b className={cn('text-title font-bold text-nomi-ink')}>{t('skillLibrary.title')}</b>
             <NomiWordmark fontSize={13} className={cn('text-nomi-ink-40')} />
             <span className={cn('text-caption text-nomi-ink-40')}>· {items.length}</span>
             <span className={cn('flex-1')} />
@@ -226,7 +229,7 @@ export function SkillLibraryContent({
               <button
                 type="button"
                 className={cn('w-7 h-7 grid place-items-center rounded-nomi-sm cursor-pointer border-0 bg-transparent', 'text-nomi-ink-40 hover:text-nomi-ink hover:bg-nomi-ink-05')}
-                aria-label="关闭技能库"
+                aria-label={t('skillLibrary.close')}
                 onClick={onClose}
               >
                 <IconX size={16} stroke={2} />
@@ -240,8 +243,8 @@ export function SkillLibraryContent({
           {sourceTabs}
           <DesignSearchInput
             className={compact ? 'w-full' : 'flex-1'}
-            placeholder="搜技能…"
-            ariaLabel="搜索技能"
+            placeholder={t('skillLibrary.search')}
+            ariaLabel={t('skillLibrary.search')}
             value={query}
             onChange={setQuery}
           />
@@ -273,12 +276,12 @@ export function SkillLibraryContent({
         <div className={cn('flex-1 overflow-y-auto', compact ? 'px-3 pb-3' : 'px-5 pb-5')}>
           {!visible.length && !showNewTile ? (
             <DesignEmptyState
-              title={query.trim() ? '没有匹配的技能' : source === 'mine' ? '你还没有自己的技能' : '没有内置技能'}
+              title={query.trim() ? t('skillLibrary.noMatch.title') : source === 'mine' ? t('skillLibrary.noMine.title') : t('skillLibrary.noBuiltin.title')}
               description={
                 query.trim()
-                  ? '换个搜索词试试。'
+                  ? t('skillLibrary.noMatch.description')
                   : source === 'mine'
-                    ? '点「用 AI 新建」让 AI 帮你写一个，或「导入文件」接别人的技能包。'
+                    ? t('skillLibrary.noMine.description')
                     : ''
               }
             />
@@ -294,7 +297,7 @@ export function SkillLibraryContent({
                   className={cn('flex flex-col items-center justify-center gap-1.5 w-full min-h-[120px] cursor-pointer', 'rounded-nomi border border-dashed border-nomi-line bg-transparent text-nomi-ink-40', 'hover:border-nomi-accent hover:text-nomi-accent transition-colors')}
                 >
                   <IconWand size={22} stroke={1.6} />
-                  <span className={cn('text-caption')}>用 AI 新建一个</span>
+                  <span className={cn('text-caption')}>{t('skillLibrary.newTile')}</span>
                 </button>
               ) : null}
               {visible.map((skill) => (
@@ -316,6 +319,7 @@ export function SkillLibraryContent({
 }
 
 export function SkillLibraryPanel({ opened, onClose }: Props): JSX.Element | null {
+  const { t } = useI18n()
   if (!opened) return null
 
   return (
@@ -329,7 +333,7 @@ export function SkillLibraryPanel({ opened, onClose }: Props): JSX.Element | nul
       >
         <div
           role="dialog"
-          aria-label="技能库"
+          aria-label={t('skillLibrary.dialog.aria')}
           className={cn('w-[960px] max-w-full h-[86vh] flex flex-col overflow-hidden', 'bg-nomi-paper border border-nomi-line rounded-nomi-lg shadow-nomi-lg')}
           style={{ animation: 'nomi-panel-pop 160ms cubic-bezier(.2,.7,.3,1)' }}
         >

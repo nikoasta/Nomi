@@ -29,14 +29,8 @@ import {
 import type { Icon } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import { NomiWordmark } from '../../design'
-import {
-  HANDBOOK_FIRST_WIN,
-  HANDBOOK_GOTCHAS,
-  HANDBOOK_INTENT_ROUTES,
-  HANDBOOK_PIPELINE,
-  HANDBOOK_SUBTITLE,
-  HANDBOOK_TITLE,
-} from './handbookContent'
+import { getHandbookContent } from './handbookContent'
+import { useI18n } from '../../i18n/i18nContext'
 
 type Props = {
   opened: boolean
@@ -74,6 +68,9 @@ function SectionTitle({ children }: { children: React.ReactNode }): JSX.Element 
 }
 
 export function HandbookPanel({ opened, onClose }: Props): JSX.Element | null {
+  const { locale, t } = useI18n()
+  const handbook = React.useMemo(() => getHandbookContent(locale), [locale])
+
   React.useEffect(() => {
     if (!opened) return
     const handler = (e: KeyboardEvent): void => {
@@ -96,20 +93,20 @@ export function HandbookPanel({ opened, onClose }: Props): JSX.Element | null {
       >
         <div
           role="dialog"
-          aria-label="上手手册"
+          aria-label={t('handbook.dialog.aria')}
           className={cn('w-[680px] max-w-full max-h-[86vh] flex flex-col overflow-hidden', 'bg-nomi-paper border border-nomi-line rounded-nomi-lg shadow-nomi-lg')}
           style={{ animation: 'nomi-panel-pop 160ms cubic-bezier(.2,.7,.3,1)' }}
         >
           {/* 头部 */}
           <div className={cn('flex items-center gap-2 px-5 pt-4 pb-3 border-b border-nomi-line')}>
             <IconMap size={18} stroke={1.6} className={cn('text-nomi-accent')} />
-            <b className={cn('text-title font-bold text-nomi-ink')}>{HANDBOOK_TITLE}</b>
+            <b className={cn('text-title font-bold text-nomi-ink')}>{handbook.title}</b>
             <NomiWordmark fontSize={13} className={cn('text-nomi-ink-40')} />
             <span className={cn('flex-1')} />
             <button
               type="button"
               className={cn('w-7 h-7 grid place-items-center rounded-nomi-sm cursor-pointer border-0 bg-transparent', 'text-nomi-ink-40 hover:text-nomi-ink hover:bg-nomi-ink-05')}
-              aria-label="关闭上手手册"
+              aria-label={t('handbook.close')}
               onClick={onClose}
             >
               <IconX size={16} stroke={2} />
@@ -118,13 +115,13 @@ export function HandbookPanel({ opened, onClose }: Props): JSX.Element | null {
 
           {/* 正文（滚动区） */}
           <div className={cn('flex-1 overflow-auto px-5 py-4 flex flex-col gap-5')}>
-            <p className={cn('text-caption text-nomi-ink-40 m-0')}>{HANDBOOK_SUBTITLE}</p>
+            <p className={cn('text-caption text-nomi-ink-40 m-0')}>{handbook.subtitle}</p>
 
             {/* 流水线一行图 */}
             <div className={cn('rounded-nomi bg-nomi-ink-05 px-4 py-3')}>
-              <div className={cn('text-micro text-nomi-ink-40 mb-2')}>一条流水线，全程在你眼皮底下</div>
+              <div className={cn('text-micro text-nomi-ink-40 mb-2')}>{handbook.pipelineIntro}</div>
               <div className={cn('flex items-center flex-wrap gap-1.5')}>
-                {HANDBOOK_PIPELINE.map((step, i) => (
+                {handbook.pipeline.map((step, i) => (
                   <React.Fragment key={step.label}>
                     <span
                       className={cn(
@@ -135,7 +132,7 @@ export function HandbookPanel({ opened, onClose }: Props): JSX.Element | null {
                       <HandbookIcon iconKey={step.iconKey} size={15} />
                       {step.label}
                     </span>
-                    {i < HANDBOOK_PIPELINE.length - 1 ? <IconArrowRight size={14} stroke={1.6} className={cn('text-nomi-ink-40')} /> : null}
+                    {i < handbook.pipeline.length - 1 ? <IconArrowRight size={14} stroke={1.6} className={cn('text-nomi-ink-40')} /> : null}
                   </React.Fragment>
                 ))}
               </div>
@@ -143,10 +140,10 @@ export function HandbookPanel({ opened, onClose }: Props): JSX.Element | null {
 
             {/* 90 秒首胜 */}
             <section className={cn('flex flex-col gap-2')}>
-              <SectionTitle>90 秒先尝到甜头</SectionTitle>
-              <p className={cn('text-caption text-nomi-ink-60 m-0')}>不用读完手册——先看一条片自己跑出来，再上手做你自己的。</p>
+              <SectionTitle>{handbook.firstWinTitle}</SectionTitle>
+              <p className={cn('text-caption text-nomi-ink-60 m-0')}>{handbook.firstWinBody}</p>
               <div className={cn('grid gap-2.5 grid-cols-2 max-[560px]:grid-cols-1')}>
-                {HANDBOOK_FIRST_WIN.map((step) => (
+                {handbook.firstWin.map((step) => (
                   <div key={step.n} className={cn('rounded-nomi border border-nomi-line bg-nomi-paper p-3')}>
                     <div className={cn('flex items-center gap-2 mb-1')}>
                       <span className={cn('grid place-items-center w-5 h-5 rounded-full bg-nomi-accent-soft text-nomi-accent text-micro font-semibold')}>{step.n}</span>
@@ -160,10 +157,10 @@ export function HandbookPanel({ opened, onClose }: Props): JSX.Element | null {
 
             {/* 我想做 X → 走这条路 */}
             <section className={cn('flex flex-col gap-2')}>
-              <SectionTitle>我想做 X → 走这条路</SectionTitle>
-              <p className={cn('text-caption text-nomi-ink-60 m-0')}>能做的指清楚路径，做不到的当场标，不让你撞墙找半天。</p>
+              <SectionTitle>{handbook.routesTitle}</SectionTitle>
+              <p className={cn('text-caption text-nomi-ink-60 m-0')}>{handbook.routesBody}</p>
               <div className={cn('flex flex-col border border-nomi-line rounded-nomi overflow-hidden')}>
-                {HANDBOOK_INTENT_ROUTES.map((route, i) => (
+                {handbook.intentRoutes.map((route, i) => (
                   <div
                     key={route.title}
                     className={cn(
@@ -187,9 +184,9 @@ export function HandbookPanel({ opened, onClose }: Props): JSX.Element | null {
 
             {/* 卡住了看这里 */}
             <section className={cn('flex flex-col gap-2')}>
-              <SectionTitle>卡住了看这里</SectionTitle>
+              <SectionTitle>{handbook.gotchasTitle}</SectionTitle>
               <div className={cn('grid gap-2.5 grid-cols-2 max-[560px]:grid-cols-1')}>
-                {HANDBOOK_GOTCHAS.map((g) => (
+                {handbook.gotchas.map((g) => (
                   <div key={g.title} className={cn('rounded-nomi bg-nomi-ink-05 p-3')}>
                     <div className={cn('flex items-center gap-2 mb-1 text-body-sm font-medium text-nomi-ink')}>
                       <HandbookIcon iconKey={g.iconKey} size={16} className={cn('text-nomi-ink-60 shrink-0')} />

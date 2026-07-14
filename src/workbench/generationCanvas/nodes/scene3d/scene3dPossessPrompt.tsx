@@ -3,6 +3,7 @@ import { Html } from '@react-three/drei'
 import { IconManFilled, IconVideo } from '@tabler/icons-react'
 import { cn } from '../../../../utils/cn'
 import type { Scene3DCamera, Scene3DObject } from './scene3dTypes'
+import { useScene3DI18n } from './scene3dI18n'
 
 // 「操控」入口贴近被选中的角色（用户反馈 #6）：选中假人时，在角色头顶浮出一个画布内「操控」按钮，
 // 而不是只藏在右上角顶栏（用户点的是画面里的角色，按钮却在天边）。用 drei <Html> 锚到角色世界坐标，
@@ -20,6 +21,7 @@ export function Scene3DPossessPrompt({
   object: Scene3DObject
   onPossess: (objectId: string) => void
 }): JSX.Element {
+  const t3d = useScene3DI18n()
   return (
     <Html
       position={[object.position[0], object.position[1] + HEAD_OFFSET_Y, object.position[2]]}
@@ -31,7 +33,7 @@ export function Scene3DPossessPrompt({
     >
       <button
         type="button"
-        title="操控该角色（WASD 走位 + 动作库 + 录 take）"
+        title={t3d('possess.characterTitle')}
         className={cn(
           'inline-flex select-none items-center gap-1.5 whitespace-nowrap rounded-nomi px-3 py-1.5',
           'border-0 bg-[var(--nomi-ink)] text-caption font-semibold text-[var(--nomi-paper)]',
@@ -45,7 +47,7 @@ export function Scene3DPossessPrompt({
         }}
       >
         <IconManFilled size={14} />
-        <span>操控</span>
+        <span>{t3d('possess.button')}</span>
       </button>
     </Html>
   )
@@ -60,6 +62,7 @@ export function Scene3DCameraPossessPrompt({
   camera: Scene3DCamera
   onPossess: (cameraId: string) => void
 }): JSX.Element {
+  const t3d = useScene3DI18n()
   return (
     <Html
       position={[camera.position[0], camera.position[1] + 0.55, camera.position[2]]}
@@ -70,7 +73,7 @@ export function Scene3DCameraPossessPrompt({
     >
       <button
         type="button"
-        title="操控该镜头（WASD 飞 + 鼠标转朝向 + 滚轮推拉 → 录运镜）"
+        title={t3d('possess.cameraTitle')}
         className={cn(
           'inline-flex select-none items-center gap-1.5 whitespace-nowrap rounded-nomi px-3 py-1.5',
           'border-0 bg-[var(--nomi-ink)] text-caption font-semibold text-[var(--nomi-paper)]',
@@ -84,7 +87,7 @@ export function Scene3DCameraPossessPrompt({
         }}
       >
         <IconVideo size={14} />
-        <span>操控</span>
+        <span>{t3d('possess.button')}</span>
       </button>
     </Html>
   )

@@ -39,7 +39,7 @@ function toPrompt(raw: unknown): LibraryPrompt | null {
   const promptType: PromptMediaType = r.promptType === 'video' ? 'video' : 'image'
   return {
     id,
-    title: String(r.title ?? '未命名'),
+    title: String(r.title ?? 'Untitled'),
     prompt,
     mediaUrl: String(r.mediaUrl ?? ''),
     mediaType,
@@ -75,14 +75,14 @@ export async function fetchUserPrompts(): Promise<LibraryPrompt[]> {
 export async function addUserPrompt(input: { title?: string; prompt: string; promptType: PromptMediaType }): Promise<LibraryPrompt[]> {
   const desktop = requireDesktopRuntime('add prompt')
   const res = await desktop.promptLibrary!.userAdd(input)
-  if (!res?.ok) throw new Error(res?.error || '保存失败')
+  if (!res?.ok) throw new Error(res?.error || 'Save failed')
   return mapUserPrompts(res)
 }
 
 export async function updateUserPrompt(id: string, patch: { title?: string; prompt?: string; promptType?: PromptMediaType }): Promise<LibraryPrompt[]> {
   const desktop = requireDesktopRuntime('edit prompt')
   const res = await desktop.promptLibrary!.userUpdate(id, patch)
-  if (!res?.ok) throw new Error(res?.error || '更新失败')
+  if (!res?.ok) throw new Error(res?.error || 'Update failed')
   return mapUserPrompts(res)
 }
 

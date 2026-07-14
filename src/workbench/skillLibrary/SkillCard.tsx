@@ -10,6 +10,7 @@ import {
   type SkillListItemDto,
   type SkillProviderKind,
 } from '../api/skillApi'
+import { useI18n } from '../../i18n/i18nContext'
 export function SkillCard({
   skill,
   available,
@@ -23,6 +24,7 @@ export function SkillCard({
   onExport: (skill: SkillListItemDto) => void
   onDelete: (skill: SkillListItemDto) => void
 }): JSX.Element {
+  const { t } = useI18n()
   const cap = skillCapabilityFor(skill, available)
   const isUser = skill.origin === 'user'
 
@@ -33,17 +35,17 @@ export function SkillCard({
         <span className={cn('flex-1 min-w-0 truncate text-body-sm font-medium text-nomi-ink')}>{skill.label}</span>
         {skill.isPlaybook ? (
           <span className={cn('shrink-0 rounded-full bg-nomi-accent-soft px-2 py-0.5 text-micro text-nomi-accent')}>
-            playbook · {skill.stageLabels.length} 段
+            {t('skillCard.playbookStageCount', { count: skill.stageLabels.length })}
           </span>
         ) : (
-          <span className={cn('shrink-0 rounded-full bg-nomi-ink-05 px-2 py-0.5 text-micro text-nomi-ink-60')}>助手</span>
+          <span className={cn('shrink-0 rounded-full bg-nomi-ink-05 px-2 py-0.5 text-micro text-nomi-ink-60')}>{t('skillCard.assistant')}</span>
         )}
       </div>
 
       {skill.description ? (
         <p className={cn('text-caption text-nomi-ink-60 line-clamp-2')}>{skill.description}</p>
       ) : (
-        <p className={cn('text-caption text-nomi-ink-40')}>暂无说明</p>
+        <p className={cn('text-caption text-nomi-ink-40')}>{t('skillCard.noDescription')}</p>
       )}
 
       {skill.neededProviders.length > 0 && (
@@ -69,7 +71,7 @@ export function SkillCard({
           onClick={() => onUse(skill)}
           className={cn('shrink-0 whitespace-nowrap rounded-nomi-sm px-2 py-1 text-caption text-nomi-accent hover:bg-nomi-accent-soft transition-colors')}
         >
-          在创作区用
+          {t('skillCard.useInCreation')}
         </button>
         <span className={cn('flex-1')} />
         <Tooltip>
@@ -77,13 +79,13 @@ export function SkillCard({
             <button
               type="button"
               onClick={() => onExport(skill)}
-              aria-label={`导出 ${skill.label}`}
+              aria-label={t('skillCard.exportAria', { name: skill.label })}
               className={cn('shrink-0 w-7 h-7 grid place-items-center rounded-nomi-sm text-nomi-ink-60 hover:text-nomi-ink hover:bg-nomi-ink-05 transition-colors')}
             >
               <IconDownload size={14} stroke={1.7} />
             </button>
           </TooltipTrigger>
-          <TooltipContent side="top">导出技能包</TooltipContent>
+          <TooltipContent side="top">{t('skillCard.exportTooltip')}</TooltipContent>
         </Tooltip>
         {isUser ? (
           <Tooltip>
@@ -91,25 +93,25 @@ export function SkillCard({
               <button
                 type="button"
                 onClick={() => onDelete(skill)}
-                aria-label={`删除 ${skill.label}`}
+                aria-label={t('skillCard.deleteAria', { name: skill.label })}
                 className={cn('shrink-0 w-7 h-7 grid place-items-center rounded-nomi-sm text-nomi-ink-60 hover:text-workbench-danger hover:bg-nomi-ink-05 transition-colors')}
               >
                 <IconTrash size={14} stroke={1.7} />
               </button>
             </TooltipTrigger>
-            <TooltipContent side="top">删除技能</TooltipContent>
+            <TooltipContent side="top">{t('skillCard.deleteTooltip')}</TooltipContent>
           </Tooltip>
         ) : (
           <Tooltip>
             <TooltipTrigger asChild>
               <span
-                aria-label="内置技能，只读"
+                aria-label={t('skillCard.builtinReadonly')}
                 className={cn('shrink-0 w-7 h-7 grid place-items-center text-nomi-ink-30')}
               >
                 <IconLock size={14} stroke={1.7} />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="top">内置技能 · 只读</TooltipContent>
+            <TooltipContent side="top">{t('skillCard.builtinReadonly')}</TooltipContent>
           </Tooltip>
         )}
       </div>

@@ -8,6 +8,8 @@
 import React from 'react'
 import { cn } from '../../../utils/cn'
 import type { NodeGroup } from '../model/generationCanvasTypes'
+import { useI18n } from '../../../i18n/i18nContext'
+import { canvasTranslate } from '../canvasI18n'
 
 export type CanvasGroupBox = {
   group: NodeGroup
@@ -35,6 +37,8 @@ function getHexAlphaColor(color: string | undefined, alphaHex: string): string |
 }
 
 export default function GroupFrame({ box, onPointerDown }: GroupFrameProps): JSX.Element {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const groupColor = box.group.color || undefined
   return (
     <div
@@ -56,8 +60,8 @@ export default function GroupFrame({ box, onPointerDown }: GroupFrameProps): JSX
       }}
       role="button"
       tabIndex={0}
-      aria-label={`拖动分组「${box.group.name}」`}
-      title="拖动分组"
+      aria-label={tCanvas('group.dragAria', { name: box.group.name })}
+      title={tCanvas('group.dragTitle')}
       onPointerDown={(event) => onPointerDown(event, box.group.id)}
     >
       <div

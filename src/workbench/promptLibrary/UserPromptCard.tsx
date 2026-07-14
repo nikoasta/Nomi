@@ -3,6 +3,7 @@ import { IconPlayerPlayFilled, IconPencil, IconTrash } from '@tabler/icons-react
 import { cn } from '../../utils/cn'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../design'
 import type { LibraryPrompt } from '../api/promptLibraryApi'
+import { useI18n } from '../../i18n/i18nContext'
 
 type Props = {
   prompt: LibraryPrompt
@@ -13,6 +14,7 @@ type Props = {
 
 // 我的库卡片:文字卡(无成品封面)——正文显提示词摘要 + 「我的」徽章 + 悬停编辑/删除。点开走同一预览浮层。
 export const UserPromptCard = React.memo(function UserPromptCard({ prompt, onSelect, onEdit, onDelete }: Props): JSX.Element {
+  const { t } = useI18n()
   const isVideo = prompt.promptType === 'video'
 
   return (
@@ -36,11 +38,11 @@ export const UserPromptCard = React.memo(function UserPromptCard({ prompt, onSel
         >
           <div className={cn('flex items-center gap-1 mb-1.5')}>
             <span className={cn('inline-flex items-center gap-0.5 px-1.5 py-px rounded-full text-micro leading-none', 'bg-nomi-accent/10 text-nomi-accent')}>
-              我的
+              {t('promptCard.mine')}
             </span>
             <span className={cn('inline-flex items-center gap-0.5 text-micro text-nomi-ink-40')}>
               {isVideo ? <IconPlayerPlayFilled size={8} /> : null}
-              {isVideo ? '视频' : '图片'}
+              {isVideo ? t('mediaType.video') : t('mediaType.image')}
             </span>
           </div>
 
@@ -53,7 +55,7 @@ export const UserPromptCard = React.memo(function UserPromptCard({ prompt, onSel
           <div className={cn('absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity')}>
             <button
               type="button"
-              aria-label="编辑"
+              aria-label={t('promptCard.edit')}
               className={cn('w-6 h-6 grid place-items-center rounded-nomi-sm cursor-pointer border-0', 'bg-nomi-paper/90 text-nomi-ink-60 hover:text-nomi-ink hover:bg-nomi-ink-05 shadow-nomi-sm')}
               onClick={(e) => { e.stopPropagation(); onEdit(prompt) }}
             >
@@ -61,7 +63,7 @@ export const UserPromptCard = React.memo(function UserPromptCard({ prompt, onSel
             </button>
             <button
               type="button"
-              aria-label="删除"
+              aria-label={t('promptCard.delete')}
               className={cn('w-6 h-6 grid place-items-center rounded-nomi-sm cursor-pointer border-0', 'bg-nomi-paper/90 text-nomi-ink-60 hover:text-nomi-danger hover:bg-nomi-ink-05 shadow-nomi-sm')}
               onClick={(e) => { e.stopPropagation(); onDelete(prompt) }}
             >

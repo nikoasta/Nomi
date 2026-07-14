@@ -7,6 +7,7 @@ import { NomiImage } from '../../../design/media'
 import { cn } from '../../../utils/cn'
 import { WorkbenchIconButton } from '../../../design/workbenchActions'
 import { toast } from '../../../ui/toast'
+import { useI18n } from '../../../i18n/i18nContext'
 
 export type PanoramaScreenshot = {
   dataUrl: string
@@ -95,7 +96,7 @@ function getPhotoSphereCanvas(viewer: Viewer | null): HTMLCanvasElement | null {
   return (viewer?.container.querySelector('canvas') as HTMLCanvasElement | null) ?? null
 }
 
-function cropCurrentPanoramaFrame(viewer: Viewer, frameElement: HTMLElement): PanoramaScreenshot | null {
+function cropCurrentPanoramaFrame(viewer: Viewer, frameElement: HTMLElement, title: string, prompt: string): PanoramaScreenshot | null {
   const canvas = getPhotoSphereCanvas(viewer)
   if (!canvas || canvas.width <= 0 || canvas.height <= 0) return null
 
@@ -124,8 +125,8 @@ function cropCurrentPanoramaFrame(viewer: Viewer, frameElement: HTMLElement): Pa
     return {
       dataUrl: outputCanvas.toDataURL('image/png'),
       dimensions: { width: outputCanvas.width, height: outputCanvas.height },
-      title: '全景截图',
-      prompt: '全景取景框截图',
+      title,
+      prompt,
       source: 'panorama-framed-screenshot',
     }
   } catch {
@@ -137,6 +138,8 @@ function cropCurrentPanoramaFrame(viewer: Viewer, frameElement: HTMLElement): Pa
 function captureFramedPanoramaView(
   viewer: Viewer,
   frameElement: HTMLElement,
+  title: string,
+  prompt: string,
 ): Promise<PanoramaScreenshot | null> {
   return new Promise((resolve) => {
     let resolved = false
@@ -145,7 +148,7 @@ function captureFramedPanoramaView(
       if (resolved) return
       resolved = true
       if (timeout) clearTimeout(timeout)
-      resolve(cropCurrentPanoramaFrame(viewer, frameElement))
+      resolve(cropCurrentPanoramaFrame(viewer, frameElement, title, prompt))
     }
     viewer.addEventListener('render', finish, { once: true })
     timeout = setTimeout(finish, 250)
@@ -344,6 +347,7 @@ function PanoramaDialogControls({
   onClose: () => void
   onScreenshot?: (screenshot: PanoramaScreenshot) => void
 }): JSX.Element {
+  const { t } = useI18n()
   const viewer = React.useContext(PhotoSphereViewerContext)
   const [capturing, setCapturing] = React.useState(false)
   const [feedback, setFeedback] = React.useState<PanoramaCaptureFeedback | null>(null)
@@ -369,31 +373,31 @@ function PanoramaDialogControls({
   const handleScreenshot = React.useCallback(() => {
     if (capturing) return
     if (!viewer || !captureFrameRef.current) {
-      showFeedback({ tone: 'info', message: '全景还没准备好，请稍后再试' })
-      toast('全景还没准备好，请稍后再试', 'info')
+      showFeedback({ tone: 'info', message: t('tool.panorama.notReady') })
+      toast(t('tool.panorama.notReady'), 'info')
       return
     }
 
     setCapturing(true)
-    showFeedback({ tone: 'info', message: '截图中…' })
-    void captureFramedPanoramaView(viewer, captureFrameRef.current)
+    showFeedback({ tone: 'info', message: t('tool.panorama.screenshotCapturing') })
+    void captureFramedPanoramaView(viewer, captureFrameRef.current, t('tool.panorama.screenshotTitle'), t('tool.panorama.screenshotPrompt'))
       .then((screenshot) => {
         if (!screenshot) {
-          showFeedback({ tone: 'error', message: '截图失败，请重试' })
-          toast('截图失败，请重试', 'error')
+          showFeedback({ tone: 'error', message: t('tool.panorama.screenshotFailed') })
+          toast(t('tool.panorama.screenshotFailed'), 'error')
           return
         }
         onScreenshot?.(screenshot)
-        showFeedback({ tone: 'success', message: '已创建全景截图节点' })
+        showFeedback({ tone: 'success', message: t('tool.panorama.screenshotCreated') })
       })
       .catch(() => {
-        showFeedback({ tone: 'error', message: '截图失败，请重试' })
-        toast('截图失败，请重试', 'error')
+        showFeedback({ tone: 'error', message: t('tool.panorama.screenshotFailed') })
+        toast(t('tool.panorama.screenshotFailed'), 'error')
       })
       .finally(() => {
         if (mountedRef.current) setCapturing(false)
       })
-  }, [captureFrameRef, capturing, onScreenshot, showFeedback, viewer])
+  }, [captureFrameRef, capturing, onScreenshot, showFeedback, t, viewer])
 
   return (
     <>
@@ -456,7 +460,7 @@ function PanoramaDialogControls({
             'hover:bg-nomi-ink-05 hover:text-nomi-ink',
             'disabled:opacity-45 disabled:cursor-wait',
           )}
-          label={capturing ? '截图中' : '截图取景框'}
+          label={capturing ? t('tool.panorama.screenshotCapturingShort') : t('tool.panorama.screenshotFrame')}
           icon={<IconCamera size={15} />}
           disabled={capturing}
           onClick={handleScreenshot}
@@ -468,7 +472,7 @@ function PanoramaDialogControls({
             'hover:bg-nomi-ink-05 hover:text-nomi-ink',
             'disabled:opacity-45 disabled:cursor-wait',
           )}
-          label="关闭预览"
+          label={t('tool.panorama.closePreview')}
           icon={<IconX size={15} />}
           onClick={onClose}
         />
@@ -484,6 +488,7 @@ export default function PanoramaViewer({
   onEnterFullscreen,
   onScreenshot,
 }: PanoramaViewerProps): JSX.Element {
+  const { t } = useI18n()
   const [fullscreen, setFullscreen] = React.useState(false)
   const [captureRatioId, setCaptureRatioId] = React.useState<PanoramaCaptureRatioId>(DEFAULT_CAPTURE_RATIO_ID)
   const instanceId = React.useId().replace(/[^a-zA-Z0-9_-]/g, '')
@@ -526,7 +531,7 @@ export default function PanoramaViewer({
         className="flex items-center justify-center text-caption opacity-50"
         style={{ width, height }}
       >
-        上传全景图或连接图片节点
+        {t('tool.panorama.empty')}
       </div>
     )
   }
@@ -558,9 +563,9 @@ export default function PanoramaViewer({
               'opacity-0 transition-opacity duration-150 group-hover:opacity-100',
               'hover:bg-[color-mix(in_oklab,var(--nomi-ink)80%,transparent)] focus-visible:opacity-100',
             )}
-            aria-label="进入全景预览"
+            aria-label={t('tool.panorama.enterAria')}
           >
-            <IconMaximize size={14} stroke={1.6} />进入全景
+            <IconMaximize size={14} stroke={1.6} />{t('tool.panorama.enter')}
           </button>
         </div>
       </div>
@@ -586,7 +591,7 @@ export default function PanoramaViewer({
             data-panorama-dialog-panel
             role="dialog"
             aria-modal="true"
-            aria-label="全景预览"
+            aria-label={t('tool.panorama.dialog')}
           >
             <PhotoSpherePanoramaViewer
               key={`fullscreen-${imageUrl}`}

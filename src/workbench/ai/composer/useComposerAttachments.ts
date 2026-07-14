@@ -58,7 +58,7 @@ export function useComposerAttachments(opts: {
     try {
       const asset = await importWorkbenchLocalAssetFile(file)
       const url = readAssetUrl(asset)
-      if (!url) throw new Error('上传未返回地址')
+      if (!url) throw new Error('Upload did not return a URL')
       setAttachments((prev) =>
         prev.map((item) => {
           if (item.id !== id) return item
@@ -69,11 +69,11 @@ export function useComposerAttachments(opts: {
         }),
       )
     } catch (caught: unknown) {
-      const message = caught instanceof Error ? caught.message : '附件上传失败'
+      const message = caught instanceof Error ? caught.message : 'Attachment upload failed'
       setAttachments((prev) =>
         prev.map((item) => (item.id === id ? { ...item, status: 'error', error: message } : item)),
       )
-      onErrorRef.current?.(`附件「${file.name}」上传失败：${message}`)
+      onErrorRef.current?.(`Attachment "${file.name}" upload failed: ${message}`)
     }
   }, [setAttachments])
 

@@ -149,7 +149,7 @@ function normalizeLegacyRecord(
 export function normalizePayload(input: unknown): WorkbenchProjectPayload {
     const parsed = workbenchProjectPayloadSchema.safeParse(input);
     if (!parsed.success) {
-        throw new Error("本地项目记录损坏：payload 缺少必要字段");
+        throw new Error("Local project record is damaged: payload is missing required fields");
     }
     const payload = parsed.data;
     return {
@@ -214,7 +214,7 @@ export function normalizeRecord(
     }
     const legacy = normalizeLegacyRecord(raw);
     if (!legacy) {
-        throw new Error(`本地项目记录损坏：${summary.id}`);
+        throw new Error(`Local project record is damaged: ${summary.id}`);
     }
     const payload = normalizePayload(legacy);
     return {

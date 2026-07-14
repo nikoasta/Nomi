@@ -62,7 +62,7 @@ export async function handleCapabilityApply(op: string, payload: unknown): Promi
   // 付费确认（spend.confirm）不在此限：用户拍板 A——AI 想在「非当前项目」生成时也弹全局卡，
   // 卡里标明项目名，确认后走盘落地（不动非活动 store）。这正是治静默黑洞的关键放开。
   if (op !== 'spend.confirm' && projectId && activeId && projectId !== activeId) {
-    throw new Error('项目已切换，无法实时应用')
+    throw new Error('The project changed, so the live update cannot be applied')
   }
 
   switch (op) {
@@ -74,7 +74,7 @@ export async function handleCapabilityApply(op: string, payload: unknown): Promi
     case 'spend.confirm':
       return confirmSpendForAgent(data as SpendConfirmPayload)
     default:
-      throw new Error(`未知 capability 操作: ${op}`)
+      throw new Error(`Unknown capability operation: ${op}`)
   }
 }
 

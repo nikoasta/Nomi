@@ -35,6 +35,7 @@ import {
 import { AspectRatioPopover, TOOL_ITEMS, ToolIconButton } from './WhiteboardToolbarControls'
 import { WhiteboardLibraryPanel, type WhiteboardLibraryTabKey } from './WhiteboardLibraryPanel'
 import { blobToDataUrl, removeBackgroundBlob } from '../../../../lib/removeBackground'
+import { useI18n } from '../../../../i18n/i18nContext'
 import {
   ASSET_DRAG_MIME,
   clampCanvasPosition,
@@ -73,9 +74,9 @@ function fileToDataUrl(file: File): Promise<string> {
         resolve(reader.result)
         return
       }
-      reject(new Error('图片读取失败'))
+      reject(new Error('Image read failed'))
     }
-    reader.onerror = () => reject(reader.error || new Error('图片读取失败'))
+    reader.onerror = () => reject(reader.error || new Error('Image read failed'))
     reader.readAsDataURL(file)
   })
 }
@@ -107,10 +108,12 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
     canvasImageItems = [],
     resultItems = [],
     screenshotBusy = false,
-    screenshotLabel = '截图并创建图片节点',
+    screenshotLabel,
     focusResultsOnScreenshot = true,
     onScreenshot,
   }, ref) {
+    const { t } = useI18n()
+    const resolvedScreenshotLabel = screenshotLabel ?? t('whiteboard.screenshotCreateNode')
     const [activeTool, setActiveTool] = React.useState<ToolKey>('brush')
     const [selectedColor, setSelectedColor] = React.useState('#2563eb')
     const [brushSize, setBrushSize] = React.useState(10)
@@ -143,7 +146,7 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
 
     React.useImperativeHandle(ref, () => ({
       captureViewportFile: (filename?: string) => {
-        if (!leaferCanvasRef.current) throw new Error('画布还未准备好')
+        if (!leaferCanvasRef.current) throw new Error(t('whiteboard.boardNotReady'))
         return leaferCanvasRef.current.captureViewportFile(filename)
       },
       getState: () => serializeWhiteboardState(state),
@@ -182,7 +185,7 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
       setActiveCanvasObject({ kind: 'stroke', id: stroke.id })
     }, [])
 
-    const addImageToCanvas = React.useCallback(async (url: string, name = '导入图片') => {
+    const addImageToCanvas = React.useCallback(async (url: string, name = t('whiteboard.importedImage')) => {
       const imageSize = await loadImageSize(url)
       const { asset, layer } = createImageAssetForCanvas({
         url,
@@ -198,13 +201,13 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
       }))
       setActiveCanvasObject({ kind: 'asset', id: asset.id })
       setActiveTool('select')
-    }, [state.activeRatio])
+    }, [state.activeRatio, t])
 
     React.useEffect(() => {
       if (!initialImage?.url || importedInitialImageRef.current === initialImage.url || initialState) return
       importedInitialImageRef.current = initialImage.url
-      void addImageToCanvas(initialImage.url, '原图')
-    }, [addImageToCanvas, initialImage?.url, initialState])
+      void addImageToCanvas(initialImage.url, t('whiteboard.originalImage'))
+    }, [addImageToCanvas, initialImage?.url, initialState, t])
 
     React.useEffect(() => {
       if (typeof document === 'undefined') return undefined
@@ -218,16 +221,16 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
     const handleUploadImage = React.useCallback(async (file: File | null | undefined) => {
       if (!file) return
       if (!file.type.startsWith('image/')) {
-        toast('请选择图片文件', 'warning')
+        toast(t('whiteboard.selectImageFile'), 'warning')
         return
       }
       setUploading(true)
       try {
         const localUrl = await persistNodeImageFile(file, ownerNodeId)
         const url = localUrl || await fileToDataUrl(file)
-        await addImageToCanvas(url, file.name || '导入图片')
+        await addImageToCanvas(url, file.name || t('whiteboard.importedImage'))
       } catch (error) {
-        toast(error instanceof Error && error.message ? error.message : '导入图片失败', 'error')
+        toast(error instanceof Error && error.message ? error.message : t('whiteboard.importFailed'), 'error')
       } finally {
         setUploading(false)
       }
@@ -273,7 +276,7 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
       height = Math.max(1, height)
       const x = clampCanvasPosition(Math.round(input.point.x - width / 2), width, canvasDimensions.width)
       const y = clampCanvasPosition(Math.round(input.point.y - height / 2), height, canvasDimensions.height)
-      const baseName = stripFileExtension(input.name || '素材')
+      const baseName = stripFileExtension(input.name || t('whiteboard.material'))
 
       setState((current) => ({
         ...current,
@@ -282,7 +285,7 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
           {
             id: assetIdCopy,
             layerId,
-            name: `${baseName} 副本`,
+            name: `${baseName} ${t('whiteboard.copySuffix')}`,
             url: input.url,
             source: 'upload',
             x,
@@ -295,7 +298,7 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
           ...current.layers,
           {
             id: layerId,
-            name: `${baseName} 副本`,
+            name: `${baseName} ${t('whiteboard.copySuffix')}`,
             visible: true,
             locked: false,
             opacity: 1,
@@ -307,26 +310,26 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
       }))
       setActiveCanvasObject({ kind: 'asset', id: assetIdCopy })
       setActiveTool('select')
-    }, [canvasDimensions.height, canvasDimensions.width])
+    }, [canvasDimensions.height, canvasDimensions.width, t])
 
     const duplicateAssetToCanvasPoint = React.useCallback((assetId: string, point: { x: number; y: number }) => {
       const sourceAsset = state.canvasAssets.find((asset) => asset.id === assetId)
       if (!sourceAsset) return
       addLibraryImageToCanvasPoint({
         url: sourceAsset.url,
-        name: sourceAsset.name || '素材',
+        name: sourceAsset.name || t('whiteboard.material'),
         width: sourceAsset.width,
         height: sourceAsset.height,
         point,
       })
-    }, [addLibraryImageToCanvasPoint, state.canvasAssets])
+    }, [addLibraryImageToCanvasPoint, state.canvasAssets, t])
 
     const addResultToCanvasPoint = React.useCallback((itemId: string, point: { x: number; y: number }) => {
       const item = resultItemById.get(itemId)
       if (!item) return
       addLibraryImageToCanvasPoint({
         url: item.url,
-        name: item.name || '结果图片',
+        name: item.name || t('whiteboard.resultImage'),
         width: item.width || Math.round(canvasDimensions.width * 0.72),
         height: item.height || Math.round(canvasDimensions.width * 0.72),
         point,
@@ -410,9 +413,9 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
           }))
           setActiveCanvasObject({ kind: 'asset', id: asset.id })
           setActiveTool('select')
-          toast('已替换为抠图结果', 'success')
+          toast(t('whiteboard.removeBgSuccess'), 'success')
         } catch {
-          toast('抠图失败，请检查网络连接后重试', 'error')
+          toast(t('whiteboard.removeBgFailed'), 'error')
         } finally {
           setRemoveBgBusy(false)
           setRemoveBgTargetId(null)
@@ -438,7 +441,7 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
           >
             <header className="flex min-h-[54px] shrink-0 items-center gap-3 border-b border-nomi-line-soft bg-nomi-paper px-4 shadow-nomi-sm">
               <div className="flex min-w-0 items-center gap-2">
-                <div className="truncate text-title font-semibold text-nomi-ink">画板</div>
+                <div className="truncate text-title font-semibold text-nomi-ink">{t('whiteboard.title')}</div>
                 <span className="rounded-full border border-nomi-line bg-nomi-ink-05 px-2.5 py-1 text-caption font-medium tabular-nums text-nomi-ink-60">
                   {state.activeRatio}
                 </span>
@@ -446,26 +449,26 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
                   <span
                     className="rounded-full bg-nomi-ink-10 px-2.5 py-1 text-caption font-medium text-nomi-ink-60"
                     role="status"
-                    aria-label="抠图处理中"
+                    aria-label={t('whiteboard.removeBgProcessing')}
                     aria-busy="true"
                   >
-                    抠图中
+                    {t('whiteboard.removeBgProcessing')}
                   </span>
                 ) : null}
               </div>
 
               <div className="ml-auto flex shrink-0 items-center gap-1">
                 <ToolIconButton
-                  title={screenshotLabel}
-                  aria-label={screenshotLabel}
+                  title={resolvedScreenshotLabel}
+                  aria-label={resolvedScreenshotLabel}
                   disabled={!onScreenshot || screenshotBusy}
                   onClick={handleScreenshotClick}
                 >
                   <IconCamera size={17} stroke={1.7} />
                 </ToolIconButton>
                 <ToolIconButton
-                  title={isFullscreen ? '退出全屏' : '全屏'}
-                  aria-label={isFullscreen ? '退出全屏' : '全屏'}
+                  title={isFullscreen ? t('whiteboard.exitFullscreen') : t('whiteboard.fullscreen')}
+                  aria-label={isFullscreen ? t('whiteboard.exitFullscreen') : t('whiteboard.fullscreen')}
                   onClick={toggleFullscreen}
                 >
                   {isFullscreen ? <IconMinimize size={17} stroke={1.7} /> : <IconMaximize size={17} stroke={1.7} />}
@@ -519,8 +522,8 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
                     <ToolIconButton
                       key={item.key}
                       active={activeTool === item.key}
-                      title={item.label}
-                      aria-label={item.label}
+                      title={t(item.labelKey)}
+                      aria-label={t(item.labelKey)}
                       disabled={item.disabled}
                       onClick={() => {
                         if (!item.disabled) setActiveTool(item.key)
@@ -537,8 +540,8 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
                     'grid size-9 shrink-0 place-items-center rounded-nomi-sm border border-nomi-line bg-nomi-paper text-nomi-ink-60',
                     'transition-colors hover:bg-nomi-ink-05 hover:text-nomi-ink disabled:cursor-not-allowed disabled:opacity-40',
                   )}
-                  title="导入图片"
-                  aria-label="导入图片"
+                  title={t('whiteboard.importImage')}
+                  aria-label={t('whiteboard.importImage')}
                   disabled={uploading}
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -551,8 +554,8 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
                       'relative grid size-9 shrink-0 cursor-pointer place-items-center overflow-hidden rounded-nomi-sm border border-nomi-line bg-nomi-paper shadow-nomi-sm',
                       'transition-colors hover:border-nomi-ink-20 hover:bg-nomi-paper focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-nomi-accent',
                     )}
-                    title="自定义画笔颜色"
-                    aria-label="自定义画笔颜色"
+                    title={t('whiteboard.customBrushColor')}
+                    aria-label={t('whiteboard.customBrushColor')}
                   >
                     <span
                       className="pointer-events-none absolute inset-1 rounded-nomi-sm border"
@@ -573,7 +576,7 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
                       className="absolute inset-0 z-[2] h-full w-full cursor-pointer opacity-0"
                       type="color"
                       value={selectedColor}
-                      aria-label="自定义画笔颜色"
+                      aria-label={t('whiteboard.customBrushColor')}
                       onChange={(event) => handleColorSelect(event.currentTarget.value)}
                     />
                   </label>
@@ -591,7 +594,7 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
                         )}
                         data-active={active ? 'true' : 'false'}
                         title={color}
-                        aria-label={`颜色 ${color}`}
+                        aria-label={t('whiteboard.colorAria', { color })}
                         aria-pressed={active}
                         style={{ boxShadow: active ? '0 0 0 2px var(--nomi-accent), 0 1px 4px rgba(15, 23, 42, 0.16)' : undefined }}
                         onClick={() => handleColorSelect(color)}
@@ -638,8 +641,8 @@ const WhiteboardDrawingTool = React.forwardRef<WhiteboardDrawingToolHandle, Whit
                     'grid size-9 shrink-0 place-items-center rounded-nomi-sm border border-nomi-line bg-nomi-paper text-nomi-ink-60',
                     'transition-colors hover:bg-workbench-danger-soft hover:text-workbench-danger disabled:cursor-not-allowed disabled:opacity-40',
                   )}
-                  title="删除选中元素"
-                  aria-label="删除选中元素"
+                  title={t('whiteboard.deleteSelected')}
+                  aria-label={t('whiteboard.deleteSelected')}
                   disabled={!activeCanvasObject}
                   onClick={() => {
                     if (activeCanvasObject) deleteCanvasObject(activeCanvasObject)

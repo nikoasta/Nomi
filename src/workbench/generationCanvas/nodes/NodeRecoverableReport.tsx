@@ -2,6 +2,7 @@ import React from 'react'
 import { IconClockSearch, IconRefresh } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
 import { WorkbenchButton } from '../../../design'
+import { useI18n } from '../../../i18n/i18nContext'
 
 /**
  * 可找回态（recoverable）—— 节点正文内联面板。
@@ -19,6 +20,7 @@ export function NodeRecoverableReport({
   onDismiss?: () => void
 }): JSX.Element {
   const [pending, setPending] = React.useState(false)
+  const { t } = useI18n()
 
   const handleRecover = React.useCallback(
     (event: React.MouseEvent) => {
@@ -41,7 +43,7 @@ export function NodeRecoverableReport({
   return (
     <div
       role="status"
-      aria-label="任务可能已在上游完成，可重新拉取结果"
+      aria-label={t('nodeRecoverable.aria')}
       className={cn(
         'absolute inset-0 z-[5] flex flex-col rounded-nomi p-4',
         // 不透明纸底盖住棋盘格占位；细描边用中性 line（非 danger）——一眼是「等待中/可找回」不是「失败」。
@@ -51,11 +53,11 @@ export function NodeRecoverableReport({
       <div className="flex items-start gap-2">
         <IconClockSearch size={16} stroke={1.6} className="mt-[1px] shrink-0 text-nomi-ink-60" />
         <span className="select-text cursor-text text-body font-bold leading-snug text-nomi-ink">
-          任务可能已在上游完成
+          {t('nodeRecoverable.title')}
         </span>
       </div>
       <p className="mt-2 select-text cursor-text text-caption leading-relaxed text-nomi-ink-60">
-        等待已超上限，但上游可能仍出了片。点下面直接拉回，不用去服务商后台下载。
+        {t('nodeRecoverable.description')}
       </p>
 
       <div className="min-h-0 flex-1" />
@@ -65,11 +67,11 @@ export function NodeRecoverableReport({
           <WorkbenchButton
             onClick={handleRecover}
             disabled={pending}
-            aria-label="重新拉取结果"
+            aria-label={t('nodeRecoverable.recover')}
             className="bg-nomi-ink text-nomi-paper border-0 hover:bg-nomi-accent disabled:opacity-50"
           >
             <IconRefresh size={13} stroke={1.6} className={cn(pending && 'animate-spin')} />
-            {pending ? '正在拉取…' : '重新拉取结果'}
+            {pending ? t('nodeRecoverable.recovering') : t('nodeRecoverable.recover')}
           </WorkbenchButton>
         ) : null}
         <div className="min-w-0 flex-1" />
@@ -79,7 +81,7 @@ export function NodeRecoverableReport({
             onClick={handleDismiss}
             className="text-caption text-nomi-ink-40 hover:text-nomi-ink"
           >
-            标记为失败
+            {t('nodeRecoverable.markFailed')}
           </button>
         ) : null}
       </div>

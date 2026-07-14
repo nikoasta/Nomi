@@ -223,7 +223,7 @@ describe('runCatalogGenerationTask — 轮询硬超时抛 RecoverableTimeoutErro
   }
 
   it('超时抛 RecoverableTimeoutError，detail 带 taskId/vendor/taskKind，且软超时后回报 still-generating', async () => {
-    const { isRecoverableTimeoutError, RecoverableTimeoutError } = await import('./recoverableTimeout')
+    const { isRecoverableTimeoutError } = await import('./recoverableTimeout')
     const phases: string[] = []
     const error = await runCatalogGenerationTask(videoNode, {
       // 首发拿到 taskId、非终态 → 进轮询

@@ -57,7 +57,7 @@ export function createCameraMoveReferenceNode(
       {
         kind: 'scene3d',
         categoryId: getDefaultCategoryForNodeKind('scene3d'),
-        title: '运镜参考',
+        title: 'Camera move reference',
         prompt: '',
         position,
         meta: {

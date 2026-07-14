@@ -4,8 +4,9 @@ import { NomiLoadingMark } from './design'
 import { buildStudioUrl } from './utils/appRoutes'
 import { getAppRoutePath } from './utils/routes'
 import { lazyWithChunkBoundary } from './ui/chunkBoundary'
+import { useI18n } from './i18n/i18nContext'
 
-const NomiStudioApp = lazyWithChunkBoundary('应用主界面', () => import('./workbench/NomiStudioApp'))
+const NomiStudioApp = lazyWithChunkBoundary('Main interface', () => import('./workbench/NomiStudioApp'))
 
 function RedirectToStudio(): JSX.Element {
   const location = useLocation()
@@ -13,13 +14,16 @@ function RedirectToStudio(): JSX.Element {
 }
 
 function RouteLoading(): JSX.Element {
+  const { t } = useI18n()
+  const label = t('app.loading')
+
   return (
     <div
       className="grid h-screen w-screen place-items-center bg-nomi-bg text-nomi-ink font-nomi-sans"
-      aria-label="Nomi 加载中"
+      aria-label={label}
     >
       {/* pending 规范 #1:统一品牌 spinner,杀自写 CSS 圆环 */}
-      <NomiLoadingMark size={28} label="Nomi 加载中" />
+      <NomiLoadingMark size={28} label={label} />
     </div>
   )
 }

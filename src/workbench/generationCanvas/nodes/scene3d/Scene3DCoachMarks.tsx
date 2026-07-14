@@ -4,24 +4,25 @@
 // 三步分别指向左列表假人行 / 相机行 / 底部「添加」，可跳过、只出现一次（onboardingState 持久化）。
 import React from 'react'
 import { hasSeenScene3DCoach, markScene3DCoachSeen } from '../../../onboarding/onboardingState'
+import { useScene3DI18n, type Scene3DI18nKey } from './scene3dI18n'
 
 const STEPS = [
   {
     coach: 'mannequin-row',
-    title: '点假人，人就归你管',
-    body: '右侧出「姿势」面板一键换姿势；头顶出「操控」——进去 WASD 走位、录 take。',
+    titleKey: 'coach.mannequin.title',
+    bodyKey: 'coach.mannequin.body',
   },
   {
     coach: 'camera-row',
-    title: '点相机，运镜归你调',
-    body: '选中相机出画面预览和「运镜预设」——推近 / 环绕 / 希区柯克变焦，13 招一键落轨迹。',
+    titleKey: 'coach.camera.title',
+    bodyKey: 'coach.camera.body',
   },
   {
     coach: 'add-button',
-    title: '场景不用自己搭',
-    body: '「添加」里有城市街道 / 室内房间场景模板，还有车、树、路灯这些道具。',
+    titleKey: 'coach.add.title',
+    bodyKey: 'coach.add.body',
   },
-] as const
+] as const satisfies ReadonlyArray<{ coach: string; titleKey: Scene3DI18nKey; bodyKey: Scene3DI18nKey }>
 
 interface TargetRect {
   left: number
@@ -33,6 +34,7 @@ interface TargetRect {
 }
 
 export function Scene3DCoachMarks({ onDone }: { onDone: () => void }): JSX.Element | null {
+  const t3d = useScene3DI18n()
   const hostRef = React.useRef<HTMLDivElement | null>(null)
   const [step, setStep] = React.useState(0)
   const [rect, setRect] = React.useState<TargetRect | null>(null)
@@ -97,8 +99,8 @@ export function Scene3DCoachMarks({ onDone }: { onDone: () => void }): JSX.Eleme
         className="absolute w-64 rounded-nomi border border-nomi-line bg-nomi-paper p-3 shadow-nomi-lg"
         style={{ left: cardLeft, top: cardTop }}
       >
-        <div className="text-caption font-medium text-nomi-ink">{current.title}</div>
-        <div className="mt-1 text-micro leading-relaxed text-nomi-ink-60">{current.body}</div>
+        <div className="text-caption font-medium text-nomi-ink">{t3d(current.titleKey)}</div>
+        <div className="mt-1 text-micro leading-relaxed text-nomi-ink-60">{t3d(current.bodyKey)}</div>
         <div className="mt-2 flex items-center justify-between">
           <span className="text-micro text-nomi-ink-40">{step + 1} / {STEPS.length}</span>
           <span className="flex items-center gap-3">
@@ -107,14 +109,14 @@ export function Scene3DCoachMarks({ onDone }: { onDone: () => void }): JSX.Eleme
               type="button"
               onClick={finish}
             >
-              跳过
+              {t3d('coach.skip')}
             </button>
             <button
               className="rounded-nomi-sm border-0 bg-nomi-ink px-2.5 py-1 text-micro text-nomi-paper"
               type="button"
               onClick={() => (step < STEPS.length - 1 ? setStep(step + 1) : finish())}
             >
-              {step < STEPS.length - 1 ? '下一步' : '开始使用'}
+              {step < STEPS.length - 1 ? t3d('coach.next') : t3d('coach.start')}
             </button>
           </span>
         </div>

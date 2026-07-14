@@ -6,6 +6,7 @@ import {
   type GenerationNodePluginDefinition,
 } from '../nodes/registry'
 import type { GenerationCanvasNode } from './generationCanvasTypes'
+import { canvasRuntimeTranslate, type CanvasI18nKey } from '../canvasI18n'
 
 export { GENERATION_NODE_KINDS }
 export type { GenerationNodeExecutionKind, GenerationNodeKind }
@@ -19,6 +20,39 @@ export const GENERATION_NODE_DEFINITIONS: Record<GenerationNodeKind, GenerationN
   })) as Record<GenerationNodeKind, GenerationNodeDefinition>
 
 const NODE_KIND_SET = new Set<GenerationNodeKind>(GENERATION_NODE_KINDS)
+
+const NODE_TITLE_KEYS: Partial<Record<GenerationNodeKind, CanvasI18nKey>> = {
+  text: 'nodeKind.text.title',
+  character: 'nodeKind.character.title',
+  scene: 'nodeKind.scene.title',
+  image: 'nodeKind.image.title',
+  keyframe: 'nodeKind.keyframe.title',
+  video: 'nodeKind.video.title',
+  audio: 'nodeKind.audio.title',
+  shot: 'nodeKind.shot.title',
+  output: 'nodeKind.output.title',
+  panorama: 'nodeKind.panorama.title',
+  scene3d: 'nodeKind.scene3d.title',
+  whiteboard: 'nodeKind.whiteboard.title',
+  model3d: 'nodeKind.model3d.title',
+  asset: 'nodeKind.asset.title',
+}
+
+const NODE_PLACEHOLDER_KEYS: Partial<Record<GenerationNodeKind, CanvasI18nKey>> = {
+  text: 'nodeKind.text.placeholder',
+  character: 'nodeKind.character.placeholder',
+  scene: 'nodeKind.scene.placeholder',
+  image: 'nodeKind.image.placeholder',
+  keyframe: 'nodeKind.keyframe.placeholder',
+  video: 'nodeKind.video.placeholder',
+  audio: 'nodeKind.audio.placeholder',
+  shot: 'nodeKind.shot.placeholder',
+  output: 'nodeKind.output.placeholder',
+  panorama: 'nodeKind.panorama.placeholder',
+  scene3d: 'nodeKind.scene3d.placeholder',
+  whiteboard: 'nodeKind.whiteboard.placeholder',
+  model3d: 'nodeKind.model3d.placeholder',
+}
 
 export const DEFAULT_NODE_SIZE: Record<GenerationNodeKind, { width: number; height: number }> =
   Object.fromEntries(GENERATION_NODE_KINDS.map((kind) => [kind, GENERATION_NODE_DEFINITIONS[kind].defaultSize])) as Record<GenerationNodeKind, { width: number; height: number }>
@@ -71,12 +105,15 @@ export function getGenerationNodeLabel(kind: GenerationNodeKind): string {
 }
 
 export function getGenerationNodeDefaultTitle(kind: GenerationNodeKind): string {
+  const key = NODE_TITLE_KEYS[kind]
+  if (key) return canvasRuntimeTranslate(key)
   const definition = getGenerationNodeDefinition(kind)
   return definition.defaultTitle || definition.label
 }
 
 export function getGenerationNodePromptPlaceholder(kind: GenerationNodeKind): string {
-  return getGenerationNodeDefinition(kind).promptPlaceholder || '描述节点内容...'
+  const key = NODE_PLACEHOLDER_KEYS[kind]
+  return key ? canvasRuntimeTranslate(key) : canvasRuntimeTranslate('nodeKind.default.placeholder')
 }
 
 export function getAgentCreatableGenerationNodeKinds(): GenerationNodeKind[] {

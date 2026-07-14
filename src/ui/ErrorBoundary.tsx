@@ -1,4 +1,5 @@
 import React from 'react'
+import { DEFAULT_LOCALE, isSupportedLocale, translate, type SupportedLocale } from '../i18n/translations'
 
 type Props = { children: React.ReactNode }
 type State = { error: Error | null; info: string }
@@ -15,6 +16,16 @@ function reloadRendererWindow(): void {
     /* fall back to browser reload */
   }
   window.location.reload()
+}
+
+function readErrorBoundaryLocale(): SupportedLocale {
+  try {
+    const stored = window.localStorage.getItem('nomi.interface-language')
+    if (isSupportedLocale(stored)) return stored
+  } catch {
+    /* best effort */
+  }
+  return DEFAULT_LOCALE
 }
 
 /**
@@ -51,12 +62,14 @@ export class RootErrorBoundary extends React.Component<Props, State> {
   render(): React.ReactNode {
     const { error } = this.state
     if (!error) return this.props.children
+    const locale = readErrorBoundaryLocale()
+    const t = (key: Parameters<typeof translate>[1]): string => translate(locale, key)
     return (
       <div className="flex h-screen w-screen items-center justify-center bg-nomi-bg p-8 text-nomi-ink">
         <div className="max-w-lg rounded-nomi border border-nomi-line bg-white p-6 shadow-nomi-md">
-          <h1 className="text-title font-nomi-display">出了点问题</h1>
+          <h1 className="text-title font-nomi-display">{t('errorBoundary.title')}</h1>
           <p className="mt-2 text-body text-nomi-ink-soft">
-            界面遇到一个错误。你可以重新加载继续，或复制错误信息反馈给我们。
+            {t('errorBoundary.message')}
           </p>
           <pre className="mt-3 max-h-40 overflow-auto rounded-nomi bg-nomi-bg p-3 text-caption text-nomi-ink-soft">
             {error.name}: {error.message}
@@ -67,14 +80,14 @@ export class RootErrorBoundary extends React.Component<Props, State> {
               className="rounded-nomi bg-nomi-ink px-3 py-1.5 text-body-sm text-white"
               onClick={reloadRendererWindow}
             >
-              重新加载
+              {t('errorBoundary.reload')}
             </button>
             <button
               type="button"
               className="rounded-nomi border border-nomi-line px-3 py-1.5 text-body-sm"
               onClick={this.handleCopy}
             >
-              复制错误信息
+              {t('errorBoundary.copy')}
             </button>
           </div>
         </div>

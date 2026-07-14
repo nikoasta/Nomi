@@ -8,32 +8,33 @@ import { getActiveWorkbenchProjectId } from '../../project/workbenchProjectSessi
 import { getDesktopBridge } from '../../../desktop/bridge'
 import { toast } from '../../../ui/toast'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 export async function extractVideoFrameToNode(node: GenerationCanvasNode, which: 'first' | 'last'): Promise<void> {
   const videoUrl = node.result?.url
   if (node.result?.type !== 'video' || !videoUrl) return
-  const label = which === 'first' ? '首帧' : '尾帧'
+  const label = which === 'first' ? canvasRuntimeTranslate('extractFrame.first') : canvasRuntimeTranslate('extractFrame.last')
 
   const projectId = getActiveWorkbenchProjectId()
-  if (!projectId) { toast('抽帧失败：找不到当前项目（请先保存项目后重试）', 'error'); return }
+  if (!projectId) { toast(canvasRuntimeTranslate('extractFrame.noProject'), 'error'); return }
   const extractFrame = getDesktopBridge()?.video?.extractFrame
-  if (!extractFrame) { toast('抽帧失败：当前环境不支持（需桌面端）', 'error'); return }
+  if (!extractFrame) { toast(canvasRuntimeTranslate('extractFrame.unsupported'), 'error'); return }
 
   let url: string
   try {
     const result = await extractFrame({ videoUrl, which, projectId })
     url = result?.url || ''
   } catch (error) {
-    toast(`抽${label}失败：${error instanceof Error ? error.message : String(error)}`, 'error')
+    toast(canvasRuntimeTranslate('extractFrame.failed', { label, message: error instanceof Error ? error.message : String(error) }), 'error')
     return
   }
-  if (!url) { toast(`抽${label}失败：未能从视频取到帧`, 'error'); return }
+  if (!url) { toast(canvasRuntimeTranslate('extractFrame.empty', { label }), 'error'); return }
 
   const store = useGenerationCanvasStore.getState()
   const size = getNodeSize(node)
   const created = store.addNode({
     kind: 'image',
-    title: `${(node.title || '视频').trim()}·${label}`,
+    title: `${(node.title || canvasRuntimeTranslate('extractFrame.defaultVideoTitle')).trim()} · ${label}`,
     position: { x: node.position.x + size.width + 64, y: node.position.y + (which === 'last' ? size.height / 2 + 24 : 0) },
     categoryId: node.categoryId,
   })

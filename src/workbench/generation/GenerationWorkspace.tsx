@@ -4,8 +4,9 @@ import { motion, useReducedMotion } from 'framer-motion'
 import { cn } from '../../utils/cn'
 import { lazyWithChunkBoundary } from '../../ui/chunkBoundary'
 import { useWorkbenchStore } from '../workbenchStore'
+import { useI18n } from '../../i18n/i18nContext'
 
-const TimelinePanel = lazyWithChunkBoundary('生成时间轴', () => import('../timeline/TimelinePanel'))
+const TimelinePanel = lazyWithChunkBoundary('Generation timeline', () => import('../timeline/TimelinePanel'))
 import { computeTimelineDuration } from '../timeline/timelineMath'
 
 type GenerationWorkspaceProps = {
@@ -26,6 +27,7 @@ export default function GenerationWorkspace({
   aiSidebar,
   aiLayout = 'sidebar',
 }: GenerationWorkspaceProps): JSX.Element {
+  const { t } = useI18n()
   const width = useWorkbenchStore((s) => s.assistantWidth)
   const setWidth = useWorkbenchStore((s) => s.setAssistantWidth)
   const timeline = useWorkbenchStore((s) => s.timeline)
@@ -93,7 +95,7 @@ export default function GenerationWorkspace({
       transition={reduceMotion ? { duration: 0 } : ASSISTANT_LAYOUT_SPRING}
       data-has-ai={aiSidebar ? 'true' : 'false'}
       data-ai-layout={aiSidebar ? aiLayout : 'none'}
-      aria-label="生成区"
+      aria-label={t('generation.aria')}
     >
       <div
         className={cn(
@@ -115,13 +117,13 @@ export default function GenerationWorkspace({
               'text-body-sm font-medium text-nomi-ink',
               'transition-colors hover:bg-nomi-ink-05',
             )}
-            aria-label="展开生成时间轴"
+            aria-label={t('generation.expandTimeline')}
             onClick={() => setTimelineCollapsed(false)}
           >
             <IconLayoutList size={15} stroke={1.8} className="text-nomi-ink-60" />
-            <span>时间轴</span>
+            <span>{t('generation.timeline')}</span>
             <span className="text-nomi-ink-60">
-              {timelineSummary.clipCount} 段 · {timelineSummary.durationLabel}
+              {t('generation.clipCount', { count: timelineSummary.clipCount })} · {timelineSummary.durationLabel}
             </span>
             <IconChevronUp size={15} stroke={1.8} className="text-nomi-ink-60" />
           </button>
@@ -136,13 +138,13 @@ export default function GenerationWorkspace({
               ? 'absolute top-4 right-4 z-[80] block w-auto h-auto border-0 bg-transparent pointer-events-auto'
               : 'justify-items-end border-l border-l-[var(--workbench-border)] bg-[var(--workbench-surface)]',
           )}
-          aria-label="生成区 AI 侧栏"
+          aria-label={t('generation.aiSidebar')}
         >
           {/* 左缘拖手柄：仅停靠态显示。 */}
           {aiLayout === 'sidebar' ? (
             <div
               role="separator"
-              aria-label="拖动调整助手宽度"
+              aria-label={t('generation.resizeAssistant')}
               aria-orientation="vertical"
               className={cn(
                 'group absolute left-0 top-0 bottom-0 z-10 w-2 -translate-x-1/2',
@@ -164,8 +166,8 @@ export default function GenerationWorkspace({
           <React.Suspense fallback={null}>
             <TimelinePanel
               density="compact"
-              regionLabel="生成时间轴"
-              actionLabelPrefix="生成时间轴-"
+              regionLabel={t('generation.timeline.chunk')}
+              actionLabelPrefix={`${t('generation.timeline.chunk')}-`}
               onCollapse={() => setTimelineCollapsed(true)}
             />
           </React.Suspense>

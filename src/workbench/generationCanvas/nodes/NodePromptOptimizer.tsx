@@ -13,6 +13,7 @@ import { runWorkbenchTextTaskStream } from '../../api/taskApi'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { diffPromptWords } from './promptDiff'
+import { useI18n } from '../../../i18n/i18nContext'
 
 function buildOptimizePrompt(original: string, idea: string, isVideo: boolean): string {
   const kind = isVideo ? '视频生成' : '图像生成'
@@ -26,6 +27,7 @@ function buildOptimizePrompt(original: string, idea: string, isVideo: boolean): 
 }
 
 export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasNode; isVideo: boolean }): JSX.Element {
+  const { t } = useI18n()
   const [open, setOpen] = React.useState(false)
   const [idea, setIdea] = React.useState('')
   const [running, setRunning] = React.useState(false)
@@ -52,7 +54,7 @@ export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasN
     try {
       const brain = await getTextBrain()
       if (!brain) {
-        setError('请先在「模型接入」里启用一个文本模型')
+        setError(t('tool.promptOptimizer.noTextModel'))
         return
       }
       const prompt = buildOptimizePrompt(originalRef.current, idea.trim(), isVideo)
@@ -70,15 +72,15 @@ export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasN
       )
       const final = acc.trim()
       if (final) setResult(final)
-      else setError('没拿到优化结果，请重试')
+      else setError(t('tool.promptOptimizer.emptyResult'))
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
-      setError(e instanceof Error ? e.message : '优化失败')
+      setError(e instanceof Error ? e.message : t('tool.promptOptimizer.failed'))
     } finally {
       setRunning(false)
       abortRef.current = null
     }
-  }, [node.prompt, idea, isVideo])
+  }, [node.prompt, idea, isVideo, t])
 
   const apply = React.useCallback(() => {
     if (!result) return
@@ -107,7 +109,7 @@ export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasN
         <div className={cn('absolute bottom-full right-0 mb-2 w-[280px] z-10', 'bg-nomi-paper border border-nomi-line rounded-nomi shadow-nomi-md p-2.5')}>
           <div className={cn('flex items-center gap-1.5 mb-2 text-caption text-nomi-ink-60')}>
             <NomiLogoMark size={14} />
-            {result != null ? 'Nomi 优化版（高亮=改动）' : '说一句想法，Nomi 帮你改这条'}
+            {result != null ? t('tool.promptOptimizer.resultHeader') : t('tool.promptOptimizer.ideaHeader')}
           </div>
 
           {result != null ? (
@@ -121,30 +123,30 @@ export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasN
               </div>
               <div className={cn('mt-2 flex gap-2')}>
                 <WorkbenchButton variant="primary" className="flex-1" onClick={apply}>
-                  应用到提示词
+                  {t('tool.promptOptimizer.apply')}
                 </WorkbenchButton>
                 <WorkbenchButton variant="default" onClick={() => void run()}>
-                  重新优化
+                  {t('tool.promptOptimizer.rerun')}
                 </WorkbenchButton>
               </div>
             </>
           ) : running ? (
             <div className={cn('rounded-nomi-sm border border-nomi-line bg-nomi-paper px-2 py-1.5 min-h-[52px] text-body-sm leading-relaxed text-nomi-ink-80 whitespace-pre-wrap')}>
-              {streamed || '正在优化…'}
+              {streamed || t('tool.promptOptimizer.running')}
             </div>
           ) : (
             <>
               <textarea
                 className={cn('w-full h-[52px] resize-none rounded-nomi-sm border border-nomi-line bg-nomi-paper px-2 py-1.5', 'text-body-sm text-nomi-ink placeholder:text-nomi-ink-40 outline-none focus:border-nomi-accent')}
                 value={idea}
-                placeholder="如：换成黄昏、情绪更紧张、加点雾气…（留空也能优化）"
-                aria-label="优化想法"
+                placeholder={t('tool.promptOptimizer.placeholder')}
+                aria-label={t('tool.promptOptimizer.ideaAria')}
                 onChange={(e) => setIdea(e.currentTarget.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void run() }}
               />
               {error ? <div className={cn('mt-1.5 text-micro text-workbench-danger')}>{error}</div> : null}
               <WorkbenchButton variant="primary" className="mt-2 w-full" onClick={() => void run()}>
-                优化这条提示词
+                {t('tool.promptOptimizer.run')}
               </WorkbenchButton>
             </>
           )}
@@ -153,12 +155,12 @@ export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasN
 
       <WorkbenchButton
         variant="default"
-        aria-label="用 Nomi 优化提示词"
-        title="用 Nomi 优化提示词"
+        aria-label={t('tool.promptOptimizer.aria')}
+        title={t('tool.promptOptimizer.title')}
         onClick={toggle}
       >
         {open ? <IconX size={14} stroke={1.6} /> : <NomiLogoMark size={14} />}
-        {running ? '优化中…' : '优化'}
+        {running ? t('tool.promptOptimizer.running') : t('tool.promptOptimizer.buttonIdle')}
       </WorkbenchButton>
     </div>
   )

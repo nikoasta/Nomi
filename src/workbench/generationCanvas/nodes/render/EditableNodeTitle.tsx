@@ -9,6 +9,7 @@
 import React from 'react'
 import { cn } from '../../../../utils/cn'
 import { useGenerationCanvasStore } from '../../store/generationCanvasStore'
+import { useI18n } from '../../../../i18n/i18nContext'
 
 type Props = {
   nodeId: string
@@ -17,11 +18,13 @@ type Props = {
   className?: string
 }
 
-export function EditableNodeTitle({ nodeId, value, placeholder = '未命名', className }: Props): JSX.Element {
+export function EditableNodeTitle({ nodeId, value, placeholder, className }: Props): JSX.Element {
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
   const [editing, setEditing] = React.useState(false)
   const [draft, setDraft] = React.useState(value)
   const inputRef = React.useRef<HTMLInputElement>(null)
+  const { t } = useI18n()
+  const resolvedPlaceholder = placeholder || t('app.project.untitled')
 
   React.useEffect(() => {
     if (!editing) setDraft(value)
@@ -66,7 +69,7 @@ export function EditableNodeTitle({ nodeId, value, placeholder = '未命名', cl
         }}
         onMouseDown={(e) => e.stopPropagation()}
         onPointerDown={(e) => e.stopPropagation()}
-        placeholder={placeholder}
+        placeholder={resolvedPlaceholder}
         className={cn(
           'min-w-0 flex-1 outline-none border-0 bg-transparent p-0',
           'text-body-sm font-semibold text-nomi-ink',
@@ -81,7 +84,7 @@ export function EditableNodeTitle({ nodeId, value, placeholder = '未命名', cl
     <span
       onClick={handleStart}
       onMouseDown={(e) => e.stopPropagation()}
-      title="点击编辑名字"
+      title={t('editableTitle.edit')}
       className={cn(
         'min-w-0 flex-1 truncate cursor-text select-none',
         'text-body-sm font-semibold',
@@ -90,7 +93,7 @@ export function EditableNodeTitle({ nodeId, value, placeholder = '未命名', cl
         className,
       )}
     >
-      {isEmpty ? placeholder : value}
+      {isEmpty ? resolvedPlaceholder : value}
     </span>
   )
 }

@@ -8,6 +8,7 @@ import { clientXToFrame } from "../../timeline/timelineEdit";
 import { getTrackTypeForClipType } from "../../timeline/timelineTypes";
 import { buildClipFromGenerationNode } from "../model/buildClipFromGenerationNode";
 import { toast } from "../../../ui/toast";
+import { canvasRuntimeTranslate } from "../canvasI18n";
 import { emitCanvasGesture } from "../events/canvasEventEmitter";
 import {
     clampNumber,
@@ -355,7 +356,7 @@ export function useNodeDragResize({
             droppedOverTimeline && node.result?.url ? droppedOverTimeline : null;
         // 用户把还没生成画面的节点拖到时间轴：给反馈，别静默弹回（P0-9 / I-1）。
         if (droppedOverTimeline && !node.result?.url) {
-            toast("该节点还没生成画面，先点「生成」再拖到时间轴", "info");
+            toast(canvasRuntimeTranslate("timeline.nodeNeedsResult"), "info");
         }
         if (timelineDropTarget) {
             const timeline = useWorkbenchStore.getState().timeline;

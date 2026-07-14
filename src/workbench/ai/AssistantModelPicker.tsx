@@ -4,6 +4,7 @@ import React from 'react'
 import { listWorkbenchModelCatalogModels, type ModelCatalogModelDto } from '../api/modelCatalogApi'
 import { getAssistantModelPref, setAssistantModelPref } from './assistantModelPref'
 import { NomiSelect, NomiSkeleton } from '../../design'
+import { useI18n } from '../../i18n/i18nContext'
 
 // 与后端 chooseTextModel 一致的"像通用对话模型"判定：vision/preview 等不可靠发 tool_use 的降权，
 // 选默认时排到最后。让默认就是一个具体的、能用的模型（而不是看不懂的「自动选模型」）。
@@ -20,6 +21,7 @@ export default function AssistantModelPicker({ className }: { className?: string
   const [models, setModels] = React.useState<ModelCatalogModelDto[]>([])
   const [loaded, setLoaded] = React.useState(false)
   const [modelKey, setModelKey] = React.useState<string>(() => getAssistantModelPref()?.modelKey || '')
+  const { t } = useI18n()
 
   React.useEffect(() => {
     let alive = true
@@ -58,8 +60,8 @@ export default function AssistantModelPicker({ className }: { className?: string
 
   return (
     <NomiSelect
-      ariaLabel="助手模型"
-      title="助手用哪个模型（建议选 GPT / Claude / DeepSeek 系，能稳定执行画布操作）"
+      ariaLabel={t('assistantModel.aria')}
+      title={t('assistantModel.title')}
       size="xs"
       className={className}
       triggerMaxWidth={160}

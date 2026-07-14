@@ -5,6 +5,8 @@ import React from 'react'
 import { cn } from '../../../utils/cn'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { getNodeSize } from './generationCanvasGeometry'
+import { useI18n } from '../../../i18n/i18nContext'
+import { canvasTranslate } from '../canvasI18n'
 
 export const MINIMAP_MIN_NODES = 6
 const MAP_W = 180
@@ -22,6 +24,8 @@ type CanvasMinimapProps = {
 }
 
 export const CanvasMinimap = React.memo(function CanvasMinimap({ nodes, selectedIds, zoom, offset, stageSize, onJumpToCanvasPoint }: CanvasMinimapProps): JSX.Element | null {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const draggingRef = React.useRef(false)
   const innerRef = React.useRef<HTMLDivElement>(null)
 
@@ -92,7 +96,7 @@ export const CanvasMinimap = React.memo(function CanvasMinimap({ nodes, selected
         'border border-nomi-line rounded-nomi bg-nomi-paper/95 shadow-nomi-md',
       )}
       style={{ width: MAP_W, height: MAP_H }}
-      aria-label="画布缩略导航"
+      aria-label={tCanvas('minimap.aria')}
       onPointerDown={(event) => {
         event.stopPropagation()
         draggingRef.current = true

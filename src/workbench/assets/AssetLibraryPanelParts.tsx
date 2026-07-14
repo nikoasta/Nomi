@@ -3,14 +3,16 @@ import { IconCheck, IconEye, IconEyeOff, IconMusic, IconPhoto, IconPlayerPlayFil
 import { cn } from '../../utils/cn'
 import { NomiImage } from '../../design/media'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../design'
+import { useI18n } from '../../i18n/i18nContext'
+import type { TranslationKey } from '../../i18n/translations'
 import { AssetThumb } from './AssetTile'
 import type { AssetKind, AssetRef } from './assetTypes'
 import { ASSET_KIND_FILTER_VALUES, FILTER_OPTIONS, type FilterValue } from './assetLibraryPanelFilters'
 
-const KIND_LABEL: Record<AssetKind, string> = {
-  image: '图片',
-  video: '视频',
-  audio: '音频',
+const KIND_LABEL_KEY: Record<AssetKind, TranslationKey> = {
+  image: 'asset.kind.image',
+  video: 'asset.kind.video',
+  audio: 'asset.kind.audio',
 }
 
 const KIND_ICON: Record<AssetKind, typeof IconPhoto> = {
@@ -21,6 +23,7 @@ const KIND_ICON: Record<AssetKind, typeof IconPhoto> = {
 
 function AssetKindBadge({ kind, compact = false }: { kind: AssetKind; compact?: boolean }): JSX.Element {
   const Icon = KIND_ICON[kind]
+  const { t } = useI18n()
   return (
     <span
       className={cn(
@@ -30,7 +33,7 @@ function AssetKindBadge({ kind, compact = false }: { kind: AssetKind; compact?: 
       )}
     >
       <Icon size={compact ? 10 : 11} stroke={1.8} aria-hidden="true" />
-      {KIND_LABEL[kind]}
+      {t(KIND_LABEL_KEY[kind])}
     </span>
   )
 }
@@ -48,7 +51,12 @@ export function AssetKindFilterMenu({
   onToggleKind: (kind: AssetKind) => void
   onShowAll: () => void
 }): JSX.Element {
+  const { t } = useI18n()
   const allSelected = ASSET_KIND_FILTER_VALUES.every((kind) => selectedKinds.has(kind))
+  const filterLabel = React.useCallback((value: FilterValue): string => {
+    if (value === 'all') return t('asset.kind.all')
+    return t(KIND_LABEL_KEY[value])
+  }, [t])
 
   return (
     <div
@@ -59,9 +67,9 @@ export function AssetKindFilterMenu({
       )}
       style={{ width: 176 }}
       role="dialog"
-      aria-label="素材分类筛选"
+      aria-label={t('assetLibrary.categoryDialog')}
     >
-      <div className="grid gap-0.5" role="listbox" aria-label="素材分类" aria-multiselectable="true">
+      <div className="grid gap-0.5" role="listbox" aria-label={t('assetLibrary.categoryList')} aria-multiselectable="true">
         {FILTER_OPTIONS.map((option) => {
           const kind = option.value === 'all' ? null : option.value
           const count = counts.get(option.value) ?? 0
@@ -85,7 +93,7 @@ export function AssetKindFilterMenu({
               onClick={kind === null ? onShowAll : () => onToggleKind(kind)}
             >
               <EyeIcon size={15} stroke={1.8} aria-hidden="true" />
-              <span className="min-w-0 whitespace-nowrap">{option.label}</span>
+              <span className="min-w-0 whitespace-nowrap">{filterLabel(option.value)}</span>
               <span
                 className={cn(
                   'min-w-7 justify-self-end rounded-nomi-sm px-1.5 py-0.5 text-center text-micro leading-none tabular-nums',
@@ -123,6 +131,7 @@ export const AssetGridCell = React.memo(function AssetGridCell({
   onSelect?: (asset: AssetRef, event: React.MouseEvent<HTMLDivElement>) => void
   onDragStartAsset?: (asset: AssetRef, event: React.DragEvent<HTMLDivElement>) => void
 }): JSX.Element {
+  const { t } = useI18n()
   const handleDragStart = React.useCallback((event: React.DragEvent<HTMLDivElement>) => {
     if (!draggable || !onDragStartAsset) {
       event.preventDefault()
@@ -134,8 +143,8 @@ export const AssetGridCell = React.memo(function AssetGridCell({
     onSelect?.(asset, event)
   }, [asset, onSelect])
   const dragHint = draggable
-    ? asset.kind === 'audio' ? '拖到时间轴音频轨' : '拖到画布'
-    : '当前项目画布素材，可选择后删除'
+    ? asset.kind === 'audio' ? t('assetLibrary.dragToTimelineAudio') : t('assetLibrary.dragToCanvas')
+    : t('assetLibrary.selectableProjectAsset')
   const check = selectable ? (
     <span
       className={cn(

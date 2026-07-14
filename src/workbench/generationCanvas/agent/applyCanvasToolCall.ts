@@ -20,6 +20,7 @@ import type { CameraSpeed } from '../nodes/scene3d/cameraMoveVocab'
 import { useWorkbenchStore } from '../../workbenchStore'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { registerCanvasToolClientId, resolveCanvasToolNodeId } from './clientIdRegistry'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 export { resetClientIdRegistry, resolveCanvasToolNodeId } from './clientIdRegistry'
 
 // 批量创建节点的布局由渲染层 derive，而不是信任 LLM 发来的像素坐标。
@@ -321,17 +322,17 @@ export async function applyCanvasToolCall(toolName: string, args: unknown, gestu
     // 当指令追加进目标「关键帧图片节点」prompt（composition 文字通道，模型自己解；精度略低但不硬塞错词）。
     if (rawChars.length === 0 && customBlocking) {
       if (!targetNodeId) {
-        throw new Error('customBlocking 需要 shotClientId 指向该镜头的关键帧图片节点才能注入构图指令')
+        throw new Error(canvasRuntimeTranslate('agentTool.customBlockingNeedsShot'))
       }
-      const outcome = appendDirectiveToNodePrompt(targetNodeId, '构图', customBlocking, 'stagingPromptApplied', inCtx)
-      if (!outcome.found) throw new Error('node_not_found:customBlocking 的目标节点不存在')
+      const outcome = appendDirectiveToNodePrompt(targetNodeId, canvasRuntimeTranslate('agentTool.compositionLabel'), customBlocking, 'stagingPromptApplied', inCtx)
+      if (!outcome.found) throw new Error(canvasRuntimeTranslate('agentTool.customBlockingTargetMissing'))
       return {
         stagingNodeId: null,
         targetNodeId,
         degraded: true,
         message: outcome.alreadyApplied
-          ? `该构图指令已写入镜头关键帧 prompt（词表外，prompt 引导，未渲精确站位图）。`
-          : `站位意图不在词表内，已用 prompt 引导：把构图指令写进镜头关键帧 prompt（未渲精确站位图，保真度低于 3D 站位参考）。`,
+          ? canvasRuntimeTranslate('agentTool.compositionAlreadyApplied')
+          : canvasRuntimeTranslate('agentTool.compositionApplied'),
       }
     }
 
@@ -348,7 +349,7 @@ export async function applyCanvasToolCall(toolName: string, args: unknown, gestu
         {
           kind: 'scene3d',
           categoryId: getDefaultCategoryForNodeKind('scene3d'),
-          title: '站位参考',
+          title: canvasRuntimeTranslate('agentTool.stagingReferenceTitle'),
           prompt: '',
           position,
           meta: {
@@ -363,7 +364,13 @@ export async function applyCanvasToolCall(toolName: string, args: unknown, gestu
     return {
       stagingNodeId,
       targetNodeId: targetNodeId ?? null,
-      message: `已创建站位参考（${spec.characters.length} 角色 · ${spec.layout ?? '自动'} 站位 · ${cam.angle ?? 'three-quarter'}/${cam.height ?? 'eye'}/${cam.shot ?? 'medium'}）。正在离屏渲染出图${targetNodeId ? '并连到镜头作 composition_ref' : ''}。${stagingIssues.length ? ' ⚠️ ' + stagingIssues.join('；') : ''}`,
+      message: canvasRuntimeTranslate('agentTool.stagingReferenceCreated', {
+        characters: spec.characters.length,
+        layout: spec.layout ?? 'auto',
+        camera: `${cam.angle ?? 'three-quarter'}/${cam.height ?? 'eye'}/${cam.shot ?? 'medium'}`,
+        tail: targetNodeId ? canvasRuntimeTranslate('agentTool.stagingTail') : '',
+        issues: stagingIssues.length ? ` ⚠️ ${stagingIssues.join('; ')}` : '',
+      }),
     }
   }
 
@@ -374,7 +381,7 @@ export async function applyCanvasToolCall(toolName: string, args: unknown, gestu
 
     // move 与 customMove 都没有 → 明确报错让 LLM 二选一（不静默兜 push_in 硬塞一个运镜）。
     if (!parsed.move && !parsed.customMove) {
-      throw new Error('create_camera_move 需要 move（词表内精确运镜）或 customMove（词表外自由描述）二选一')
+      throw new Error(canvasRuntimeTranslate('agentTool.cameraMoveNeedsMove'))
     }
     if (parsed.move && parsed.customMove) {
       throw new Error('create_camera_move 的 move 与 customMove 互斥：词表内用 move，词表外只用 customMove')
@@ -384,17 +391,17 @@ export async function applyCanvasToolCall(toolName: string, args: unknown, gestu
     // 目标「视频节点」prompt（i2v 文字通道，模型自己解；精度略低但不硬塞错的 enum）。
     if (!parsed.move && parsed.customMove) {
       if (!targetNodeId) {
-        throw new Error('customMove 需要 shotClientId 指向该镜头的视频节点才能注入运镜指令')
+        throw new Error(canvasRuntimeTranslate('agentTool.customMoveNeedsShot'))
       }
-      const outcome = appendDirectiveToNodePrompt(targetNodeId, '镜头运动', parsed.customMove, 'cameraMovePromptApplied', inCtx)
-      if (!outcome.found) throw new Error('node_not_found:customMove 的目标节点不存在')
+      const outcome = appendDirectiveToNodePrompt(targetNodeId, canvasRuntimeTranslate('agentTool.cameraMoveLabel'), parsed.customMove, 'cameraMovePromptApplied', inCtx)
+      if (!outcome.found) throw new Error(canvasRuntimeTranslate('agentTool.customMoveTargetMissing'))
       return {
         cameraMoveNodeId: null,
         targetNodeId,
         degraded: true,
         message: outcome.alreadyApplied
-          ? `该运镜指令已写入镜头视频 prompt（词表外，prompt 引导，未渲精确运镜参考）。`
-          : `运镜意图不在词表内，已用 prompt 引导：把运镜指令写进镜头视频 prompt（未渲精确运镜参考，保真度低于 3D 运镜小片）。`,
+          ? canvasRuntimeTranslate('agentTool.cameraMoveAlreadyApplied')
+          : canvasRuntimeTranslate('agentTool.cameraMoveApplied'),
       }
     }
 
@@ -420,7 +427,13 @@ export async function applyCanvasToolCall(toolName: string, args: unknown, gestu
     return {
       cameraMoveNodeId,
       targetNodeId: targetNodeId ?? null,
-      message: `已创建运镜参考（${CAMERA_MOVE_LABEL[spec.move]} · ${spec.shot ?? 'medium'} · ${speed} ≈${CAMERA_SPEED_DURATION[speed]}s）。正在离屏渲染运镜小片${targetNodeId ? '并喂给镜头作运镜参考视频' : ''}。`,
+      message: canvasRuntimeTranslate('agentTool.cameraMoveReferenceCreated', {
+        move: CAMERA_MOVE_LABEL[spec.move],
+        shot: spec.shot ?? 'medium',
+        speed,
+        duration: CAMERA_SPEED_DURATION[speed],
+        tail: targetNodeId ? canvasRuntimeTranslate('agentTool.cameraMoveTail') : '',
+      }),
     }
   }
 
@@ -458,13 +471,13 @@ export async function applyCanvasToolCall(toolName: string, args: unknown, gestu
       : []
     const existing = new Set(generationCanvasTools.read_canvas().nodes.map((node) => node.id))
     const nodeIds = requested.filter((id) => existing.has(id))
-    if (!nodeIds.length) throw new Error('node_not_found:请求生成的节点都不存在')
+    if (!nodeIds.length) throw new Error(canvasRuntimeTranslate('agentTool.batchNodeMissing'))
     const state = generationCanvasTools.read_canvas()
     const plan = buildDependencyWaves(nodeIds, { nodes: state.nodes, edges: state.edges })
     const accepted = plan.waves.flat()
     if (!accepted.length) {
       const reasons = plan.blocked.map((item) => item.detail).join(';')
-      throw new Error(`批量被拦:${reasons || '没有可执行节点'}`)
+      throw new Error(canvasRuntimeTranslate('agentTool.batchBlocked', { reason: reasons || canvasRuntimeTranslate('agentTool.batchNoExecutable') }))
     }
     // 付费守卫：本分支只在用户批准 pending 卡后到达（人手势在上游）→ 铸令牌绑受理节点，
     // 随 plan 下到主进程 runTask 核验。删了 defaultExecuteToolCall 的自动放行旁路后此处不会被 AI 静默触发。
@@ -487,7 +500,7 @@ export async function applyCanvasToolCall(toolName: string, args: unknown, gestu
       : undefined
     const result = arrangeStoryboardToTimeline(rawIds && rawIds.length ? { nodeIds: rawIds } : {})
     if (!result.ok && result.total === 0) {
-      throw new Error('没有可排片的镜头:画布上还没有生成好的视频或可占位的关键帧')
+      throw new Error(canvasRuntimeTranslate('agentTool.timelineNoShots'))
     }
     return {
       arranged: result.sent.length,

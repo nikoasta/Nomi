@@ -12,6 +12,8 @@ import {
 } from './agentPlanSummary'
 import { listAvailableModelsForAgent, type AgentModelEntry } from '../agent/availableModels'
 import { normalizeAspectRatioToWH } from '../nodes/aspectRatio'
+import { useI18n } from '../../../i18n/i18nContext'
+import { canvasTranslate, type CanvasI18nKey } from '../canvasI18n'
 
 export { summarizeAgentPlan }
 
@@ -25,10 +27,10 @@ type AgentPlanCardProps = {
   flat?: boolean
 }
 
-const LAYER_LABEL: Record<AgentPlanLayer, string> = {
-  reference: '参考',
-  keyframe: '关键帧',
-  video: '视频',
+const LAYER_LABEL_KEY: Record<AgentPlanLayer, CanvasI18nKey> = {
+  reference: 'agentPlan.layer.reference',
+  keyframe: 'agentPlan.layer.keyframe',
+  video: 'agentPlan.layer.video',
 }
 
 const edgeKey = (edge: PlannedEdge): string => `${edge.sourceClientId}→${edge.targetClientId}`
@@ -158,6 +160,8 @@ function PlanNodeRow({
  * 单层计划保持原编号平铺。一次「确认全部」原子批准。
  */
 function AgentPlanCard({ plan, approveCalls, rejectCall, flat = false }: AgentPlanCardProps): JSX.Element {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback((key: CanvasI18nKey, params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const [editedPrompts, setEditedPrompts] = React.useState<Record<string, string>>(() => {
     const initial: Record<string, string> = {}
     plan.nodes.forEach((node) => { initial[node.clientId] = node.prompt })
@@ -271,7 +275,7 @@ function AgentPlanCard({ plan, approveCalls, rejectCall, flat = false }: AgentPl
         flat ? '' : 'p-3 rounded-nomi border border-nomi-accent-soft bg-nomi-accent-soft/40',
       )}
       data-agent-plan-card="true"
-      aria-label="Agent 故事板计划卡片"
+      aria-label={tCanvas('agentPlan.aria')}
     >
       {/* 定稿样张：头部只留一行摘要（计数在组头、蓝底 chip 可点自明，不再解释）。 */}
       {flat ? null : <div className={cn('text-nomi-ink text-body font-medium leading-snug')}>{plan.summary}</div>}
@@ -281,7 +285,7 @@ function AgentPlanCard({ plan, approveCalls, rejectCall, flat = false }: AgentPl
           {groups.map((group) => (
             <section key={group.layer} className={cn('flex flex-col gap-[6px]')} data-plan-layer={group.layer}>
               <div className={cn('text-nomi-ink-60 text-micro font-semibold')}>
-                {LAYER_LABEL[group.layer]} <span className={cn('text-nomi-ink-40 font-medium')}>×{group.nodes.length}</span>
+                {tCanvas(LAYER_LABEL_KEY[group.layer])} <span className={cn('text-nomi-ink-40 font-medium')}>×{group.nodes.length}</span>
               </div>
               <ol className={cn('flex flex-col gap-2 list-none p-0 m-0')}>
                 {group.nodes.map((node, index) => renderRow(node, index, false))}
@@ -292,7 +296,7 @@ function AgentPlanCard({ plan, approveCalls, rejectCall, flat = false }: AgentPl
           {relayEdges.length > 0 ? (
             <section className={cn('flex flex-col gap-[6px]')} data-plan-layer="relay">
               <div className={cn('text-nomi-ink-60 text-micro font-semibold')}>
-                尾帧接力 <span className={cn('text-nomi-ink-40 font-medium')}>可选</span>
+                {tCanvas('agentPlan.relay')} <span className={cn('text-nomi-ink-40 font-medium')}>{tCanvas('agentPlan.optional')}</span>
               </div>
               {relayEdges.map((edge) => {
                 const key = edgeKey(edge)
@@ -309,7 +313,7 @@ function AgentPlanCard({ plan, approveCalls, rejectCall, flat = false }: AgentPl
                       type="checkbox"
                       className={cn('mt-[2px] accent-[var(--nomi-accent)]')}
                       checked={enabled}
-                      aria-label={`启用 ${shortTitle(edge.sourceClientId)} 到 ${shortTitle(edge.targetClientId)} 尾帧接力`}
+                      aria-label={tCanvas('agentPlan.enableRelay', { source: shortTitle(edge.sourceClientId), target: shortTitle(edge.targetClientId) })}
                       onChange={(event) => setRelayEnabled((current) => ({ ...current, [key]: event.target.checked }))}
                     />
                     <span className={cn('flex flex-col gap-[2px] min-w-0')}>
@@ -317,7 +321,7 @@ function AgentPlanCard({ plan, approveCalls, rejectCall, flat = false }: AgentPl
                         {shortTitle(edge.sourceClientId)} → {shortTitle(edge.targetClientId)}
                       </span>
                       <span className={cn('text-micro text-nomi-ink-40')}>
-                        {enabled ? '尾帧接首帧，动作顺接' : '已取消，独立生成'}
+                        {enabled ? tCanvas('agentPlan.relayEnabled') : tCanvas('agentPlan.relayDisabled')}
                       </span>
                     </span>
                   </label>
@@ -327,7 +331,7 @@ function AgentPlanCard({ plan, approveCalls, rejectCall, flat = false }: AgentPl
           ) : null}
         </div>
       ) : (
-        <ol className={cn('flex flex-col gap-2 list-none p-0 m-0')} aria-label="待确认的镜头列表">
+        <ol className={cn('flex flex-col gap-2 list-none p-0 m-0')} aria-label={tCanvas('agentPlan.shotList')}>
           {plan.nodes.map((node, index) => renderRow(node, index, true))}
         </ol>
       )}
@@ -336,10 +340,10 @@ function AgentPlanCard({ plan, approveCalls, rejectCall, flat = false }: AgentPl
           按钮走设计系统 variant(default/primary)+size md(=h-8,零尺寸变化),不再手搓 className。 */}
       <div className={cn('flex flex-wrap items-center justify-end gap-2')}>
         <WorkbenchButton className={cn('shrink-0')} variant="default" size="md" onClick={handleRejectAll}>
-          全部拒绝
+          {tCanvas('agentPlan.rejectAll')}
         </WorkbenchButton>
         <WorkbenchButton className={cn('shrink-0')} variant="primary" size="md" data-plan-confirm-all="true" onClick={handleConfirmAll}>
-          确认全部
+          {tCanvas('agentPlan.confirmAll')}
         </WorkbenchButton>
       </div>
     </div>

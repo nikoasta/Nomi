@@ -22,6 +22,7 @@ import {
   vectorToScene,
   type PointerCaptureHost,
 } from './trajectoryRendererHelpers'
+import { useScene3DI18n } from '../scene3dI18n'
 
 export function TrajectoryPointTransformControls({
   trajectoryId,
@@ -393,6 +394,7 @@ export function TrajectoryEndpointAddButton({
     placement?: 'before' | 'after',
   ) => void
 }): JSX.Element | null {
+  const t3d = useScene3DI18n()
   const point = trajectory.points[pointIndex]
   const addPosition = React.useMemo(() => endpointExtensionPosition(trajectory, pointIndex), [trajectory, pointIndex])
   const placement = endpointPlacement(trajectory, pointIndex)
@@ -419,8 +421,8 @@ export function TrajectoryEndpointAddButton({
       >
         <button
           type="button"
-          aria-label="连接新轨迹点"
-          title="连接新轨迹点"
+          aria-label={t3d('trajectory.addControlPoint')}
+          title={t3d('trajectory.addControlPoint')}
           className="grid size-8 place-items-center rounded-full border border-nomi-paper/85 bg-[var(--nomi-ink)] text-[var(--nomi-paper)] shadow-nomi-md transition hover:scale-105"
           onClick={(event) => {
             event.preventDefault()

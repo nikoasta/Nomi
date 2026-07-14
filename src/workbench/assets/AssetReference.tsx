@@ -4,6 +4,7 @@ import AssetTile, { AssetAddTile } from './AssetTile'
 import AssetPicker from './AssetPicker'
 import AssetPickerPopover from './AssetPickerPopover'
 import type { AssetKind, AssetRef } from './assetTypes'
+import { useI18n } from '../../i18n/i18nContext'
 
 // 节点侧的参考槽组件(P1.1,对齐样张 v4)。**声明式 slot 描述符驱动**(R5):一份 AssetSlot 声明「要几个
 // 什么槽、单还是数组、是否连边、怎么编号」。值与边的写入逻辑留在调用方(复用已验证的 handleSlotAssignment
@@ -64,6 +65,7 @@ export default function AssetReference({
   onTogglePicker, onPick, onUpload, onRemove, onInsertMention, onReorder, onBrowseAll,
 }: AssetReferenceProps): JSX.Element {
   const dragRef = React.useRef<{ key: string; index: number } | null>(null)
+  const { t } = useI18n()
   const singleSlots = slots.filter((s) => s.form === 'single')
   const arraySlots = slots.filter((s) => s.form === 'array')
   const labelSingles = singleSlots.length > 1 // 首尾帧:两个单帧槽才需标签区分;单个时不加标签(样张態③)。
@@ -153,7 +155,7 @@ export default function AssetReference({
               />
             ))}
             {arrayCanAdd ? (
-              <AssetAddTile label="加参考" selected={openSlotKey === MERGED_ARRAY_KEY} onClick={() => onTogglePicker(MERGED_ARRAY_KEY)} />
+              <AssetAddTile label={t('assetTile.addReference')} selected={openSlotKey === MERGED_ARRAY_KEY} onClick={() => onTogglePicker(MERGED_ARRAY_KEY)} />
             ) : null}
           </div>
           {openSlotKey === MERGED_ARRAY_KEY ? (

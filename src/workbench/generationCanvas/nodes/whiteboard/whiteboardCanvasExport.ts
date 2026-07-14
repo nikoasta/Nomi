@@ -44,11 +44,11 @@ export async function exportViewportFileWithoutEditorOverlays(app: LeaferApp, fi
     })
 
     if (result.error) {
-      throw result.error instanceof Error ? result.error : new Error('截图失败')
+      throw result.error instanceof Error ? result.error : new Error('Screenshot failed')
     }
 
     if (!(result.data instanceof Blob)) {
-      throw new Error('截图失败')
+      throw new Error('Screenshot failed')
     }
 
     return new File([result.data], ensurePngFilename(filename), {

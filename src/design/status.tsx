@@ -1,5 +1,6 @@
 import { Alert, Badge, Progress, type AlertProps, type BadgeProps, type ProgressProps } from '@mantine/core'
 import { cn } from '../utils/cn'
+import { useI18n } from '../i18n/i18nContext'
 
 type StatusBadgeTone = 'neutral' | 'info' | 'success' | 'warning' | 'danger'
 
@@ -91,8 +92,9 @@ export type NomiSkeletonProps = {
  * return null / 空态文字」。token-only pulse 块;motion-reduce 不闪。
  */
 export function NomiSkeleton({ lines = 1, className }: NomiSkeletonProps): JSX.Element {
+  const { t } = useI18n()
   return (
-    <div className={cn('flex flex-col gap-2')} role="status" aria-label="加载中" aria-busy="true">
+    <div className={cn('flex flex-col gap-2')} role="status" aria-label={t('common.loading')} aria-busy="true">
       {Array.from({ length: Math.max(1, lines) }).map((_, index) => (
         <div
           key={index}

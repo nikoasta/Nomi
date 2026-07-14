@@ -9,6 +9,7 @@
 // 客观项(连线结构/数量/参数)仍归 reconcile.ts 结构对账,不在这里重复判。
 
 import type { ReconcileDeviation } from './reconcile'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 export type ShotVerifyDimensionKey = 'identity' | 'composition' | 'continuity'
 
@@ -127,7 +128,9 @@ export function parseShotVerifyVerdict(text: string): { scores: Record<ShotVerif
       /* 试下一种 */
     }
   }
-  if (!parsed || typeof parsed !== 'object') throw new Error(`校验输出非 JSON：${candidate.slice(0, 140)}`)
+  if (!parsed || typeof parsed !== 'object') {
+    throw new Error(canvasRuntimeTranslate('verify.nonJson', { snippet: candidate.slice(0, 140) }))
+  }
   const obj = parsed as Record<string, unknown>
   const rawScores = obj.scores && typeof obj.scores === 'object' ? (obj.scores as Record<string, unknown>) : {}
   const scores = {} as Record<ShotVerifyDimensionKey, number>

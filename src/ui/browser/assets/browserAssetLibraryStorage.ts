@@ -36,8 +36,8 @@ const BROWSER_ASSET_LIBRARY_STATE_VERSION = 1
 const BROWSER_ASSET_LIBRARY_STORAGE_PREFIX = 'nomi.browser.asset-library.v1'
 export const BROWSER_ASSET_LIBRARY_UPDATED_EVENT = 'nomi-browser-asset-library-updated'
 export const DEFAULT_BROWSER_PROMPT_CATEGORIES: readonly BrowserPromptCategory[] = [
-  { id: 'image', label: '图片提示词', createdAt: 'default' },
-  { id: 'video', label: '视频提示词', createdAt: 'default' },
+  { id: 'image', label: 'Image prompts', createdAt: 'default' },
+  { id: 'video', label: 'Video prompts', createdAt: 'default' },
 ]
 
 export const EMPTY_BROWSER_ASSET_LIBRARY_STATE: BrowserAssetLibraryState = {
@@ -197,14 +197,14 @@ export function promptTypeLabel(
 ): string {
   const category = categories?.find((item) => item.id === promptType)
   if (category) return category.label
-  return promptType === 'video' ? '视频提示词' : '图片提示词'
+  return promptType === 'video' ? 'Video prompts' : 'Image prompts'
 }
 
 function promptCardTitle(prompt: string, title?: string): string {
   const normalizedTitle = title?.trim()
   if (normalizedTitle) return normalizedTitle.slice(0, 48)
   const normalizedPrompt = prompt.trim().replace(/\s+/g, ' ')
-  return normalizedPrompt ? normalizedPrompt.slice(0, 48) : '保存的提示词'
+  return normalizedPrompt ? normalizedPrompt.slice(0, 48) : 'Saved prompt'
 }
 
 function createPromptCardId(): string {
@@ -232,7 +232,7 @@ export function saveBrowserPromptCard(input: SaveBrowserPromptCardInput): NomiBr
     source: 'transcript',
     title: promptCardTitle(prompt, input.title),
     subtitle: label,
-    tags: [label, '手动保存'],
+    tags: [label, 'Manual save'],
     previewUrl,
     previewMediaType: previewUrl ? 'image' : undefined,
     status: 'ready',

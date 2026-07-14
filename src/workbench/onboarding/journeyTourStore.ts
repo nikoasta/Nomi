@@ -121,7 +121,7 @@ export const useJourneyTourStore = create<JourneyTourState>((set) => {
     await spotlight('character', nodeSel(DEMO_CANVAS_SPOTLIGHTS.character))
     await spotlight('staging', nodeSel(DEMO_CANVAS_SPOTLIGHTS.staging))
     await spotlight('trajectory', nodeSel(DEMO_CANVAS_SPOTLIGHTS.trajectory))
-    await spotlight('generate', nodeSel(DEMO_CANVAS_SPOTLIGHTS.generate, ' [aria-label="生成素材"]'))
+    await spotlight('generate', nodeSel(DEMO_CANVAS_SPOTLIGHTS.generate, ' [data-tour-target="generate-button"]'))
     if (aborted()) return
 
     // ── 预览：排进时间轴 + 字幕 / 导出聚光 ──

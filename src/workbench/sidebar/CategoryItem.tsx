@@ -1,5 +1,6 @@
 import React from 'react'
 import { cn } from '../../utils/cn'
+import { useI18n } from '../../i18n/i18nContext'
 import type { ProjectCategory } from '../project/projectCategories'
 import { getCategoryIcon } from './categoryIcons'
 
@@ -20,6 +21,7 @@ type Props = {
 }
 
 export default function CategoryItem({ category, count, active, collapsed, expanded = false, editing = false, onCommitName, onCancelEdit, onActivate, onDropNode, onContextMenu }: Props): JSX.Element {
+  const { t } = useI18n()
   const [dragOver, setDragOver] = React.useState(false)
   const settledRef = React.useRef(false)
   React.useEffect(() => { if (editing) settledRef.current = false }, [editing])
@@ -55,7 +57,7 @@ export default function CategoryItem({ category, count, active, collapsed, expan
         <input
           autoFocus
           defaultValue={category.name}
-          aria-label="分类名称"
+          aria-label={t('categoryItem.nameAria')}
           onFocus={(event) => event.currentTarget.select()}
           onClick={(event) => event.stopPropagation()}
           onKeyDown={(event) => {

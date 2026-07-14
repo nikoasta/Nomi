@@ -8,6 +8,7 @@ import { cn } from '../../utils/cn'
 import { WorkbenchButton } from '../../design'
 import { classifyGenerationError } from '../observability/classifyError'
 import { NomiIdentityRow } from './AssistantMessageView'
+import { useI18n } from '../../i18n/i18nContext'
 
 export function AssistantErrorCard({ error, onRetry }: {
   /** 原始错误文本（message.content）；卡内部分类成人话，调用方不用预处理。 */
@@ -16,6 +17,7 @@ export function AssistantErrorCard({ error, onRetry }: {
   onRetry?: () => void
 }): JSX.Element {
   const [detailOpen, setDetailOpen] = React.useState(false)
+  const { t } = useI18n()
   const report = React.useMemo(() => classifyGenerationError(error), [error])
   const openCatalog = React.useCallback(() => {
     window.dispatchEvent(new CustomEvent('nomi-open-model-catalog'))
@@ -35,7 +37,7 @@ export function AssistantErrorCard({ error, onRetry }: {
               <span className={cn('text-caption text-nomi-ink-80 leading-snug')}>{report.hint}</span>
             ) : null}
             {report.providerMessage ? (
-              <span className={cn('text-caption text-nomi-ink-60 leading-snug')}>服务商：{report.providerMessage}</span>
+              <span className={cn('text-caption text-nomi-ink-60 leading-snug')}>{t('assistantError.provider', { message: report.providerMessage })}</span>
             ) : null}
           </div>
         </div>
@@ -45,12 +47,12 @@ export function AssistantErrorCard({ error, onRetry }: {
           {onRetry ? (
             <WorkbenchButton className={cn('shrink-0')} variant="default" size="sm" data-assistant-error-retry="true" onClick={onRetry}>
               <IconRefresh size={14} stroke={1.8} />
-              重试
+              {t('assistantError.retry')}
             </WorkbenchButton>
           ) : null}
           <WorkbenchButton className={cn('shrink-0')} variant="default" size="sm" onClick={openCatalog}>
             <IconSettings size={14} stroke={1.8} />
-            去模型接入
+            {t('assistantError.modelSetup')}
           </WorkbenchButton>
           {hasDetail ? (
             <button
@@ -62,7 +64,7 @@ export function AssistantErrorCard({ error, onRetry }: {
               onClick={() => setDetailOpen((open) => !open)}
             >
               {detailOpen ? <IconChevronDown size={12} stroke={1.8} /> : <IconChevronRight size={12} stroke={1.8} />}
-              技术详情
+              {t('assistantError.technicalDetails')}
             </button>
           ) : null}
         </div>

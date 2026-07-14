@@ -2,6 +2,7 @@
 // 外挂组件:BaseGenerationNode 是白名单巨壳(R12),不往里塞实现。
 import React from 'react'
 import { cn } from '../../../utils/cn'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 type TechnicalReview = { verdict?: string; checks?: { suspect: boolean; detail: string }[] }
 
@@ -12,7 +13,7 @@ export function TechnicalReviewBadge({ meta }: { meta?: Record<string, unknown> 
   return (
     <span
       className={cn('text-micro py-[3px] px-2 rounded-nomi-sm bg-workbench-danger-soft text-workbench-danger')}
-      title={`自检提醒:${reasons || '结果可能有问题'} — 内容不变,仅提醒;可重新生成`}
+      title={canvasRuntimeTranslate('technicalReview.title', { reason: reasons || canvasRuntimeTranslate('technicalReview.defaultReason') })}
       data-technical-review='suspect'
     >
       ⚠

@@ -51,6 +51,7 @@ import { useWhiteboardDrawing } from './useWhiteboardDrawing'
 import { useWhiteboardBoxSelection } from './useWhiteboardBoxSelection'
 import { useWhiteboardSelectionActions } from './useWhiteboardSelectionActions'
 import { useWhiteboardSceneSync } from './useWhiteboardSceneSync'
+import { useI18n } from '../../../../i18n/i18nContext'
 
 export type { CanvasObjectTarget, CanvasStroke } from './whiteboardCanvasTypes'
 
@@ -113,6 +114,7 @@ export const LeaferCanvas = forwardRef<LeaferCanvasHandle, LeaferCanvasProps>(fu
   onObjectDelete,
   onRemoveBackground
 }: LeaferCanvasProps, ref) {
+  const { t } = useI18n()
   const hostRef = useRef<HTMLDivElement | null>(null)
   const stageRef = useRef<HTMLDivElement | null>(null)
   const pointerLayerRef = useRef<HTMLDivElement | null>(null)
@@ -176,19 +178,19 @@ export const LeaferCanvas = forwardRef<LeaferCanvasHandle, LeaferCanvasProps>(fu
       async captureViewport(filename = createViewportScreenshotFilename()) {
         const app = appRef.current
         if (!app) {
-          throw new Error('画布还未准备好')
+          throw new Error(t('whiteboard.boardNotReady'))
         }
 
         const result = await exportViewportWithoutEditorOverlays(app, filename)
 
         if (result.error) {
-          throw result.error instanceof Error ? result.error : new Error('截图失败')
+          throw result.error instanceof Error ? result.error : new Error(t('tool.panorama.screenshotFailed'))
         }
       },
       async captureViewportFile(filename = createViewportScreenshotFilename()) {
         const app = appRef.current
         if (!app) {
-          throw new Error('画布还未准备好')
+          throw new Error(t('whiteboard.boardNotReady'))
         }
 
         return exportViewportFileWithoutEditorOverlays(app, filename)
@@ -638,7 +640,7 @@ export const LeaferCanvas = forwardRef<LeaferCanvasHandle, LeaferCanvasProps>(fu
         <div
           ref={hostRef}
           className="h-full w-full overflow-hidden [&_.leafer-app-view]:!block [&_.leafer-app-view]:!h-full [&_.leafer-app-view]:!max-h-full [&_.leafer-app-view]:!max-w-full [&_.leafer-app-view]:!w-full [&_canvas]:!block [&_canvas]:!h-full [&_canvas]:!max-h-full [&_canvas]:!max-w-full [&_canvas]:!w-full"
-          aria-label="Leafer 画板"
+          aria-label={t('whiteboard.leaferAria')}
         />
         <svg
           className="pointer-events-none absolute inset-0 h-full w-full"
@@ -715,7 +717,7 @@ export const LeaferCanvas = forwardRef<LeaferCanvasHandle, LeaferCanvasProps>(fu
             activeTool === 'select' ? 'pointer-events-none cursor-default' : ''
           } ${activeTool === 'eraser' ? 'cursor-none' : ''}`}
           role="application"
-          aria-label="绘图操作层"
+          aria-label={t('whiteboard.drawingLayerAria')}
           onPointerDown={handlePointerDown}
           onPointerEnter={updateToolCursor}
           onPointerLeave={hideToolCursor}

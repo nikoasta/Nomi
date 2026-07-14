@@ -12,12 +12,14 @@ import { cn } from '../../../../utils/cn'
 import { WorkbenchButton } from '../../../../design'
 import { toast } from '../../../../ui/toast'
 import type { GenerationCanvasNode } from '../../model/generationCanvasTypes'
-import { readAudioMeta, AUDIO_KIND_LABELS } from '../../model/nodeMetaFields'
+import { readAudioMeta } from '../../model/nodeMetaFields'
 import { useNodeUsageCount } from '../../hooks/useNodeRelationships'
 import { useGenerationCanvasStore } from '../../store/generationCanvasStore'
 import { persistNodeImageFile } from '../../adapters/persistNodeImage'
 import { UsageDot } from './CardCommon'
 import { getDisplayTitle } from '../../model/titleHeuristics'
+import { useI18n } from '../../../../i18n/i18nContext'
+import { canvasRuntimeTranslate, canvasTranslate } from '../../canvasI18n'
 
 type Props = {
   node: GenerationCanvasNode
@@ -72,7 +74,7 @@ function PlayBar({ progress, onSeek }: { progress: number; onSeek: (fraction: nu
       onPointerDown={(event) => event.stopPropagation()}
       onClick={seekFromEvent}
       role="slider"
-      aria-label="播放进度"
+      aria-label={canvasRuntimeTranslate('audio.progress')}
       aria-valuenow={Math.round(progress * 100)}
     >
       {bars.map((h, i) => (
@@ -87,10 +89,17 @@ function PlayBar({ progress, onSeek }: { progress: number; onSeek: (fraction: nu
 }
 
 function AudioStripNodeImpl({ node }: Props): JSX.Element {
+  const { locale, t } = useI18n()
   const meta = readAudioMeta(node)
   const usageCount = useNodeUsageCount(node.id, node.title)
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
-  const audioKindLabel = meta.audioKind ? AUDIO_KIND_LABELS[meta.audioKind] : null
+  const audioKindLabel = meta.audioKind === 'sfx'
+    ? canvasTranslate(locale, 'audio.kind.sfx')
+    : meta.audioKind === 'vo'
+      ? canvasTranslate(locale, 'audio.kind.vo')
+      : meta.audioKind === 'bgm'
+        ? 'BGM'
+        : null
   const result = node.result
   const isTranscript = result?.type === 'text' && Boolean(result.text)
   const hasAudio = result?.type === 'audio' && Boolean(result.url)
@@ -145,9 +154,9 @@ function AudioStripNodeImpl({ node }: Props): JSX.Element {
   const handleGenerateSubtitle = React.useCallback((event: React.MouseEvent) => {
     event.stopPropagation()
     const srt = buildSrt(node)
-    if (!srt) { toast('暂无可生成字幕的内容', 'error'); return }
-    void navigator.clipboard?.writeText(srt).then(() => toast('字幕已复制（SRT，可粘贴为 .srt）', 'success')).catch(() => {})
-  }, [node])
+    if (!srt) { toast(t('audio.noSubtitles'), 'error'); return }
+    void navigator.clipboard?.writeText(srt).then(() => toast(t('audio.subtitlesCopied'), 'success')).catch(() => {})
+  }, [node, t])
 
   // 转写文本态：文本 + 复制 + 生成字幕（SRT）。
   if (isTranscript) {
@@ -165,18 +174,18 @@ function AudioStripNodeImpl({ node }: Props): JSX.Element {
             size="sm"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleCopyText}
-            title="复制转写文本"
+            title={t('audio.copyTranscript')}
           >
-            <IconCopy size={14} stroke={1.6} aria-hidden />复制
+            <IconCopy size={14} stroke={1.6} aria-hidden />{t('audio.copy')}
           </WorkbenchButton>
           <WorkbenchButton
             variant="primary"
             size="sm"
             onPointerDown={(event) => event.stopPropagation()}
             onClick={handleGenerateSubtitle}
-            title="按转写时间轴生成 SRT 字幕"
+            title={t('audio.generateSubtitles')}
           >
-            <IconBadgeCc size={14} stroke={1.6} aria-hidden />生成字幕
+            <IconBadgeCc size={14} stroke={1.6} aria-hidden />{t('audio.generateSubtitles')}
           </WorkbenchButton>
         </div>
       </div>
@@ -208,8 +217,8 @@ function AudioStripNodeImpl({ node }: Props): JSX.Element {
         <button
           type="button"
           className={cn('inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-nomi-ink text-nomi-paper hover:bg-nomi-accent transition-colors')}
-          aria-label={isPlaying ? '暂停' : '播放'}
-          title={isPlaying ? '暂停' : '播放'}
+          aria-label={isPlaying ? t('audio.pause') : t('audio.play')}
+          title={isPlaying ? t('audio.pause') : t('audio.play')}
           onPointerDown={(event) => event.stopPropagation()}
           onClick={handleTogglePlay}
         >
@@ -218,8 +227,8 @@ function AudioStripNodeImpl({ node }: Props): JSX.Element {
       ) : (
         <label
           className={cn('inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-full cursor-pointer bg-nomi-accent-soft text-nomi-accent hover:bg-nomi-accent hover:text-nomi-paper transition-colors')}
-          aria-label="上传音频"
-          title="上传音频"
+          aria-label={t('audio.upload')}
+          title={t('audio.upload')}
           onPointerDown={(event) => event.stopPropagation()}
         >
           <IconUpload size={14} stroke={1.6} aria-hidden />
@@ -234,9 +243,9 @@ function AudioStripNodeImpl({ node }: Props): JSX.Element {
           </span>
         ) : null}
         <span className="text-body-sm font-semibold text-nomi-ink-80 truncate" title={node.title}>
-          {getDisplayTitle(node.title, '声音')}
+          {getDisplayTitle(node.title, t('audio.sound'))}
         </span>
-        {!hasAudio ? <span className="text-micro text-nomi-ink-40 truncate">上传或连接音频</span> : null}
+        {!hasAudio ? <span className="text-micro text-nomi-ink-40 truncate">{t('audio.uploadOrConnect')}</span> : null}
       </div>
 
       {hasAudio ? (

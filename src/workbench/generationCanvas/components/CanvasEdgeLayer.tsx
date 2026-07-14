@@ -1,10 +1,12 @@
 import React from 'react'
 import { IconScissors } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
-import { EDGE_MODE_LABEL } from '../model/graphOps'
+import { getEdgeModeLabel } from '../model/graphOps'
 import type { GenerationCanvasEdge, GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { resolveNodeVisualSize } from '../nodes/nodeSizing'
 import type { ConnectionAnchorSide } from '../store/canvasStoreTypes'
+import { useI18n } from '../../../i18n/i18nContext'
+import { canvasTranslate } from '../canvasI18n'
 
 export type ActiveEdge = {
   id: string
@@ -54,6 +56,8 @@ function CanvasEdgeLayer({
   onDisconnectEdge,
   getCanvasPointFromClientPoint,
 }: CanvasEdgeLayerProps): JSX.Element {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const activeEdgeId = activeEdge?.id ?? null
   // 密度判定：按 target 统计「有类型标签」（非泛 reference）入边数，超阈值的 target 其标签默认收起。
   const labeledCountByTarget = React.useMemo(() => {
@@ -97,7 +101,7 @@ function CanvasEdgeLayer({
     [edges, nodeById],
   )
   return (
-    <svg className="generation-canvas-v2__edges" aria-label="节点连接线">
+    <svg className="generation-canvas-v2__edges" aria-label={tCanvas('edges.aria')}>
       {edgeGeoms.map(({ edge, source, target, endX, endY, midX, midY, path, mode, isTyped }) => {
         // 视口裁剪：两端都在可见集外的边不渲染（大图性能，B3）
         if (visibleNodeIds && !visibleNodeIds.has(edge.source) && !visibleNodeIds.has(edge.target)) return null
@@ -106,6 +110,7 @@ function CanvasEdgeLayer({
         const isDense = (labeledCountByTarget.get(edge.target) || 0) > EDGE_TAG_DENSE_THRESHOLD
         const isIncident = focusedNodeId != null && (edge.source === focusedNodeId || edge.target === focusedNodeId)
         const renderInteractiveEdge = !lightweight || isActiveEdge || isIncident
+        const edgeLabel = getEdgeModeLabel(mode, locale)
         return (
           <g
             key={edge.id}
@@ -121,7 +126,7 @@ function CanvasEdgeLayer({
               <g className="generation-canvas-v2__edge-tag" transform={`translate(${midX} ${midY}) scale(${tagScale})`}>
                 <foreignObject x={-46} y={-9} width={92} height={18} style={{ overflow: 'visible' }}>
                   <div className="flex w-full h-full items-center justify-center">
-                    <span className="generation-canvas-v2__edge-tag-pill">{EDGE_MODE_LABEL[mode]}</span>
+                    <span className="generation-canvas-v2__edge-tag-pill">{edgeLabel}</span>
                   </div>
                 </foreignObject>
               </g>
@@ -132,7 +137,7 @@ function CanvasEdgeLayer({
                 d={path}
                 role="button"
                 tabIndex={0}
-                aria-label={`选择连接线：${source.title} 到 ${target.title}`}
+                aria-label={tCanvas('edge.selectAria', { source: source.title, target: target.title })}
                 onPointerDown={(event) => {
                   event.stopPropagation()
                   onSetActiveEdge({
@@ -159,8 +164,8 @@ function CanvasEdgeLayer({
                       'shadow-nomi-md',
                       'hover:bg-workbench-danger hover:text-nomi-paper',
                     )}
-                    aria-label={`断开连接：${source.title} 到 ${target.title}`}
-                    title={`断开连接：${EDGE_MODE_LABEL[mode]}`}
+                    aria-label={tCanvas('edge.disconnectAria', { source: source.title, target: target.title })}
+                    title={tCanvas('edge.disconnect', { label: edgeLabel })}
                     onPointerDown={(event) => event.stopPropagation()}
                     onClick={(event) => {
                       event.stopPropagation()

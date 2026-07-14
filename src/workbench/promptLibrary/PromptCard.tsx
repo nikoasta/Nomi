@@ -2,6 +2,7 @@ import React from 'react'
 import { IconPlayerPlayFilled, IconPhoto, IconVideo } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../design'
+import { useI18n } from '../../i18n/i18nContext'
 import type { LibraryPrompt } from '../api/promptLibraryApi'
 
 type Props = {
@@ -11,6 +12,7 @@ type Props = {
 
 // 单张提示词卡:封面(图<img>/视频<video 首帧>)+标题渐变压字+类型角标。memo 化(搜索/滚动重渲不重建)。
 export const PromptCard = React.memo(function PromptCard({ prompt, onSelect }: Props): JSX.Element {
+  const { t } = useI18n()
   const [broken, setBroken] = React.useState(false)
   const isVideo = prompt.mediaType === 'video'
   const hasMedia = Boolean(prompt.mediaUrl) && !broken
@@ -58,7 +60,7 @@ export const PromptCard = React.memo(function PromptCard({ prompt, onSelect }: P
             'bg-nomi-overlay-chip text-nomi-paper backdrop-blur-sm',
           )}>
             {isVideo ? <IconPlayerPlayFilled size={9} /> : null}
-            {isVideo ? '视频' : '图片'}
+            {isVideo ? t('mediaType.video') : t('mediaType.image')}
           </span>
 
           <span className={cn(

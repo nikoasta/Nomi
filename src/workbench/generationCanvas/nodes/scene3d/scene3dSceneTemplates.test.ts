@@ -17,7 +17,7 @@ describe('场景模板 builder', () => {
   it('街道模板含马路/楼/树/路灯/车，全部贴地不悬空', () => {
     const objects = buildSceneTemplateObjects('street')
     const names = objects.map((o) => o.name).join(',')
-    for (const expected of ['马路', '楼', '行道树', '路灯', '车辆', '车道线', '人行道']) {
+    for (const expected of ['Road', 'Building', 'Street tree', 'Streetlamp', 'Car', 'Lane marker', 'Sidewalk']) {
       expect(names).toContain(expected)
     }
     // 道具 origin 在地面中心：y 不应大于人行道面高（0.15）。

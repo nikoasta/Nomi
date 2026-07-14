@@ -1,17 +1,19 @@
 import React from 'react'
 import { cn } from '../../utils/cn'
+import { useI18n } from '../../i18n/i18nContext'
+import type { TranslationKey } from '../../i18n/translations'
 import type { GenerationCanvasNode } from '../generationCanvas/model/generationCanvasTypes'
 
-const NODE_KIND_LABEL: Partial<Record<GenerationCanvasNode['kind'], string>> = {
-  text: '文',
-  character: '角',
-  scene: '景',
-  image: '图',
-  keyframe: '帧',
-  video: '影',
-  shot: '镜',
-  output: '出',
-  panorama: '全',
+const NODE_KIND_LABEL_KEY: Partial<Record<GenerationCanvasNode['kind'], TranslationKey>> = {
+  text: 'nodeItem.kind.text',
+  character: 'nodeItem.kind.character',
+  scene: 'nodeItem.kind.scene',
+  image: 'nodeItem.kind.image',
+  keyframe: 'nodeItem.kind.keyframe',
+  video: 'nodeItem.kind.video',
+  shot: 'nodeItem.kind.shot',
+  output: 'nodeItem.kind.output',
+  panorama: 'nodeItem.kind.panorama',
 }
 
 type Props = {
@@ -23,6 +25,7 @@ type Props = {
 }
 
 export default function NodeItem({ node, active = false, depth = 0, onSelect, onContextMenu }: Props): JSX.Element {
+  const { t } = useI18n()
   const handleDragStart = React.useCallback((event: React.DragEvent<HTMLButtonElement>) => {
     event.dataTransfer.setData('application/x-nomi-node-id', node.id)
     event.dataTransfer.effectAllowed = 'move'
@@ -52,11 +55,11 @@ export default function NodeItem({ node, active = false, depth = 0, onSelect, on
       title={node.title || node.id}
     >
       <span className="grid place-items-center h-4 w-4 shrink-0 rounded-nomi-sm bg-nomi-ink-05 text-micro text-nomi-ink-40" aria-hidden>
-        {NODE_KIND_LABEL[node.kind] || '节'}
+        {t(NODE_KIND_LABEL_KEY[node.kind] || 'nodeItem.kind.default')}
       </span>
       <span className="min-w-0 flex-1 truncate">{node.title || node.id}</span>
       {node.derivedFrom ? (
-        <span className="shrink-0 rounded-full bg-nomi-accent/10 px-1.5 py-0.5 text-micro text-nomi-accent" title="由其他节点派生">
+        <span className="shrink-0 rounded-full bg-nomi-accent/10 px-1.5 py-0.5 text-micro text-nomi-accent" title={t('nodeItem.derived')}>
           ↩
         </span>
       ) : null}

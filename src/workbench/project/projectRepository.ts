@@ -174,7 +174,7 @@ export function readLocalProject(
     if (!summary) return null;
     const raw = readJson(projectRecordKey(id));
     if (!raw) {
-        throw new Error(`本地项目记录缺失：${id}`);
+        throw new Error(`Local project record is missing: ${id}`);
     }
     return normalizeRecord(summary, raw);
 }

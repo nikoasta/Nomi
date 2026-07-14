@@ -15,6 +15,7 @@ import { PanelButton, SceneAddToolbar } from './scene3dToolbar'
 import { MANNEQUIN_POSE_PRESETS, type CrowdAddOptions } from './scene3dConstants'
 import type { Scene3DCamera, Scene3DGeometry, Scene3DObject, Scene3DPropKind } from './scene3dTypes'
 import type { Scene3DSceneTemplate } from './scene3dSceneTemplates'
+import { useScene3DI18n, type Scene3DI18nKey } from './scene3dI18n'
 
 type CharacterDriveApi = {
   possessId: string | null
@@ -31,15 +32,16 @@ type CharacterDriveApi = {
 // 头部工具栏「操控」入口：选中单个假人 → 操控走位；选中单个相机 → 操控运镜。进入/退出操控态。
 // 一个动词对角色和相机一视同仁（P4）。整块逻辑+可见性自闭合，让 Scene3DFullscreen 壳只写一行接线（R9）。
 export function CharacterPossessButton({ drive }: { drive: CharacterDriveApi }): JSX.Element | null {
+  const t3d = useScene3DI18n()
   const possessingCharacter = Boolean(drive.possessId)
   const possessingCamera = Boolean(drive.cameraPossessId)
 
   if (possessingCamera) {
     return (
       <div className="flex items-center gap-1 rounded-nomi border border-[var(--nomi-line-soft)] bg-[var(--nomi-paper)] p-0.5">
-        <PanelButton title="退出操控镜头" active onClick={drive.exitCameraPossess}>
+        <PanelButton title={t3d('action.exitCameraPossess')} active onClick={drive.exitCameraPossess}>
           <IconVideo size={15} />
-          <span>操控</span>
+          <span>{t3d('possess.button')}</span>
         </PanelButton>
       </div>
     )
@@ -47,9 +49,9 @@ export function CharacterPossessButton({ drive }: { drive: CharacterDriveApi }):
   if (possessingCharacter) {
     return (
       <div className="flex items-center gap-1 rounded-nomi border border-[var(--nomi-line-soft)] bg-[var(--nomi-paper)] p-0.5">
-        <PanelButton title="退出操控" active onClick={drive.exitPossess}>
+        <PanelButton title={t3d('action.exitPossess')} active onClick={drive.exitPossess}>
           <IconManFilled size={15} />
-          <span>操控</span>
+          <span>{t3d('possess.button')}</span>
         </PanelButton>
       </div>
     )
@@ -58,11 +60,11 @@ export function CharacterPossessButton({ drive }: { drive: CharacterDriveApi }):
     return (
       <div className="flex items-center gap-1 rounded-nomi border border-[var(--nomi-line-soft)] bg-[var(--nomi-paper)] p-0.5">
         <PanelButton
-          title="操控该角色（WASD 走位 + 动作库）"
+          title={t3d('action.possessCharacterShort')}
           onClick={() => drive.selectedMannequin && drive.enterPossess(drive.selectedMannequin.id)}
         >
           <IconManFilled size={15} />
-          <span>操控</span>
+          <span>{t3d('possess.button')}</span>
         </PanelButton>
       </div>
     )
@@ -71,11 +73,11 @@ export function CharacterPossessButton({ drive }: { drive: CharacterDriveApi }):
     return (
       <div className="flex items-center gap-1 rounded-nomi border border-[var(--nomi-line-soft)] bg-[var(--nomi-paper)] p-0.5">
         <PanelButton
-          title="操控该镜头（WASD 飞 + 鼠标转朝向 + 滚轮推拉 → 录运镜）"
+          title={t3d('possess.cameraTitle')}
           onClick={() => drive.selectedCamera && drive.enterCameraPossess(drive.selectedCamera.id)}
         >
           <IconVideo size={15} />
-          <span>操控</span>
+          <span>{t3d('possess.button')}</span>
         </PanelButton>
       </div>
     )
@@ -91,11 +93,11 @@ export function CharacterPossessButton({ drive }: { drive: CharacterDriveApi }):
 // 「站立」= #B 修复：此前点了挥手/坐下没有任何按钮能回站姿(除非重新走动触发 locomotion 接管，站着不动就
 // 永久卡住)。复用现成 standing 预设(pose 缺省=rest)，不新造姿势数据。另外——再点一次已激活的那个动作按钮
 // 也会自动顶成站立（toggle，见 useScene3DCharacterDrive.applyActionPreset），点它=顶它，不用特地找这个按钮。
-const ACTION_DEFS: Array<{ label: string; presetId: string; icon: typeof IconManFilled }> = [
-  { label: '站立', presetId: 'standing', icon: IconArrowBarToUp },
-  { label: '下蹲', presetId: 'squat', icon: IconArrowBarToDown },
-  { label: '挥手', presetId: 'wave', icon: IconHandStop },
-  { label: '坐下', presetId: 'sit', icon: IconArmchair },
+const ACTION_DEFS: Array<{ labelKey: Scene3DI18nKey; presetId: string; icon: typeof IconManFilled }> = [
+  { labelKey: 'action.poseStanding', presetId: 'standing', icon: IconArrowBarToUp },
+  { labelKey: 'action.poseSquat', presetId: 'squat', icon: IconArrowBarToDown },
+  { labelKey: 'action.poseWave', presetId: 'wave', icon: IconHandStop },
+  { labelKey: 'action.poseSit', presetId: 'sit', icon: IconArmchair },
 ]
 
 const ACTION_LIBRARY = ACTION_DEFS.filter((action) =>
@@ -119,6 +121,7 @@ function formatElapsed(seconds: number): string {
 // 录制按钮（REC / 停止 + 计时）。录制态下用强调色点 + 秒数；非录制态是「录 take」。
 // 录制中其它动作仍可点（中途切动作=切姿势,S2 不录 pose 随时间,见缺口）。
 function TakeRecordButton({ recorder }: { recorder: ActionBarRecorder }): JSX.Element {
+  const t3d = useScene3DI18n()
   if (recorder.isRecording) {
     return (
       <button
@@ -128,7 +131,7 @@ function TakeRecordButton({ recorder }: { recorder: ActionBarRecorder }): JSX.El
           'transition hover:opacity-90',
         )}
         type="button"
-        title="停止录制并生成参考视频"
+        title={t3d('action.stopRecording')}
         onClick={recorder.onStop}
       >
         <IconPlayerStopFilled size={14} />
@@ -144,11 +147,11 @@ function TakeRecordButton({ recorder }: { recorder: ActionBarRecorder }): JSX.El
         'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
       )}
       type="button"
-      title="录 take：把这段走位 + 机位录成参考视频喂给镜头"
+      title={t3d('action.recordTakeTitle')}
       onClick={recorder.onStart}
     >
       <IconCircleFilled size={12} className="text-[var(--workbench-danger)]" />
-      <span>录 take</span>
+      <span>{t3d('action.recordTake')}</span>
     </button>
   )
 }
@@ -168,10 +171,11 @@ export function CharacterActionBar({
   onExit: () => void
   recorder?: ActionBarRecorder
 }): JSX.Element {
+  const t3d = useScene3DI18n()
   return (
     <div
       className="absolute bottom-5 left-1/2 z-[8] max-w-[calc(100%-32px)] -translate-x-1/2"
-      aria-label="角色操控动作库"
+      aria-label={t3d('action.characterToolbarAria')}
       onPointerDown={(event) => event.stopPropagation()}
       onWheel={(event) => event.stopPropagation()}
     >
@@ -182,7 +186,7 @@ export function CharacterActionBar({
         )}
         role="toolbar"
       >
-        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-nomi bg-[var(--nomi-ink)] px-2.5 text-caption text-[var(--nomi-paper)]" title="正在操控的角色">
+        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-nomi bg-[var(--nomi-ink)] px-2.5 text-caption text-[var(--nomi-paper)]" title={t3d('action.controllingCharacter')}>
           <IconManFilled size={15} />
           <span className="max-w-[120px] truncate">{characterName}</span>
         </span>
@@ -190,6 +194,7 @@ export function CharacterActionBar({
         {ACTION_LIBRARY.map((action) => {
           const Icon = action.icon
           const active = activePresetId === action.presetId
+          const label = t3d(action.labelKey)
           return (
             <button
               key={action.presetId}
@@ -200,11 +205,11 @@ export function CharacterActionBar({
                 active && 'bg-[var(--nomi-ink-05)] text-[var(--nomi-ink)]',
               )}
               type="button"
-              title={`应用动作：${action.label}`}
+              title={t3d('action.applyAction', { label })}
               onClick={() => onApplyPreset(action.presetId)}
             >
               <Icon size={15} />
-              <span>{action.label}</span>
+              <span>{label}</span>
             </button>
           )
         })}
@@ -222,17 +227,17 @@ export function CharacterActionBar({
             'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
           )}
           type="button"
-          title="退出操控"
+          title={t3d('action.exitPossess')}
           onClick={onExit}
         >
           <IconX size={15} />
-          <span>退出操控</span>
+          <span>{t3d('action.exitPossess')}</span>
         </button>
       </div>
       <div className="mt-1.5 text-center text-micro text-[var(--nomi-ink-60)]">
         {recorder?.isRecording
-          ? '录制中 · WASD 走位、绕看摆机位都会录进参考视频 · 点停止出片'
-          : 'WASD 走位 · Shift 加速 · Space 跳 · C 蹲 · 自动面向 · 点动作切换姿势 · 点「录 take」录成参考视频'}
+          ? t3d('action.characterRecordingHint')
+          : t3d('action.characterHint')}
       </div>
     </div>
   )
@@ -249,10 +254,11 @@ export function CameraPossessActionBar({
   onExit: () => void
   recorder?: ActionBarRecorder
 }): JSX.Element {
+  const t3d = useScene3DI18n()
   return (
     <div
       className="absolute bottom-5 left-1/2 z-[8] max-w-[calc(100%-32px)] -translate-x-1/2"
-      aria-label="镜头操控工具栏"
+      aria-label={t3d('action.cameraToolbarAria')}
       onPointerDown={(event) => event.stopPropagation()}
       onWheel={(event) => event.stopPropagation()}
     >
@@ -263,7 +269,7 @@ export function CameraPossessActionBar({
         )}
         role="toolbar"
       >
-        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-nomi bg-[var(--nomi-ink)] px-2.5 text-caption text-[var(--nomi-paper)]" title="正在操控的镜头">
+        <span className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-nomi bg-[var(--nomi-ink)] px-2.5 text-caption text-[var(--nomi-paper)]" title={t3d('action.controllingCamera')}>
           <IconVideo size={15} />
           <span className="max-w-[120px] truncate">{cameraName}</span>
         </span>
@@ -281,17 +287,17 @@ export function CameraPossessActionBar({
             'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
           )}
           type="button"
-          title="退出操控镜头"
+          title={t3d('action.exitCameraPossess')}
           onClick={onExit}
         >
           <IconX size={15} />
-          <span>退出操控</span>
+          <span>{t3d('action.exitPossess')}</span>
         </button>
       </div>
       <div className="mt-1.5 text-center text-micro text-[var(--nomi-ink-60)]">
         {recorder?.isRecording
-          ? '录制中 · WASD 飞镜头、鼠标转朝向、滚轮推拉都会录进运镜参考视频 · 点停止出片'
-          : 'WASD 飞镜头 · Shift 加速 · 鼠标转朝向 · 滚轮推拉 · 点「录 take」录成运镜参考视频'}
+          ? t3d('action.cameraRecordingHint')
+          : t3d('action.cameraHint')}
       </div>
     </div>
   )

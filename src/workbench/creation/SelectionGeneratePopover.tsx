@@ -13,6 +13,8 @@ import { cn } from '../../utils/cn'
 import { createNodeFromSelection, type SelectionGenerationKind } from './createNodeFromSelection'
 import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
 import { useWorkbenchStore } from '../workbenchStore'
+import { useI18n } from '../../i18n/i18nContext'
+import { canvasTranslate } from '../generationCanvas/canvasI18n'
 
 type SelectionGeneratePopoverProps = {
   editor: Editor | null
@@ -69,6 +71,8 @@ export default function SelectionGeneratePopover({
   selectionVersion,
   onCreated,
 }: SelectionGeneratePopoverProps): JSX.Element | null {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const normalizedText = selectedText.trim()
   const rootRef = React.useRef<HTMLDivElement | null>(null)
   const [position, setPosition] = React.useState<SelectionPopoverPosition | null>(null)
@@ -114,28 +118,28 @@ export default function SelectionGeneratePopover({
   const formatActions: SelectionFormatAction[] = [
     {
       id: 'bold',
-      label: '加粗',
+      label: tCanvas('selection.bold'),
       icon: <IconBold size={14} />,
       active: editor.isActive('bold'),
       onClick: () => editor.chain().focus().toggleBold().run(),
     },
     {
       id: 'italic',
-      label: '斜体',
+      label: tCanvas('selection.italic'),
       icon: <IconItalic size={14} />,
       active: editor.isActive('italic'),
       onClick: () => editor.chain().focus().toggleItalic().run(),
     },
     {
       id: 'h1',
-      label: '一级标题',
+      label: tCanvas('selection.heading1'),
       icon: <IconH1 size={15} />,
       active: editor.isActive('heading', { level: 1 }),
       onClick: () => editor.chain().focus().toggleHeading({ level: 1 }).run(),
     },
     {
       id: 'h2',
-      label: '二级标题',
+      label: tCanvas('selection.heading2'),
       icon: <IconH2 size={15} />,
       active: editor.isActive('heading', { level: 2 }),
       onClick: () => editor.chain().focus().toggleHeading({ level: 2 }).run(),
@@ -155,7 +159,7 @@ export default function SelectionGeneratePopover({
         'origin-[50%_100%]',
       )}
       role="toolbar"
-      aria-label="选中文本工具"
+      aria-label={tCanvas('selection.toolbar')}
       data-placement={position.placement}
       style={{ left: position.left, top: position.top }}
     >
@@ -164,7 +168,7 @@ export default function SelectionGeneratePopover({
           'workbench-selection-popover__format-group',
           'inline-flex items-center gap-[3px] shrink-0',
         )}
-        aria-label="常用格式"
+        aria-label={tCanvas('selection.format')}
       >
         {formatActions.map((action) => (
           <WorkbenchIconButton
@@ -197,7 +201,7 @@ export default function SelectionGeneratePopover({
           'workbench-selection-popover__generate-group',
           'inline-flex items-center gap-[3px] shrink-0',
         )}
-        aria-label="生成"
+        aria-label={tCanvas('selection.generate')}
       >
         <WorkbenchIconButton
           className={cn(
@@ -209,7 +213,7 @@ export default function SelectionGeneratePopover({
             'hover:border-[color-mix(in_srgb,var(--workbench-accent)_18%,transparent)]',
             'hover:bg-workbench-accent-soft hover:text-workbench-accent',
           )}
-          label="生成图片"
+          label={tCanvas('selection.image')}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleCreate('image')}
           icon={<IconPhoto size={14} />}
@@ -224,7 +228,7 @@ export default function SelectionGeneratePopover({
             'hover:border-[color-mix(in_srgb,var(--workbench-accent)_18%,transparent)]',
             'hover:bg-workbench-accent-soft hover:text-workbench-accent',
           )}
-          label="生成视频"
+          label={tCanvas('selection.video')}
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleCreate('video')}
           icon={<IconVideo size={14} />}

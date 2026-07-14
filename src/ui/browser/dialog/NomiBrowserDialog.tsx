@@ -21,6 +21,7 @@ import {
 } from '../assets/browserAssetLibraryStorage'
 import type { FloatingWindowBoundsRect } from '../window/useResizableFloatingWindow'
 import { useBrowserDialogActions } from './useBrowserDialogActions'
+import { useI18n } from '../../../i18n/i18nContext'
 
 import {
   BROWSER_VIEW_POPOVER_GAP,
@@ -49,6 +50,7 @@ import {
   type NomiBrowserDialogProps,
 } from './NomiBrowserDialogModel'
 export function NomiBrowserDialog({ opened, onClose }: NomiBrowserDialogProps): JSX.Element | null {
+  const { t } = useI18n()
   const browserBridge = getDesktopBridge()?.browser
   const [tabs, setTabs] = React.useState<BrowserTab[]>(() => {
     const tab = createBlankTab()
@@ -494,8 +496,8 @@ export function NomiBrowserDialog({ opened, onClose }: NomiBrowserDialogProps): 
       if (!event.ok) {
         setLastError(
           event.reason === 'empty'
-            ? '先将鼠标悬停在图片或视频上，再按 Ctrl+C 保存。'
-            : event.message || '网页素材捕捞失败',
+            ? t('browserDialog.captureHoverHint')
+            : event.message || t('browserDialog.captureFailed'),
         )
         return
       }
@@ -512,7 +514,7 @@ export function NomiBrowserDialog({ opened, onClose }: NomiBrowserDialogProps): 
         fileName: event.fileName || undefined,
       })
     })
-  }, [browserBridge, openNativeAssetPopover, startCaptureFlyout])
+  }, [browserBridge, openNativeAssetPopover, startCaptureFlyout, t])
 
   React.useEffect(() => {
     const viewId =

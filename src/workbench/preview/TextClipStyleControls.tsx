@@ -8,6 +8,7 @@ import { resolveOverlayTransform } from '../timeline/textLayout'
 import { TEXT_FONTS, DEFAULT_TEXT_FONT_ID } from '../timeline/textFonts'
 import { SCALE_MIN, SCALE_MAX } from '../timeline/overlayTransform'
 import { CONTROL_ICON_BUTTON_CLASS } from './previewControlTokens'
+import { useI18n } from '../../i18n/i18nContext'
 
 type Props = {
   timeline: TimelineState
@@ -18,6 +19,7 @@ type Props = {
 // 停留时长改在时间轴文字轨上拖 clip 左右边缘调整（TimelineTextTrack），不在此控制条。
 // 从 TimelinePreview 抽出，保持壳瘦身（R9）；无选中 clip 时渲染 null。
 export function TextClipStyleControls({ timeline, selectedTextClipId }: Props): JSX.Element | null {
+  const { t } = useI18n()
   const updateTimelineTextClipTransform = useWorkbenchStore((state) => state.updateTimelineTextClipTransform)
   const updateTimelineTextClipFont = useWorkbenchStore((state) => state.updateTimelineTextClipFont)
 
@@ -46,25 +48,25 @@ export function TextClipStyleControls({ timeline, selectedTextClipId }: Props): 
   return (
     <>
       <div className={cn('workbench-preview-player__control-separator', 'w-px h-5 bg-[var(--workbench-border-soft)]')} aria-hidden="true" />
-      <div className={cn('workbench-preview-player__text-style', 'flex-none inline-flex items-center gap-1.5')} aria-label="文字样式">
-        <span className="text-micro text-[var(--workbench-muted)] font-bold">字号</span>
+      <div className={cn('workbench-preview-player__text-style', 'flex-none inline-flex items-center gap-1.5')} aria-label={t('preview.textStyle.aria')}>
+        <span className="text-micro text-[var(--workbench-muted)] font-bold">{t('preview.textStyle.fontSize')}</span>
         <div className="inline-flex items-center gap-1">
-          <WorkbenchIconButton className={cn(CONTROL_ICON_BUTTON_CLASS)} label="减小字号" icon={<IconMinus size={14} />} onClick={() => applyTextScale(selectedTextScale - 0.1)} />
+          <WorkbenchIconButton className={cn(CONTROL_ICON_BUTTON_CLASS)} label={t('preview.textStyle.decrease')} icon={<IconMinus size={14} />} onClick={() => applyTextScale(selectedTextScale - 0.1)} />
           <input
             className={cn('w-[40px] h-6 text-center text-micro font-bold tabular-nums', 'rounded-[var(--nomi-radius-sm)] border border-[var(--workbench-border)] bg-[var(--nomi-paper)] text-[var(--workbench-ink)] outline-none focus:border-[var(--nomi-accent)]')}
             value={sizePctDraft}
             inputMode="numeric"
-            aria-label="字号百分比"
+            aria-label={t('preview.textStyle.percent')}
             onChange={(event) => setSizePctDraft(event.target.value.replace(/[^0-9]/g, ''))}
             onBlur={commitSizePct}
             onKeyDown={(event) => { if (event.key === 'Enter') (event.target as HTMLInputElement).blur() }}
           />
           <span className="text-micro text-[var(--workbench-muted-soft)]">%</span>
-          <WorkbenchIconButton className={cn(CONTROL_ICON_BUTTON_CLASS)} label="增大字号" icon={<IconPlus size={14} />} onClick={() => applyTextScale(selectedTextScale + 0.1)} />
+          <WorkbenchIconButton className={cn(CONTROL_ICON_BUTTON_CLASS)} label={t('preview.textStyle.increase')} icon={<IconPlus size={14} />} onClick={() => applyTextScale(selectedTextScale + 0.1)} />
         </div>
         <NomiSelect
-          ariaLabel="字体"
-          leadingLabel="字体"
+          ariaLabel={t('preview.textStyle.font')}
+          leadingLabel={t('preview.textStyle.font')}
           size="xs"
           value={selectedTextFontId}
           options={TEXT_FONTS.map((font) => ({ value: font.id, label: font.label }))}

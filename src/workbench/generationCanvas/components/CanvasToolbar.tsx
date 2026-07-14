@@ -3,6 +3,8 @@ import { cn } from '../../../utils/cn'
 import type { GenerationNodeKind } from '../model/generationCanvasTypes'
 import { getQuickAddGenerationNodePlugins } from '../nodes/renderRegistry'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
+import { useI18n } from '../../../i18n/i18nContext'
+import type { TranslationKey } from '../../../i18n/translations'
 
 const QUICK_ADD_NODE_ITEMS = getQuickAddGenerationNodePlugins()
 
@@ -16,6 +18,17 @@ const PRIMARY_NODE_KINDS: GenerationNodeKind[] = ['text', 'image', 'video', 'aud
 const PRIMARY_ADD_ITEMS = PRIMARY_NODE_KINDS
   .map((kind) => QUICK_ADD_NODE_ITEMS.find((item) => item.kind === kind))
   .filter((item): item is (typeof QUICK_ADD_NODE_ITEMS)[number] => Boolean(item))
+
+const NODE_KIND_LABEL_KEYS: Partial<Record<GenerationNodeKind, TranslationKey>> = {
+  text: 'canvasNodeKind.text',
+  image: 'canvasNodeKind.image',
+  video: 'canvasNodeKind.video',
+  audio: 'canvasNodeKind.audio',
+  model3d: 'canvasNodeKind.model3d',
+  whiteboard: 'canvasNodeKind.whiteboard',
+  panorama: 'canvasNodeKind.panorama',
+  scene3d: 'canvasNodeKind.scene3d',
+}
 
 type NodeAddMenuProps = {
   className?: string
@@ -34,6 +47,7 @@ export function NodeAddMenu({
   onContextMenu,
   onPointerDown,
 }: NodeAddMenuProps): JSX.Element {
+  const { t } = useI18n()
   const items = React.useMemo(() => {
     if (!kinds?.length) return PRIMARY_ADD_ITEMS
     const allowed = new Set(kinds)
@@ -49,13 +63,15 @@ export function NodeAddMenu({
         className,
       )}
       role="menu"
-      aria-label="添加节点菜单"
+      aria-label={t('canvasToolbar.addMenu')}
       style={style}
       onContextMenu={onContextMenu}
       onPointerDown={onPointerDown}
     >
       {items.map((item) => {
         const Icon = item.icon
+        const labelKey = NODE_KIND_LABEL_KEYS[item.kind]
+        const label = labelKey ? t(labelKey) : item.menuLabel
         return (
           <button
             type="button"
@@ -68,11 +84,11 @@ export function NodeAddMenu({
               '[&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-nomi-ink-60 [&>svg]:stroke-[1.8]',
             )}
             role="menuitem"
-            aria-label={`添加${item.menuLabel}节点`}
+            aria-label={t('canvasToolbar.addNode', { label })}
             onClick={() => onAddNode(item.kind)}
           >
             <Icon size={14} stroke={1.6} />
-            <span>{item.menuLabel}</span>
+            <span>{label}</span>
           </button>
         )
       })}
@@ -88,6 +104,7 @@ type CanvasToolbarProps = {
 
 export default function CanvasToolbar({ getInsertionPosition, categoryId }: CanvasToolbarProps): JSX.Element {
   const addNode = useGenerationCanvasStore((state) => state.addNode)
+  const { t } = useI18n()
 
   const handleAddNode = (kind: GenerationNodeKind) => {
     addNode({ kind, position: getInsertionPosition(), categoryId })
@@ -101,10 +118,12 @@ export default function CanvasToolbar({ getInsertionPosition, categoryId }: Canv
         'border border-workbench-border rounded-nomi',
         'bg-nomi-paper shadow-workbench-md -translate-y-1/2',
       )}
-      aria-label="生成画布工具栏"
+      aria-label={t('canvasToolbar.aria')}
     >
       {PRIMARY_ADD_ITEMS.map((item) => {
         const Icon = item.icon
+        const labelKey = NODE_KIND_LABEL_KEYS[item.kind]
+        const label = labelKey ? t(labelKey) : item.menuLabel
         return (
           <button
             type="button"
@@ -114,12 +133,12 @@ export default function CanvasToolbar({ getInsertionPosition, categoryId }: Canv
               'transition-colors hover:bg-nomi-ink-05 hover:text-nomi-ink',
               '[&>svg]:size-[18px] [&>svg]:stroke-[1.8]',
             )}
-            aria-label={`添加${item.menuLabel}节点`}
-            title={item.menuLabel}
+            aria-label={t('canvasToolbar.addNode', { label })}
+            title={label}
             onClick={() => handleAddNode(item.kind)}
           >
             <Icon size={18} stroke={1.6} />
-            <span className="hidden">{item.menuLabel}</span>
+            <span className="hidden">{label}</span>
           </button>
         )
       })}

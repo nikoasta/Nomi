@@ -21,6 +21,7 @@ import type { ResolvedGenerationReferences } from './generationReferenceResolver
 import { resolveArchetypeForModel } from '../../../config/modelArchetypes'
 import { currentArchetypeMode } from '../nodes/controls/archetypeMeta'
 import { loadUsableVendorKeys, remapArchetypeMode, resolveUsableModelForNode } from './usableVendorModel'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 export type CatalogTaskActionOptions = {
   references?: Partial<ResolvedGenerationReferences>
@@ -107,7 +108,7 @@ export async function resolveExecutableNodeFromCatalog(
   // 「可用供应商」需要 catalog runtime；非 Electron 上下文（单测/Web）拿不到 → 退回旧行为：信任钉死的
   // 供应商（无法重解析，但也不该误抛）。能拿到时才进入「断开→自动迁移」新逻辑。
   const listVendors = options.listCatalogVendors || listWorkbenchModelCatalogVendors
-  let usable: Set<string> | null = null
+  let usable: Set<string> | null
   try {
     usable = await loadUsableVendorKeys(listVendors)
   } catch {
@@ -119,7 +120,7 @@ export async function resolveExecutableNodeFromCatalog(
   if (vendor && usable.has(vendor)) return node
   // 钉了供应商但它现在不可用、却又没有 modelKey 可据以重解析 → 直接报清晰错误。
   if (!modelKey) {
-    throw new Error(`供应商「${vendor}」已断开，且该节点未记录模型。请重新连接，或在该节点上改选已连接供应商的模型。`)
+    throw new Error(canvasRuntimeTranslate('runner.vendorDisconnectedNoModel', { vendor: vendor || '' }))
   }
 
   const listCatalogModels = options.listCatalogModels || listWorkbenchModelCatalogModels
@@ -128,7 +129,7 @@ export async function resolveExecutableNodeFromCatalog(
     models = await listCatalogModels({ kind: catalogKindForNode(node), enabled: true })
   } catch (error: unknown) {
     const message = error instanceof Error && error.message ? error.message : String(error)
-    throw new Error(`模型目录解析失败：${message}`)
+    throw new Error(canvasRuntimeTranslate('runner.catalogResolveFailed', { message }))
   }
 
   const meta = node.meta || {}
@@ -137,11 +138,11 @@ export async function resolveExecutableNodeFromCatalog(
   if (!match) {
     const sourceArchetype = resolveArchetypeForModel({ modelKey, modelAlias, vendorKey: vendor, meta })
     const brand = sourceArchetype?.label || asTrimmedString(meta.modelLabel) || modelKey
-    throw new Error(`当前没有已连接的供应商提供「${brand}」模型。请重新连接原供应商，或在该节点上改选一个已连接供应商的模型。`)
+    throw new Error(canvasRuntimeTranslate('runner.noConnectedProviderForModel', { brand }))
   }
 
   const resolvedVendor = asTrimmedString(match.vendorKey)
-  if (!resolvedVendor) throw new Error(`模型目录缺少 vendorKey：${modelKey}`)
+  if (!resolvedVendor) throw new Error(canvasRuntimeTranslate('runner.missingVendorKey', { modelKey }))
   // 跨档案迁移（family 兜底，如 Seedance kie↔apimart）时把 node.meta.archetype 重映射到目标档案；
   // 同档案（同 id）保持原样（参数槽会按新 vendorKey 自动特化，无需动用户填的值）。
   const sourceArchetype = resolveArchetypeForModel({ modelKey, modelAlias, vendorKey: vendor, meta })

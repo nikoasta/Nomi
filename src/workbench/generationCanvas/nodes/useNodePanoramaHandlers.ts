@@ -2,6 +2,7 @@ import React from 'react'
 import { toast } from '../../../ui/toast'
 import { persistNodeImageFile } from '../adapters/persistNodeImage'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import type { PanoramaScreenshot } from './PanoramaViewer'
 import { mediaNodeSize } from './nodeSizing'
@@ -49,8 +50,8 @@ export function useNodePanoramaHandlers(
       const createdAt = Date.now()
       const screenshotNode = addNode({
         kind: 'asset',
-        title: screenshot.title || '全景截图',
-        prompt: screenshot.prompt || '全景视口截图',
+        title: screenshot.title || canvasRuntimeTranslate('panorama.screenshotTitle'),
+        prompt: screenshot.prompt || canvasRuntimeTranslate('panorama.screenshotPrompt'),
         position: {
           x: Math.round(node.position.x + visualSize.width + 80),
           y: Math.round(node.position.y),
@@ -86,7 +87,7 @@ export function useNodePanoramaHandlers(
         },
       })
       connectNodes(node.id, screenshotNode.id, 'reference')
-      toast('已创建全景截图节点', 'success')
+      toast(canvasRuntimeTranslate('panorama.screenshotCreated'), 'success')
     },
     [addNode, node.id, node.position.x, node.position.y, connectNodes, updateNode, visualSize.width],
   )

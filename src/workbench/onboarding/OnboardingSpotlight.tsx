@@ -63,6 +63,7 @@ type Props = {
   stepLabel?: string
   /** 主按钮文案（如「下一步」「完成」）。 */
   primaryLabel: string
+  dismissLabel: string
   /** 推进到下一步。 */
   onNext: () => void
   /** 跳过整条引导（点别处 / Esc / 点跳过）。 */
@@ -75,6 +76,7 @@ export function OnboardingSpotlight({
   body,
   stepLabel,
   primaryLabel,
+  dismissLabel,
   onNext,
   onDismiss,
 }: Props): JSX.Element | null {
@@ -169,7 +171,7 @@ export function OnboardingSpotlight({
               'text-caption text-nomi-ink-40 transition-colors hover:text-nomi-ink',
             )}
           >
-            跳过
+            {dismissLabel}
           </button>
           <button
             type="button"

@@ -14,6 +14,8 @@ import React from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '../../utils/cn'
 import { NomiBrand } from '../../design'
+import { useI18n } from '../../i18n/i18nContext'
+import type { TranslationKey } from '../../i18n/translations'
 
 type SplashIntroProps = {
   onDone: () => void
@@ -24,16 +26,16 @@ const SCENE_MS = 2600
 const SCENE_COUNT = 5
 
 // 中段（1-4）字幕在底部逐段淡入；第 5 段标版自带 slogan，故底部留空（见 SceneBrand）。
-const CAPTIONS = [
-  '从你的一句话开始',
-  '几秒，铺成一张分镜画布',
-  '每一格，你说了算',
-  '排进时间轴，导出成片',
-  '', // 标版段：slogan 已紧随 logo，不复用底部字幕位
+const CAPTION_KEYS: TranslationKey[] = [
+  'splash.caption.start',
+  'splash.caption.canvas',
+  'splash.caption.control',
+  'splash.caption.timeline',
+  'splash.caption.brand',
 ] as const
 
 // 段 2/3 三张节点卡 label（蓝本：镜 1·开场 / 镜 2·特写 / 镜 3·收尾）。
-const NODE_LABELS = ['镜 1 · 开场', '镜 2 · 特写', '镜 3 · 收尾'] as const
+const NODE_LABEL_KEYS: TranslationKey[] = ['splash.node.opening', 'splash.node.closeup', 'splash.node.ending'] as const
 
 // 画布点阵背景（spec §3A：radial-gradient(var(--nomi-ink-20) 1px, transparent 1px) 20px）。
 const DOT_GRID: React.CSSProperties = {
@@ -76,6 +78,7 @@ function playSceneTone(audio: AudioRef, step: number): void {
 }
 
 export function SplashIntro({ onDone }: SplashIntroProps): JSX.Element {
+  const { t } = useI18n()
   const [step, setStep] = React.useState(0)
   const [leaving, setLeaving] = React.useState(false)
   const audioRef = React.useRef<AudioRef>({ ctx: null })
@@ -147,7 +150,7 @@ export function SplashIntro({ onDone }: SplashIntroProps): JSX.Element {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.42, ease: EASE }}
           role="dialog"
-          aria-label="Nomi 开屏介绍"
+          aria-label={t('splash.aria')}
         >
           {/* 跳过 */}
           <button
@@ -159,7 +162,7 @@ export function SplashIntro({ onDone }: SplashIntroProps): JSX.Element {
               'text-caption text-nomi-ink-40 transition-colors hover:text-nomi-ink',
             )}
           >
-            跳过 ›
+            {t('splash.skip')}
           </button>
 
           {/* 舞台：相对视口大尺寸，元素铺开占满，留白克制（草稿 v4）。 */}
@@ -193,7 +196,7 @@ export function SplashIntro({ onDone }: SplashIntroProps): JSX.Element {
                 exit={{ opacity: 0, y: -4 }}
                 transition={{ duration: 0.4, ease: EASE, delay: 0.12 }}
               >
-                {CAPTIONS[step]}
+                {t(CAPTION_KEYS[step] ?? 'splash.caption.brand')}
               </motion.p>
             </AnimatePresence>
           </div>
@@ -244,6 +247,8 @@ function SplashScene({ step }: { step: number }): JSX.Element {
 
 /** 1 创作卡：编辑器抽象——工具点 + Fraunces 标题 + 文字行。占满舞台大半宽。 */
 function SceneCreationCard(): JSX.Element {
+  const { t } = useI18n()
+
   return (
     <motion.div
       className="w-full bg-nomi-paper border border-nomi-line rounded-nomi-lg shadow-nomi-md"
@@ -262,7 +267,7 @@ function SceneCreationCard(): JSX.Element {
         className="font-nomi-display text-nomi-ink m-0 mb-[clamp(20px,2vw,32px)] leading-snug"
         style={{ fontSize: 'clamp(24px, 3vw, 48px)' }}
       >
-        把你的一句话…
+        {t('splash.creation.prompt')}
       </p>
       {/* 3 行文字线：宽 92%/78%/85%、secondary、高 3px 圆角 */}
       <div className="flex flex-col gap-[clamp(12px,1.1vw,18px)]">
@@ -290,6 +295,9 @@ function SceneNodeRow({ selected }: { selected: boolean }): JSX.Element {
 }
 
 function NodeCard({ index, selected }: { index: number; selected: boolean }): JSX.Element {
+  const { t } = useI18n()
+  const labelKey = NODE_LABEL_KEYS[index] ?? 'splash.node.opening'
+
   return (
     // 外层不裁剪（chip 上浮要留空间）；圆角裁剪只落在内部缩略图块上。
     <motion.div
@@ -309,7 +317,7 @@ function NodeCard({ index, selected }: { index: number; selected: boolean }): JS
           <span className="rounded-nomi-sm bg-nomi-ink-10" style={{ width: 'clamp(28px,2.4vw,44px)', height: 'clamp(28px,2.4vw,44px)' }} aria-hidden="true" />
         </div>
         <div className="px-[clamp(12px,1.1vw,18px)] py-[clamp(10px,0.9vw,14px)]">
-          <p className="text-nomi-ink-60 m-0" style={{ fontSize: 'clamp(12px,1vw,15px)' }}>{NODE_LABELS[index]}</p>
+          <p className="text-nomi-ink-60 m-0" style={{ fontSize: 'clamp(12px,1vw,15px)' }}>{t(labelKey)}</p>
         </div>
       </div>
     </motion.div>
@@ -322,6 +330,8 @@ function NodeCard({ index, selected }: { index: number; selected: boolean }): JS
  * 声音轨 = 一条整轨(单块, tertiary 灰)，不拆 clip。
  */
 function SceneTimeline(): JSX.Element {
+  const { t } = useI18n()
+
   return (
     <motion.div
       className="w-full bg-nomi-paper border border-nomi-line rounded-nomi-lg shadow-nomi-md flex flex-col gap-[clamp(12px,1.2vw,20px)]"
@@ -331,7 +341,7 @@ function SceneTimeline(): JSX.Element {
       transition={{ duration: 0.5, ease: EASE }}
     >
       {/* 画面轨：3 等宽 clip，中间 accent 半透明 */}
-      <TimelineTrack label="画面">
+      <TimelineTrack label={t('splash.timeline.video')}>
         {[0, 1, 2].map((i) => (
           <motion.span
             key={i}
@@ -343,7 +353,7 @@ function SceneTimeline(): JSX.Element {
         ))}
       </TimelineTrack>
       {/* 声音轨：一条整轨（tertiary 灰），不拆 clip */}
-      <TimelineTrack label="声音">
+      <TimelineTrack label={t('splash.timeline.audio')}>
         <motion.span
           className="flex-1 h-full rounded-nomi-sm bg-nomi-ink-10"
           initial={{ scaleX: 0.7, opacity: 0 }}
@@ -369,6 +379,7 @@ function TimelineTrack({ label, children }: { label: string; children: React.Rea
 
 /** 5 标版：真 NomiBrand（mark + Fraunces「Nomi」字标）+ slogan 紧随其下，整组垂直居中。 */
 function SceneBrand(): JSX.Element {
+  const { t } = useI18n()
   // NomiBrand 只接受 px 数值；按视口实测推一个大尺寸（min(96, 7vmin)），让标版随全屏放大。
   const { markSize, wordSize } = useBrandSize()
   return (
@@ -384,7 +395,7 @@ function SceneBrand(): JSX.Element {
         className="text-nomi-ink-60 text-center m-0 tracking-[0.04em]"
         style={{ fontSize: 'clamp(15px, 1.6vw, 24px)' }}
       >
-        AI 起草，你定稿
+        {t('splash.brand.slogan')}
       </p>
     </motion.div>
   )

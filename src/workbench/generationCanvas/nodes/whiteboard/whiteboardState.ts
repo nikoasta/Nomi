@@ -78,7 +78,7 @@ export function createImageAssetForCanvas(input: {
   return {
     layer: {
       id: layerId,
-      name: input.name || '导入图片',
+      name: input.name || 'Imported image',
       visible: true,
       locked: false,
       opacity: 1,
@@ -88,7 +88,7 @@ export function createImageAssetForCanvas(input: {
     asset: {
       id: createWhiteboardId('asset'),
       layerId,
-      name: input.name || '导入图片',
+      name: input.name || 'Imported image',
       url: input.url,
       source: 'upload',
       x: Math.round((dimensions.width - width) / 2),

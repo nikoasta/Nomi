@@ -1,5 +1,6 @@
 import { IconFile, IconFileText, IconPhoto, IconTable, IconX } from '@tabler/icons-react'
 import { NomiLoadingMark } from '../../../design'
+import { useI18n } from '../../../i18n/i18nContext'
 import { cn } from '../../../utils/cn'
 import {
   attachmentTypeLabel,
@@ -20,10 +21,11 @@ function FileGlyph({ fileName }: { fileName: string }): JSX.Element {
 }
 
 function RemoveButton({ onRemove, className }: { onRemove: () => void; className?: string }): JSX.Element {
+  const { t } = useI18n()
   return (
     <button
       type="button"
-      aria-label="移除附件"
+      aria-label={t('attachment.remove')}
       className={cn('grid size-6 place-items-center cursor-pointer', className)}
       onClick={onRemove}
     >
@@ -39,6 +41,7 @@ function RemoveButton({ onRemove, className }: { onRemove: () => void; className
 }
 
 function AttachmentChip({ attachment, onRemove, readOnly }: { attachment: ComposerAttachment; onRemove: () => void; readOnly?: boolean }): JSX.Element {
+  const { t } = useI18n()
   const uploading = attachment.status === 'uploading'
   const error = attachment.status === 'error'
 
@@ -80,7 +83,7 @@ function AttachmentChip({ attachment, onRemove, readOnly }: { attachment: Compos
       <span className="flex min-w-0 flex-col">
         <span className="truncate text-body-sm text-nomi-ink">{attachment.fileName}</span>
         <span className="truncate text-micro text-nomi-ink-60">
-          {error ? '上传失败' : [attachmentTypeLabel(attachment.fileName, attachment.contentType), formatAttachmentSize(attachment.sizeBytes)].filter(Boolean).join(' · ')}
+          {error ? t('attachment.uploadFailed') : [attachmentTypeLabel(attachment.fileName, attachment.contentType, t), formatAttachmentSize(attachment.sizeBytes)].filter(Boolean).join(' · ')}
         </span>
       </span>
       {readOnly ? null : (
@@ -101,9 +104,10 @@ export function AttachmentRail({
   readOnly?: boolean
   className?: string
 }): JSX.Element | null {
+  const { t } = useI18n()
   if (!attachments.length) return null
   return (
-    <div className={cn('flex flex-wrap gap-2', className)} aria-label="已添加的附件">
+    <div className={cn('flex flex-wrap gap-2', className)} aria-label={t('attachment.rail')}>
       {attachments.map((attachment) => (
         <AttachmentChip
           key={attachment.id}

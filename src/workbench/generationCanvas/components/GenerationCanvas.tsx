@@ -1,5 +1,6 @@
 import React from 'react'
 import { toast } from '../../../ui/toast'
+import { useI18n } from '../../../i18n/i18nContext'
 import { cn } from '../../../utils/cn'
 import CanvasToolbar, { NodeAddMenu } from './CanvasToolbar'
 import { WORKSPACE_FILE_DRAG_MIME } from '../../explorer/workspaceFileDrag'
@@ -53,13 +54,13 @@ import { CanvasSelectionToolbar } from './CanvasSelectionToolbar'
 import '../styles/generationCanvas.css'
 
 const FOCUS_GENERATION_NODE_EVENT = 'nomi-focus-generation-node'
-const StagingCaptureHost = lazyWithChunkBoundary('3D 站位捕获', () =>
+const StagingCaptureHost = lazyWithChunkBoundary('3D staging capture', () =>
   import('../nodes/scene3d/StagingCaptureHost').then((module) => ({ default: module.StagingCaptureHost })),
 )
-const CameraMoveCaptureHost = lazyWithChunkBoundary('3D 运镜捕获', () =>
+const CameraMoveCaptureHost = lazyWithChunkBoundary('3D camera move capture', () =>
   import('../nodes/scene3d/CameraMoveCaptureHost').then((module) => ({ default: module.CameraMoveCaptureHost })),
 )
-const BatchPlanOverlay = lazyWithChunkBoundary('批量生成面板', () =>
+const BatchPlanOverlay = lazyWithChunkBoundary('Batch generation panel', () =>
   import('./BatchPlanOverlay').then((module) => ({ default: module.BatchPlanOverlay })),
 )
 
@@ -71,6 +72,7 @@ type GenerationCanvasProps = {
 }
 
 export default function GenerationCanvas({ readOnly = false }: GenerationCanvasProps): JSX.Element {
+  const { t } = useI18n()
   const isReady = useGenerationCanvasStore((state) => state.isReady)
   const allNodes = useGenerationCanvasStore((state) => state.nodes)
   const allEdges = useGenerationCanvasStore((state) => state.edges)
@@ -226,7 +228,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
       if (!nodeId) return
       const target = allNodesRef.current.find((node) => node.id === nodeId)
       if (!target) {
-        toast('源节点已不存在', 'warning')
+        toast(t('canvas.focusNodeMissing'), 'warning')
         return
       }
       const targetCategoryId = target.categoryId || 'shots'
@@ -242,7 +244,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
         focusFlashTimerRef.current = null
       }
     }
-  }, [selectNode, setActiveCategoryId])
+  }, [selectNode, setActiveCategoryId, t])
 
   React.useEffect(() => {
     if (!pendingFocusNodeId) return
@@ -412,12 +414,12 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
         categoryId: activeCategoryId,
       })
       if (result.createdCount === 0) {
-        toast('没有可导入画布的素材', 'info')
+        toast(t('canvas.import.none'), 'info')
         return
       }
-      toast(result.createdCount === 1 ? '已导入画布' : `已导入 ${result.createdCount} 个素材到画布`, 'success')
+      toast(result.createdCount === 1 ? t('canvas.import.one') : t('canvas.import.many', { count: result.createdCount }), 'success')
     },
-    [activeCategoryId, getToolbarInsertionPosition, readOnly],
+    [activeCategoryId, getToolbarInsertionPosition, readOnly, t],
   )
 
   React.useEffect(
@@ -606,7 +608,7 @@ export default function GenerationCanvas({ readOnly = false }: GenerationCanvasP
         'generation-canvas-v2',
         'grid grid-rows-[minmax(0,1fr)] w-full h-full min-w-0 min-h-0 bg-workbench-bg text-workbench-ink',
       )}
-      aria-label="AI 影像创作画布"
+      aria-label={t('generation.aria')}
       data-ready={isReady ? 'true' : undefined}
       data-nomi-generation-canvas-import-target={!readOnly ? 'true' : undefined}
     >

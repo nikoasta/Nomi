@@ -83,7 +83,7 @@ export function getDefaultLayers(): LayerItem[] {
   return [
     {
       id: 'background',
-      name: '背景',
+      name: 'Background',
       visible: true,
       locked: true,
       opacity: 1,
@@ -92,7 +92,7 @@ export function getDefaultLayers(): LayerItem[] {
     },
     {
       id: 'drawing-layer-1',
-      name: '图层 1',
+      name: 'Layer 1',
       visible: true,
       locked: false,
       opacity: 1,

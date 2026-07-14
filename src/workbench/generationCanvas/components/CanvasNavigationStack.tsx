@@ -9,6 +9,7 @@ import {
     IconRotate,
 } from "@tabler/icons-react";
 import { WorkbenchButton } from "../../../design";
+import { useI18n } from "../../../i18n/i18nContext";
 import { cn } from "../../../utils/cn";
 import { CanvasMinimap, MINIMAP_MIN_NODES } from "./CanvasMinimap";
 import type { GenerationCanvasNode } from "../model/generationCanvasTypes";
@@ -48,6 +49,7 @@ export function CanvasNavigationStack({
     onZoomTo,
     batchPlanOverlay,
 }: CanvasNavigationStackProps): JSX.Element {
+    const { t } = useI18n();
     const hasMinimapContent = nodes.length >= MINIMAP_MIN_NODES;
     const showMinimap = minimapVisible && hasMinimapContent;
     const MinimapToggleIcon = showMinimap ? IconEyeOff : IconMap;
@@ -58,7 +60,7 @@ export function CanvasNavigationStack({
                 "generation-canvas-v2__navigation-stack",
                 "absolute left-4 bottom-3 z-[8] flex flex-col items-start gap-2 pointer-events-none",
             )}
-            aria-label="画布导航"
+            aria-label={t("canvas.navigation")}
         >
             {showMinimap ? (
                 <CanvasMinimap
@@ -78,17 +80,17 @@ export function CanvasNavigationStack({
                     "min-h-9 p-1 border border-workbench-border rounded-nomi",
                     "bg-nomi-paper shadow-workbench-sm",
                 )}
-                aria-label="画布缩放"
+                aria-label={t("canvas.zoom")}
             >
                 <WorkbenchButton
-                    aria-label="适应视图"
-                    title={nodes.length === 0 ? "画布为空" : "适应视图"}
+                    aria-label={t("canvas.fitView")}
+                    title={nodes.length === 0 ? t("canvas.empty") : t("canvas.fitView")}
                     disabled={nodes.length === 0}
                     onClick={onFitView}
                 >
                     <IconFocusCentered size={15} stroke={1.8} aria-hidden="true" />
                 </WorkbenchButton>
-                <WorkbenchButton aria-label="重置视图" title="重置视图" onClick={onResetView}>
+                <WorkbenchButton aria-label={t("canvas.resetView")} title={t("canvas.resetView")} onClick={onResetView}>
                     <IconRotate size={15} stroke={1.8} aria-hidden="true" />
                 </WorkbenchButton>
                 <input
@@ -97,26 +99,26 @@ export function CanvasNavigationStack({
                     min="20"
                     max="300"
                     value={zoomPercent}
-                    aria-label="缩放比例"
+                    aria-label={t("canvas.zoomPercent")}
                     onChange={(event) => onZoomTo(Number(event.target.value) / 100)}
                 />
                 {!readOnly ? (
                     <WorkbenchButton
-                        aria-label="整理画布"
-                        title="整理画布（散乱时一键收纳 · ⌘Z 撤销）"
+                        aria-label={t("canvas.tidy")}
+                        title={t("canvas.tidyTitle")}
                         onClick={onTidy}
                     >
                         <IconLayoutGrid size={15} stroke={1.8} aria-hidden="true" />
                     </WorkbenchButton>
                 ) : null}
                 <WorkbenchButton
-                    aria-label={showMinimap ? "隐藏小地图" : "显示小地图"}
+                    aria-label={showMinimap ? t("canvas.hideMinimap") : t("canvas.showMinimap")}
                     title={
                         hasMinimapContent
                             ? showMinimap
-                                ? "隐藏小地图"
-                                : "显示小地图"
-                            : `至少 ${MINIMAP_MIN_NODES} 个节点后显示小地图`
+                                ? t("canvas.hideMinimap")
+                                : t("canvas.showMinimap")
+                            : t("canvas.minimapMinimum", { count: MINIMAP_MIN_NODES })
                     }
                     aria-pressed={showMinimap}
                     onClick={onToggleMinimap}

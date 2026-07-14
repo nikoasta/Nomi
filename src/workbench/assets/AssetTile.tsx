@@ -3,6 +3,7 @@ import { IconPlayerPlayFilled, IconPlus } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import { NomiImage } from '../../design/media'
 import type { AssetRef } from './assetTypes'
+import { useI18n } from '../../i18n/i18nContext'
 
 // 通用素材块(P0.2,样张 v4)。形态自明 > 文字解释:
 //   图  → 缩略图铺满
@@ -106,11 +107,13 @@ export default function AssetTile({ asset, index, onRemove, onClick, dragProps, 
 }
 
 // 空态/添加块:虚线「+」,点开统一选择器(样张 v4 的 .tile.add)。
-export function AssetAddTile({ onClick, selected, label = '加参考', className }: { onClick: () => void; selected?: boolean; label?: string; className?: string }): JSX.Element {
+export function AssetAddTile({ onClick, selected, label, className }: { onClick: () => void; selected?: boolean; label?: string; className?: string }): JSX.Element {
+  const { t } = useI18n()
+  const resolvedLabel = label ?? t('assetTile.addReference')
   return (
     <button
       type="button"
-      aria-label={label}
+      aria-label={resolvedLabel}
       onClick={onClick}
       className={cn(
         'w-14 h-14 rounded-nomi-sm border border-dashed border-nomi-ink-20 bg-nomi-ink-05 text-nomi-ink-40 flex items-center justify-center cursor-pointer hover:border-nomi-accent hover:text-nomi-accent',

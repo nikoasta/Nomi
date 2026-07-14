@@ -67,7 +67,7 @@ function CaptureTrigger({
     const dims = aspectDimensions(camera.aspectRatio)
     const captureCamera = new THREE.PerspectiveCamera(camera.fov, dims.width / dims.height, camera.near, camera.far)
     applySceneCameraPose(captureCamera, camera)
-    const result = captureScene(gl, scene, captureCamera, dims.width, dims.height, '站位参考', 'scene3d-camera', true)
+    const result = captureScene(gl, scene, captureCamera, dims.width, dims.height, 'Blocking reference', 'scene3d-camera', true)
     onResult(result)
   })
   return null

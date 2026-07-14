@@ -5,6 +5,7 @@ import { narrateProgress } from '../../observability/narrate'
 import { resolveGenerationReferences } from './generationReferenceResolver'
 import { asTrimmedString, resolveTaskKind, selectedModelKey, selectedVendor } from './catalogTaskResolve'
 import { normalizeCatalogTaskResult } from './catalogTaskResultParse'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 const TERMINAL_STATUSES = new Set(['succeeded', 'failed'])
 const RECOVER_POLL_INTERVAL_MS = 3000
@@ -46,7 +47,7 @@ export async function recoverNodeResult(nodeId: string): Promise<void> {
   const payload = buildRecoverPayload(id)
   const store = useGenerationCanvasStore.getState()
   if (!payload) {
-    store.setNodeStatus(id, 'error', '无法找回：缺少任务标识（taskId）或模型信息，请重新生成。')
+    store.setNodeStatus(id, 'error', canvasRuntimeTranslate('recover.missingPayload'))
     return
   }
 
@@ -58,12 +59,12 @@ export async function recoverNodeResult(nodeId: string): Promise<void> {
   store.setNodeProgress(id, {
     runId,
     phase: 'still-generating',
-    message: '正在重新拉取结果…',
+    message: canvasRuntimeTranslate('recover.fetching'),
     taskId: payload.taskId,
   })
 
   const startedAt = Date.now()
-  let current: TaskResultDto | null = null
+  let current: TaskResultDto | undefined
   try {
     while (true) {
       const response = await fetchWorkbenchTaskResultByVendor({
@@ -77,7 +78,7 @@ export async function recoverNodeResult(nodeId: string): Promise<void> {
       if (TERMINAL_STATUSES.has(current.status)) break
       if (Date.now() - startedAt > RECOVER_POLL_TIMEOUT_MS) {
         // 仍没出来 → 退回可找回态，按钮重现，稍后可再拉。
-        useGenerationCanvasStore.getState().setNodeStatus(id, 'recoverable', '任务仍在上游进行，请稍后再次拉取。')
+        useGenerationCanvasStore.getState().setNodeStatus(id, 'recoverable', canvasRuntimeTranslate('recover.stillUpstream'))
         return
       }
       useGenerationCanvasStore.getState().setNodeProgress(id, {
@@ -90,7 +91,7 @@ export async function recoverNodeResult(nodeId: string): Promise<void> {
     }
   } catch (error) {
     // 网络/查询本身报错 → 退回可找回态（不是真失败），让用户能再点。
-    const message = error instanceof Error && error.message ? error.message : '拉取结果失败'
+    const message = error instanceof Error && error.message ? error.message : canvasRuntimeTranslate('recover.fetchFailed')
     useGenerationCanvasStore.getState().setNodeStatus(id, 'recoverable', message)
     return
   }
@@ -103,7 +104,7 @@ export async function recoverNodeResult(nodeId: string): Promise<void> {
     await persistActiveWorkbenchProjectNow().catch(() => {})
   } catch (error) {
     // 终态是 failed（normalizeCatalogTaskResult 对 failed 抛错）→ 这才是真失败，落 error 桶。
-    const message = error instanceof Error && error.message ? error.message : '生成失败'
+    const message = error instanceof Error && error.message ? error.message : canvasRuntimeTranslate('recover.generationFailed')
     useGenerationCanvasStore.getState().setNodeStatus(id, 'error', message)
   }
 }
@@ -112,5 +113,5 @@ export async function recoverNodeResult(nodeId: string): Promise<void> {
 export function dismissRecoverableNode(nodeId: string): void {
   const id = String(nodeId || '').trim()
   if (!id) return
-  useGenerationCanvasStore.getState().setNodeStatus(id, 'error', '已标记为失败：生成超时，未找回结果。可重新生成。')
+  useGenerationCanvasStore.getState().setNodeStatus(id, 'error', canvasRuntimeTranslate('recover.dismissed'))
 }

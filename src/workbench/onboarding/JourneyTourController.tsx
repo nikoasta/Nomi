@@ -10,8 +10,15 @@ import { cn } from '../../utils/cn'
 import { OnboardingSpotlight } from './OnboardingSpotlight'
 import { useJourneyTourStore } from './journeyTourStore'
 import { TOUR_TEACH_TOTAL } from './journeyTour'
+import { useI18n } from '../../i18n/i18nContext'
+import type { TranslationKey } from '../../i18n/translations'
+
+function beatKey(id: string, field: 'title' | 'body'): TranslationKey {
+  return `journey.${id}.${field}` as TranslationKey
+}
 
 export function JourneyTourController({ onStartReal }: { onStartReal: () => void }): JSX.Element | null {
+  const { t } = useI18n()
   const active = useJourneyTourStore((s) => s.active)
   const phase = useJourneyTourStore((s) => s.phase)
   const beat = useJourneyTourStore((s) => s.beat)
@@ -29,15 +36,15 @@ export function JourneyTourController({ onStartReal }: { onStartReal: () => void
         className="fixed inset-0 z-[3402] grid place-items-center bg-nomi-scrim"
         data-journey-tour="finale"
         role="dialog"
-        aria-label="引导结束"
+        aria-label={t('journey.finale.aria')}
       >
         <div className="w-[400px] max-w-[88vw] flex flex-col items-center gap-3 p-7 rounded-nomi-lg border border-nomi-line bg-nomi-paper shadow-nomi-lg text-center">
           <span className="grid place-items-center size-11 rounded-full bg-nomi-accent-soft text-nomi-accent">
             <IconCheck size={22} stroke={1.8} aria-hidden="true" />
           </span>
-          <div className="text-title font-semibold text-nomi-ink">这就是全程，现在轮到你</div>
+          <div className="text-title font-semibold text-nomi-ink">{t('journey.finale.title')}</div>
           <p className="m-0 text-body-sm text-nomi-ink-60 leading-snug">
-            从一句话到成片，每一步都在你眼皮底下。要不要用你自己的故事走一遍？
+            {t('journey.finale.body')}
           </p>
           <div className="flex items-center gap-2.5 mt-2">
             <button
@@ -51,7 +58,7 @@ export function JourneyTourController({ onStartReal }: { onStartReal: () => void
                 'bg-nomi-ink text-nomi-paper text-body-sm font-medium transition-colors hover:bg-nomi-accent',
               )}
             >
-              用我自己的故事走一遍
+              {t('journey.finale.startReal')}
             </button>
             <button
               type="button"
@@ -61,7 +68,7 @@ export function JourneyTourController({ onStartReal }: { onStartReal: () => void
                 'text-body-sm text-nomi-ink-80 transition-colors hover:bg-nomi-ink-05',
               )}
             >
-              先逛逛
+              {t('journey.finale.browse')}
             </button>
           </div>
         </div>
@@ -75,10 +82,11 @@ export function JourneyTourController({ onStartReal }: { onStartReal: () => void
     return (
       <OnboardingSpotlight
         selectors={selectors ?? beat.selectors ?? []}
-        title={beat.title}
-        body={beat.body}
-        stepLabel={`讲解 ${teachIndex}/${TOUR_TEACH_TOTAL}`}
-        primaryLabel={teachIndex >= TOUR_TEACH_TOTAL ? '完成' : '下一步'}
+        title={t(beatKey(beat.id, 'title'))}
+        body={t(beatKey(beat.id, 'body'))}
+        stepLabel={t('journey.stepLabel', { current: teachIndex, total: TOUR_TEACH_TOTAL })}
+        primaryLabel={teachIndex >= TOUR_TEACH_TOTAL ? t('journey.done') : t('journey.next')}
+        dismissLabel={t('journey.skip')}
         onNext={advance}
         onDismiss={skip}
       />
@@ -92,19 +100,19 @@ export function JourneyTourController({ onStartReal }: { onStartReal: () => void
       data-journey-tour="cinematic"
       role="status"
     >
-      <div className="text-caption font-bold text-nomi-accent">{beat.title}</div>
-      <p className="m-0 text-body-sm text-nomi-ink-80 leading-snug">{beat.body}</p>
+      <div className="text-caption font-bold text-nomi-accent">{t(beatKey(beat.id, 'title'))}</div>
+      <p className="m-0 text-body-sm text-nomi-ink-80 leading-snug">{t(beatKey(beat.id, 'body'))}</p>
       <div className="flex items-center gap-2 mt-1">
         <span className="inline-flex items-center gap-1 text-micro text-nomi-ink-40">
           <IconPlayerPlay size={11} stroke={1.8} aria-hidden="true" />
-          自动播放中
+          {t('journey.autoplay')}
         </span>
         <button
           type="button"
           onClick={skip}
           className="ml-auto inline-flex items-center h-7 px-2.5 rounded-full border-0 bg-transparent cursor-pointer font-inherit text-caption text-nomi-ink-40 transition-colors hover:text-nomi-ink"
         >
-          跳过
+          {t('journey.skip')}
         </button>
       </div>
     </div>

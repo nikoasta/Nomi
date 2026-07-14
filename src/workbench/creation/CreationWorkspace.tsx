@@ -5,8 +5,10 @@ import WorkbenchEditor from './WorkbenchEditor'
 import StoryboardPlanEditor from './storyboard/StoryboardPlanEditor'
 import { NomiAILabel, WorkbenchButton } from '../../design'
 import { useWorkbenchStore } from '../workbenchStore'
+import { useI18n } from '../../i18n/i18nContext'
 
 export default function CreationWorkspace(): JSX.Element {
+  const { t } = useI18n()
   // 与生成区助手一致：一开始收着（浮起一个 pill），点开才展开成 344px 侧栏。
   const [collapsed, setCollapsed] = React.useState(true)
   // 一次性信号：打开示例/新项目时自动展开助手，让「拆镜头」CTA 一眼可见，消费后清掉。
@@ -38,7 +40,7 @@ export default function CreationWorkspace(): JSX.Element {
               'max-[1120px]:grid-cols-[minmax(0,1fr)] max-[1120px]:grid-rows-[minmax(420px,1fr)_minmax(320px,42vh)]',
             ),
       )}
-      aria-label="创作区"
+      aria-label={t('creation.aria')}
     >
       <div className="min-w-0 min-h-0 flex flex-col gap-2">
         {storyboardPlan ? (
@@ -91,10 +93,10 @@ export default function CreationWorkspace(): JSX.Element {
             'text-body-sm font-medium shadow-nomi-sm cursor-pointer',
             'hover:shadow-nomi-md hover:-translate-y-px',
           )}
-          aria-label="展开创作助手"
+          aria-label={t('creation.expandAssistant')}
           onClick={() => setCollapsed(false)}
         >
-          <NomiAILabel markSize={18} wordSize={13} suffix="创作" />
+          <NomiAILabel markSize={18} wordSize={13} suffix={t('creation.aiSuffix')} />
         </WorkbenchButton>
       ) : (
         <CreationAiPanel onCollapse={() => setCollapsed(true)} />

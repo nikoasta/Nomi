@@ -5,6 +5,8 @@ import { dataUrlToFile, persistNodeImageFile } from '../adapters/persistNodeImag
 import type { CropGridResult, CropGridSize } from './render/ImageCropGridOverlay'
 import { computeGridCells } from './render/cropGridGeometry'
 import { blobToDataUrl, removeBackgroundBlob } from '../../../lib/removeBackground'
+import { useI18n } from '../../../i18n/i18nContext'
+import type { TranslationKey } from '../../../i18n/translations'
 
 // 裁切 / 旋转 / 网格切分都用 canvas.toDataURL 产出 PNG base64。先用 base64 给即时预览，
 // 紧接着把它落盘换成 nomi-local:// 替换掉对应 result —— 避免 PNG base64 永久挂在 store（图多即卡）。
@@ -60,11 +62,11 @@ function mergeNodeImageHistory(
 export type ImageGridSize = 2 | 3
 export type ImageTransformOp = 'rotate-left' | 'rotate-right' | 'flip-h' | 'flip-v'
 
-export const IMAGE_TRANSFORM_LABEL: Record<ImageTransformOp, string> = {
-  'rotate-left': '向左旋转 90°',
-  'rotate-right': '向右旋转 90°',
-  'flip-h': '水平翻转',
-  'flip-v': '垂直翻转',
+export const IMAGE_TRANSFORM_LABEL_KEY: Record<ImageTransformOp, TranslationKey> = {
+  'rotate-left': 'imageTransform.rotateLeft',
+  'rotate-right': 'imageTransform.rotateRight',
+  'flip-h': 'imageTransform.flipHorizontal',
+  'flip-v': 'imageTransform.flipVertical',
 }
 
 // 这几个布局上下界与壳里 resize 用的同名常量保持一致（壳负责 resize，这里负责编辑后主图尺寸）。
@@ -75,13 +77,13 @@ function clampNumber(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
-function removeBackgroundProgressMessage(key: string): string {
-  if (key.includes('decode')) return '读取图片中'
-  if (key.includes('inference')) return '识别主体中'
-  if (key.includes('mask')) return '生成透明遮罩'
-  if (key.includes('encode')) return '导出透明 PNG'
-  if (key.includes('model')) return '加载抠图模型'
-  return '抠图中'
+function removeBackgroundProgressMessage(key: string, t: (key: TranslationKey) => string): string {
+  if (key.includes('decode')) return t('imageEdit.progress.decode')
+  if (key.includes('inference')) return t('imageEdit.progress.inference')
+  if (key.includes('mask')) return t('imageEdit.progress.mask')
+  if (key.includes('encode')) return t('imageEdit.progress.encode')
+  if (key.includes('model')) return t('imageEdit.progress.model')
+  return t('imageEdit.progress.removing')
 }
 
 function imageGridTileNodeSize(width: number, height: number, preferredWidth: number): { width: number; height: number; previewHeight: number } | null {
@@ -175,6 +177,7 @@ export function useNodeImageEditing(
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
   const [editGrid, setEditGrid] = React.useState<CropGridSize | null>(null)
   const [imageOpBusy, setImageOpBusy] = React.useState(false)
+  const { t } = useI18n()
   const openEdit = React.useCallback((gridSize: CropGridSize) => setEditGrid(gridSize), [])
   const cancelEdit = React.useCallback(() => setEditGrid(null), [])
 
@@ -294,7 +297,7 @@ export function useNodeImageEditing(
         runId: `remove-bg-${nodeId}-${createdAt}`,
         taskKind: 'asset',
         phase: 'remove-background',
-        message: '抠图中',
+        message: t('imageEdit.progress.removing'),
         percent: 0,
         updatedAt: createdAt,
       },
@@ -311,7 +314,7 @@ export function useNodeImageEditing(
             runId: `remove-bg-${nodeId}-${createdAt}`,
             taskKind: 'asset',
             phase: 'remove-background',
-            message: removeBackgroundProgressMessage(key),
+            message: removeBackgroundProgressMessage(key, t),
             percent,
             updatedAt: Date.now(),
           },
@@ -346,11 +349,11 @@ export function useNodeImageEditing(
         progress: undefined,
       })
       const { toast } = await import('../../../ui/toast')
-      toast('抠图失败，请检查网络连接后重试', 'error')
+      toast(t('imageEdit.removeBackgroundFailed'), 'error')
     } finally {
       setImageOpBusy(false)
     }
-  }, [imageOpBusy, nodeHistory, nodeId, nodeMeta, nodeResult, nodeStatus, updateNode])
+  }, [imageOpBusy, nodeHistory, nodeId, nodeMeta, nodeResult, nodeStatus, t, updateNode])
 
   return {
     editGrid,

@@ -8,12 +8,14 @@ import {
 } from '@tabler/icons-react'
 import { cn } from '../../../../utils/cn'
 import { ASPECT_RATIOS, type AspectRatioKey, type ToolKey } from './lib/canvas'
+import { useI18n } from '../../../../i18n/i18nContext'
+import type { TranslationKey } from '../../../../i18n/translations'
 
-export const TOOL_ITEMS: Array<{ key: ToolKey; label: string; icon: React.ReactNode; disabled?: boolean }> = [
-  { key: 'brush', label: '画笔', icon: <IconBrush size={17} stroke={1.7} /> },
-  { key: 'select', label: '选择', icon: <IconPointer size={17} stroke={1.7} /> },
-  { key: 'eraser', label: '橡皮', icon: <IconEraser size={17} stroke={1.7} /> },
-  { key: 'shape', label: '形状', icon: <IconSquare size={17} stroke={1.7} />, disabled: true },
+export const TOOL_ITEMS: Array<{ key: ToolKey; labelKey: TranslationKey; icon: React.ReactNode; disabled?: boolean }> = [
+  { key: 'brush', labelKey: 'whiteboard.tool.brush', icon: <IconBrush size={17} stroke={1.7} /> },
+  { key: 'select', labelKey: 'whiteboard.tool.select', icon: <IconPointer size={17} stroke={1.7} /> },
+  { key: 'eraser', labelKey: 'whiteboard.tool.eraser', icon: <IconEraser size={17} stroke={1.7} /> },
+  { key: 'shape', labelKey: 'whiteboard.tool.shape', icon: <IconSquare size={17} stroke={1.7} />, disabled: true },
 ]
 
 type AspectRatioPopoverProps = {
@@ -22,6 +24,7 @@ type AspectRatioPopoverProps = {
 }
 
 export function AspectRatioPopover({ value, onChange }: AspectRatioPopoverProps): JSX.Element {
+  const { t } = useI18n()
   const [open, setOpen] = React.useState(false)
   const rootRef = React.useRef<HTMLDivElement | null>(null)
 
@@ -53,11 +56,11 @@ export function AspectRatioPopover({ value, onChange }: AspectRatioPopoverProps)
         )}
         aria-haspopup="listbox"
         aria-expanded={open}
-        aria-label={`画板比例 ${value}`}
-        title="画板比例"
+        aria-label={`${t('whiteboard.aspectTitle')} ${value}`}
+        title={t('whiteboard.aspectTitle')}
         onClick={() => setOpen((current) => !current)}
       >
-        <span className="text-nomi-ink-40">比例</span>
+        <span className="text-nomi-ink-40">{t('whiteboard.ratio')}</span>
         <span className="tabular-nums">{value}</span>
         <IconChevronDown size={14} stroke={1.7} className="ml-auto text-nomi-ink-40" aria-hidden />
       </button>
@@ -67,7 +70,7 @@ export function AspectRatioPopover({ value, onChange }: AspectRatioPopoverProps)
             'absolute bottom-[calc(100%+8px)] left-1/2 z-[30] w-[138px] -translate-x-1/2 rounded-nomi border border-nomi-line bg-nomi-paper p-1 shadow-nomi-md',
           )}
           role="listbox"
-          aria-label="选择画板比例"
+          aria-label={t('whiteboard.aspectSelect')}
           onPointerDown={(event) => event.stopPropagation()}
         >
           {ASPECT_RATIOS.map((ratio) => {

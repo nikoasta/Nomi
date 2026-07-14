@@ -3,12 +3,14 @@ import { IconLetterCase } from '@tabler/icons-react'
 import { useWorkbenchStore } from '../workbenchStore'
 import { cn } from '../../utils/cn'
 import { clientXToFrame, frameToPixel, pixelToFrame } from './timelineEdit'
+import { useI18n } from '../../i18n/i18nContext'
 
 /**
  * 文字轨：字幕/标题卡的时间轴行。只在预览标签出现（生成画布底部那条不传 showTextTrack）。
  * clip 显示文本内容；点选→选中并把 playhead 移到其起点（让预览叠加层显出来供编辑）；拖动改时间。
  */
 export default function TimelineTextTrack(): JSX.Element {
+  const { t } = useI18n()
   const textClips = useWorkbenchStore((state) => state.timeline.textClips)
   const scale = useWorkbenchStore((state) => state.timeline.scale)
   const selectedTextClipId = useWorkbenchStore((state) => state.selectedTextClipId)
@@ -96,7 +98,7 @@ export default function TimelineTextTrack(): JSX.Element {
         'text-[var(--workbench-muted)] text-micro font-medium',
       )}>
         <span className="flex-none w-2 h-2 rounded-full shadow-none bg-[var(--workbench-text)]" aria-hidden="true" />
-        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">文字轨</span>
+        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{t('timeline.textTrack')}</span>
         <span className={cn(
           'flex-none min-w-0 h-auto ml-auto px-1.5 py-px inline-grid place-items-center border-0 rounded-full',
           'bg-[var(--nomi-ink-05)] text-[var(--nomi-ink-40)] text-micro font-bold tabular-nums',
@@ -125,7 +127,7 @@ export default function TimelineTextTrack(): JSX.Element {
             'absolute inset-0 flex items-center justify-center',
             'border border-dashed border-[var(--nomi-line)] rounded-[var(--nomi-radius-sm)]',
             'text-[var(--nomi-ink-40)] leading-none text-micro font-medium pointer-events-none',
-          )}>用上方「字幕 / 标题卡」添加</div>
+          )}>{t('timeline.textEmpty')}</div>
         ) : null}
         {textClips.map((clip) => {
           const left = frameToPixel(clip.startFrame, scale)
@@ -145,22 +147,22 @@ export default function TimelineTextTrack(): JSX.Element {
                   : 'border-[color-mix(in_oklch,var(--workbench-text)_36%,transparent)]',
               )}
               style={{ left: `${left}px`, width: `${width}px` }}
-              title={clip.style === 'title' ? '标题卡' : '字幕'}
+              title={clip.style === 'title' ? t('timeline.titleCard') : t('timeline.caption')}
               onPointerDown={(event) => beginDrag(event, clip.id, clip.startFrame)}
               onClick={() => setTimelinePlayhead(clip.startFrame)}
             >
               <IconLetterCase size={12} className="flex-none opacity-70" />
-              <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{clip.text || '（空）'}</span>
+              <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{clip.text || t('timeline.emptyText')}</span>
               <span
                 role="separator"
-                aria-label="向左调整时长"
+                aria-label={t('timeline.resizeLeft')}
                 className="absolute inset-y-0 left-0 w-1.5 z-[2] cursor-ew-resize hover:bg-[var(--workbench-text)]"
                 onPointerDown={(event) => beginResize(event, clip.id, 'left')}
                 onClick={(event) => event.stopPropagation()}
               />
               <span
                 role="separator"
-                aria-label="向右调整时长"
+                aria-label={t('timeline.resizeRight')}
                 className="absolute inset-y-0 right-0 w-1.5 z-[2] cursor-ew-resize hover:bg-[var(--workbench-text)]"
                 onPointerDown={(event) => beginResize(event, clip.id, 'right')}
                 onClick={(event) => event.stopPropagation()}

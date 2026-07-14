@@ -4,6 +4,7 @@ import { IconChevronRight, IconDotsVertical, IconFolder, IconTrash } from '@tabl
 import { cn } from '../../../../utils/cn'
 import { FULLSCREEN_Z_INDEX } from './scene3dConstants'
 import type { Scene3DTrajectory, Scene3DTrajectoryGroup } from './scene3dTypes'
+import { useScene3DI18n } from './scene3dI18n'
 
 type TrajectoryListPanelProps = {
   activeTrajectoryId: string | null
@@ -24,6 +25,7 @@ export const TrajectoryListPanel = React.memo(function TrajectoryListPanel({
   onDeleteTrajectory,
   onSelectTrajectory,
 }: TrajectoryListPanelProps): JSX.Element {
+  const t3d = useScene3DI18n()
   const [menu, setMenu] = React.useState<{ trajectoryId: string; x: number; y: number } | null>(null)
   const groupNameByTrajectoryId = React.useMemo(() => {
     const map = new Map<string, string>()
@@ -78,7 +80,7 @@ export const TrajectoryListPanel = React.memo(function TrajectoryListPanel({
                 type="button"
               >
                 <IconFolder size={14} stroke={1.9} />
-                <span className="min-w-0 flex-1 truncate">加入轨迹组</span>
+                <span className="min-w-0 flex-1 truncate">{t3d('trajectory.addToGroup')}</span>
                 <IconChevronRight size={13} stroke={1.9} />
               </button>
               {groups.length > 0 ? (
@@ -116,7 +118,7 @@ export const TrajectoryListPanel = React.memo(function TrajectoryListPanel({
               }}
             >
               <IconTrash size={14} stroke={1.9} />
-              <span>删除</span>
+              <span>{t3d('inspector.delete')}</span>
             </button>
           </div>,
           document.body,
@@ -126,13 +128,13 @@ export const TrajectoryListPanel = React.memo(function TrajectoryListPanel({
   return (
     <section className="flex h-full min-h-0 flex-col bg-[var(--nomi-paper)]">
       <div className="flex shrink-0 items-center justify-between px-3 py-2">
-        <h3 className="m-0 text-caption font-medium text-[var(--nomi-ink)]">轨迹列表</h3>
+        <h3 className="m-0 text-caption font-medium text-[var(--nomi-ink)]">{t3d('trajectory.listTitle')}</h3>
         <span className="text-micro text-[var(--nomi-ink-60)]">{trajectories.length}</span>
       </div>
       <div className="min-h-0 flex-1 overflow-auto px-2 pb-2">
         {trajectories.length === 0 ? (
           <div className="grid h-20 place-items-center rounded-nomi-sm border border-dashed border-[var(--nomi-line-soft)] text-micro text-[var(--nomi-ink-40)]">
-            双击空白创建轨迹
+            {t3d('trajectory.emptyCreate')}
           </div>
         ) : (
           trajectories.map((trajectory) => {
@@ -160,7 +162,7 @@ export const TrajectoryListPanel = React.memo(function TrajectoryListPanel({
                 >
                   <span className="min-w-0 truncate text-caption font-medium">{trajectory.name}</span>
                   <span className="min-w-0 truncate text-micro text-[var(--nomi-ink-40)]">
-                    {groupName || '未分组'} · {trajectory.points.length}点
+                    {groupName || t3d('trajectory.ungrouped')} · {t3d('trajectory.pointNodeCount', { points: trajectory.points.length, nodes: 0 }).split(' · ')[0]}
                   </span>
                 </button>
                 <button
@@ -168,7 +170,7 @@ export const TrajectoryListPanel = React.memo(function TrajectoryListPanel({
                     'grid size-7 place-items-center rounded-nomi-sm text-[var(--nomi-ink-40)] opacity-0 hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)] group-hover:opacity-100',
                     menu?.trajectoryId === trajectory.id && 'opacity-100',
                   )}
-                  title="更多"
+                  title={t3d('trajectory.more')}
                   type="button"
                   onClick={(event) => {
                     event.preventDefault()

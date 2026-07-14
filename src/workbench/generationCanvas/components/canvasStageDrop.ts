@@ -16,6 +16,7 @@ import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { toast } from '../../../ui/toast'
 import type { BrowserAssetCanvasImportItem } from '../../../ui/browser/overlay/globalAssetPopoverEvents'
 import type { TiptapDocJson } from '../model/generationCanvasTypes'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 export const BROWSER_ASSET_DRAG_MIME = 'application/x-nomi-assets'
 export const LEGACY_BROWSER_ASSET_DRAG_MIME = 'application/x-nomi-browser-assets'
@@ -243,7 +244,7 @@ export function handleCanvasStageDrop(event: DragEvent<HTMLDivElement>, ctx: Can
     const store = useGenerationCanvasStore.getState()
     const node = store.addNode({
       kind: 'asset',
-      title: workspaceDrag.name.replace(/\.[^.]+$/, '') || (kind === 'video' ? '本地视频' : '本地素材'),
+      title: workspaceDrag.name.replace(/\.[^.]+$/, '') || (kind === 'video' ? canvasRuntimeTranslate('assetDrop.localVideo') : canvasRuntimeTranslate('assetDrop.localAsset')),
       prompt: '',
       position: { x: clampNodePos(basePosition.x), y: clampNodePos(basePosition.y) },
       categoryId: ctx.activeCategoryId,
@@ -265,7 +266,7 @@ export function handleCanvasStageDrop(event: DragEvent<HTMLDivElement>, ctx: Can
     event.stopPropagation()
     const mediaItems = assetDragItems.filter((asset) => asset.kind !== 'audio')
     if (!mediaItems.length) {
-      toast('音频请拖到时间轴的「音频轨」当配乐', 'info')
+      toast(canvasRuntimeTranslate('timeline.audioToAudioTrack'), 'info')
       return
     }
     const store = useGenerationCanvasStore.getState()
@@ -276,7 +277,7 @@ export function handleCanvasStageDrop(event: DragEvent<HTMLDivElement>, ctx: Can
     mediaItems.forEach((assetDrag, index) => {
       const node = store.addNode({
         kind: 'asset',
-        title: assetDrag.name.replace(/\.[^.]+$/, '') || (assetDrag.kind === 'video' ? '参考视频' : '参考图片'),
+        title: assetDrag.name.replace(/\.[^.]+$/, '') || (assetDrag.kind === 'video' ? canvasRuntimeTranslate('assetDrop.referenceVideo') : canvasRuntimeTranslate('assetDrop.referenceImage')),
         prompt: '',
         position: positions[index],
         categoryId: ctx.activeCategoryId,
@@ -296,7 +297,7 @@ export function handleCanvasStageDrop(event: DragEvent<HTMLDivElement>, ctx: Can
       nodeIds.push(node.id)
     })
     nodeIds.forEach((nodeId, index) => store.selectNode(nodeId, index > 0))
-    if (mediaItems.length < assetDragItems.length) toast('音频请拖到时间轴的「音频轨」当配乐', 'info')
+    if (mediaItems.length < assetDragItems.length) toast(canvasRuntimeTranslate('timeline.audioToAudioTrack'), 'info')
     return
   }
 

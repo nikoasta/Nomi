@@ -1,6 +1,9 @@
 import type { GenerationCanvasNode } from './generationCanvasTypes'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
-export const TIMELINE_DRAG_HANDLE_LABEL = '拖拽到时间轴'
+export function getTimelineDragHandleLabel(): string {
+  return canvasRuntimeTranslate('timelineDrag.label')
+}
 
 export function canDragGenerationNodeToTimeline(
   node: GenerationCanvasNode,

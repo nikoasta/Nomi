@@ -8,8 +8,8 @@ export type BrowserPromptExtraction = {
 export type BrowserPromptExtractionMode = 'replicate' | 'style'
 
 export const BROWSER_PROMPT_EXTRACTION_MODE_LABELS: Record<BrowserPromptExtractionMode, string> = {
-  replicate: '画面复刻',
-  style: '画面风格',
+  replicate: 'Image replication',
+  style: 'Visual style',
 }
 
 export const BROWSER_IMAGE_REPLICATE_PROMPT_EXTRACTION_PROMPT = [
@@ -195,14 +195,14 @@ export function parseBrowserPromptExtraction(
       return {
         title:
           firstText(parsed.title, (parsed.localizedTitles as Record<string, unknown> | undefined)?.['zh-CN']) ||
-          (mode === 'style' ? '画面风格' : '图片提示词'),
+          (mode === 'style' ? 'Visual style' : 'Image prompt'),
         prompt,
       }
     }
   }
   const fallback = text.trim()
   return {
-    title: mode === 'style' ? '画面风格' : '图片提示词',
+    title: mode === 'style' ? 'Visual style' : 'Image prompt',
     prompt: fallback,
   }
 }

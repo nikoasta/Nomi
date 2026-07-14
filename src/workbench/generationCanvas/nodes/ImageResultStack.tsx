@@ -4,6 +4,8 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { cn } from '../../../utils/cn'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import type { GenerationCanvasNode, GenerationNodeResult } from '../model/generationCanvasTypes'
+import { useI18n } from '../../../i18n/i18nContext'
+import { canvasTranslate } from '../canvasI18n'
 
 type ImageStackEntry = GenerationNodeResult & { url: string }
 
@@ -41,6 +43,8 @@ export function ImageResultStackControls({
   visualHeight: number
   onOpenChange?: (open: boolean) => void
 }): JSX.Element | null {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
   const [open, setOpen] = React.useState(false)
   const entries = React.useMemo(() => getImageResultStack(node), [node])
@@ -124,7 +128,7 @@ export function ImageResultStackControls({
         <button
           type="button"
           className="inline-flex h-7 w-9 items-center justify-center border-0 bg-transparent px-2.5 text-body-sm font-semibold tabular-nums text-inherit"
-          aria-label={`${entries.length} 张堆叠图片`}
+          aria-label={tCanvas('imageStack.count', { count: entries.length })}
           aria-expanded={open}
           onClick={(event) => {
             event.stopPropagation()
@@ -136,7 +140,7 @@ export function ImageResultStackControls({
         <button
           type="button"
           className="grid h-7 w-7 place-items-center border-0 border-l border-nomi-line bg-transparent text-inherit hover:bg-nomi-ink-05"
-          aria-label={open ? '收起堆叠图片' : '展开堆叠图片'}
+          aria-label={open ? tCanvas('imageStack.collapse') : tCanvas('imageStack.expand')}
           aria-expanded={open}
           onClick={(event) => {
             event.stopPropagation()
@@ -163,7 +167,7 @@ export function ImageResultStackControls({
               height: rows * tileHeight + (rows - 1) * panelGap,
             }}
             role="list"
-            aria-label="可切换的堆叠图片"
+            aria-label={tCanvas('imageStack.aria')}
             initial={{ opacity: 0, scale: 0.98, x: -10 }}
             animate={{ opacity: 1, scale: 1, x: 0 }}
             exit={{ opacity: 0, scale: 0.98, x: -10 }}

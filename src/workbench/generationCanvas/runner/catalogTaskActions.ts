@@ -28,6 +28,7 @@ import {
 } from './catalogTaskResolve'
 import { normalizeCatalogTaskResult } from './catalogTaskResultParse'
 import { RecoverableTimeoutError } from './recoverableTimeout'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 // 重导出：实现已拆到 catalogTaskResolve（节点→vendor/model/kind 选择）与
 // catalogTaskResultParse（raw/asset/failure/provenance 解析），但 catalogTaskActions
@@ -110,9 +111,9 @@ export function buildCatalogTaskRequest(
   options: CatalogTaskActionOptions = {},
 ): { vendor: string; request: TaskRequestDto } {
   const vendor = selectedVendor(node)
-  if (!vendor) throw new Error('请先在模型管理里选择一个可用模型')
+  if (!vendor) throw new Error(canvasRuntimeTranslate('runner.pickVendor'))
   const modelKey = selectedModelKey(node)
-  if (!modelKey) throw new Error('请先选择模型')
+  if (!modelKey) throw new Error(canvasRuntimeTranslate('runner.pickModel'))
   const rawPrompt = asTrimmedString(node.prompt)
   if (!rawPrompt) throw new Error('prompt is required')
 

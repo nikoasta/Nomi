@@ -8,6 +8,7 @@ import { confirmAndMintGrant, describeGenerationCost } from '../spend/spendConfi
 import type { DependencyWavePlan } from '../runner/dependencyWaves'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { verifyShotsAndReport } from '../agent/shotVerifyStore'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 type BatchPlanPreviewState = {
   plan: DependencyWavePlan | null
@@ -32,7 +33,7 @@ export const useBatchPlanPreviewStore = create<BatchPlanPreviewState>()((set, ge
       grantId = await mintSpendGrant(plan.waves.flat())
     } catch (error) {
       set({ running: false })
-      toast(error instanceof Error && error.message ? error.message : '付费授权失败', 'error')
+      toast(error instanceof Error && error.message ? error.message : canvasRuntimeTranslate('batchRun.spendAuthFailed'), 'error')
       return
     }
     set({ plan: null, running: false })
@@ -49,9 +50,9 @@ export function describeBlockedNotice(plan: DependencyWavePlan): string | null {
   const cycle = plan.blocked.filter((b) => b.reason === 'cycle').length
   const waiting = plan.blocked.length - cycle
   const parts: string[] = []
-  if (waiting > 0) parts.push(`${waiting} 个在等上游参考（参考卡）先生成`)
-  if (cycle > 0) parts.push(`${cycle} 个存在循环引用`)
-  return `还有 ${parts.join('、')}——先把它们生成/理顺，再批量。`
+  if (waiting > 0) parts.push(canvasRuntimeTranslate('batchRun.waitingReferences', { count: waiting }))
+  if (cycle > 0) parts.push(canvasRuntimeTranslate('batchRun.cycles', { count: cycle }))
+  return canvasRuntimeTranslate('batchRun.blockedNotice', { parts: parts.join(', ') })
 }
 
 /**
@@ -66,9 +67,9 @@ export async function confirmAndRunPlan(plan: DependencyWavePlan): Promise<void>
   }
   const grantId = await confirmAndMintGrant({
     nodeIds: ids,
-    title: '开始生成',
+    title: canvasRuntimeTranslate('batchRun.startTitle'),
     message: describeGenerationCost(ids.length, spendCostKindForNodes(ids)),
-    confirmLabel: '生成',
+    confirmLabel: canvasRuntimeTranslate('batchRun.confirm'),
     light: true,
   })
   if (!grantId) return
@@ -83,25 +84,25 @@ export async function runPlanWithToasts(plan: DependencyWavePlan, grantId?: stri
   const notice = describeBlockedNotice(plan)
   if (runnable === 0) {
     // 全被拦：别静默，说清原因
-    toast(notice ? `还不能生成：${notice}` : '没有可生成的节点', 'error')
+    toast(notice ? canvasRuntimeTranslate('batchRun.cannotGenerate', { notice }) : canvasRuntimeTranslate('batchRun.none'), 'error')
     return
   }
   // 启动反馈（用户强调）：有依赖（多波）= 不是全并发，要先生成上游参考、再生成下游镜头。说清楚，
   // 否则用户以为"只跑一个/卡住了"。单波则直接并发（并发上限 6）。
   const firstWave = waves[0].length
   const startMsg = waves.length > 1
-    ? `分 ${waves.length} 波生成 ${runnable} 个：先生成 ${firstWave} 个上游参考，其余 ${runnable - firstWave} 个等参考完成后自动接力`
-    : `开始生成 ${runnable} 个…`
+    ? canvasRuntimeTranslate('batchRun.startWaves', { waves: waves.length, total: runnable, first: firstWave, rest: runnable - firstWave })
+    : canvasRuntimeTranslate('batchRun.startSingle', { count: runnable })
   toast(startMsg, 'info')
   try {
     const result = await runGenerationNodesByPlan(plan, grantId ? { grantId } : {})
     const okCount = result.successes.length
     const failCount = result.failures.length
     // 完成汇总：把「还有谁没跑、为什么」(notice) 并进同一条，不再跑完补弹第二条（消除连环弹，弹窗审计）。
-    const tail = notice ? `；${notice}` : ''
-    if (failCount === 0) toast(`已完成 ${okCount} 个${tail}`, notice ? 'warning' : 'success')
-    else if (okCount === 0) toast(`批量生成失败：${failCount} 个未完成${tail}`, 'error')
-    else toast(`已完成 ${okCount} 个，${failCount} 个失败 — 在画布上单独重试${tail}`, 'warning')
+    const tail = notice ? `; ${notice}` : ''
+    if (failCount === 0) toast(canvasRuntimeTranslate('batchRun.completed', { count: okCount, tail }), notice ? 'warning' : 'success')
+    else if (okCount === 0) toast(canvasRuntimeTranslate('batchRun.failedAll', { count: failCount, tail }), 'error')
+    else toast(canvasRuntimeTranslate('batchRun.partial', { ok: okCount, failed: failCount, tail }), 'warning')
     // Stage 1:生成完成 → 对成功的「镜头」节点(有 shotIndex,排除锚卡)跑画面校验(fire-and-forget,
     // 不阻塞完成 toast;verify 失败静默,绝不把生成完成拖红)。
     if (okCount > 0) {
@@ -112,6 +113,6 @@ export async function runPlanWithToasts(plan: DependencyWavePlan, grantId?: stri
       if (shotIds.length > 0) void verifyShotsAndReport(shotIds)
     }
   } catch (error: unknown) {
-    toast(error instanceof Error && error.message ? error.message : '批量生成异常', 'error')
+    toast(error instanceof Error && error.message ? error.message : canvasRuntimeTranslate('batchRun.exception'), 'error')
   }
 }

@@ -8,6 +8,7 @@
 import React from 'react'
 import { IconChevronDown } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
+import { useI18n } from '../../i18n/i18nContext'
 
 type FoldableModelCardProps = {
   /** logo 内容：字形（如 'A'）、Tabler 图标或 <img> brand logo。 */
@@ -40,6 +41,7 @@ export function FoldableModelCard({
   defaultExpanded = false,
   children,
 }: FoldableModelCardProps): JSX.Element {
+  const { t } = useI18n()
   const [expanded, setExpanded] = React.useState(defaultExpanded)
   const bodyId = React.useId()
 
@@ -82,7 +84,7 @@ export function FoldableModelCard({
           )}
         >
           <span className={cn('w-1.5 h-1.5 rounded-full', status === 'ok' ? 'bg-workbench-success' : 'bg-nomi-ink-30')} />
-          {statusLabel ?? (status === 'ok' ? '已连通' : '待接入')}
+          {statusLabel ?? (status === 'ok' ? t('modelSetup.card.connected') : t('modelSetup.card.todo'))}
         </span>
         <IconChevronDown
           size={16}

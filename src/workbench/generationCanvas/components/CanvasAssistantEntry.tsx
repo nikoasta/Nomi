@@ -3,6 +3,7 @@ import { NomiAILabel } from '../../../design/identity'
 import { WorkbenchButton } from '../../../design/workbenchActions'
 import { cn } from '../../../utils/cn'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
+import { useI18n } from '../../../i18n/i18nContext'
 
 const CanvasAssistantPanel = React.lazy(() => import('./CanvasAssistantPanel'))
 
@@ -12,6 +13,7 @@ type CanvasAssistantEntryProps = {
 }
 
 function CanvasAssistantLauncher({ onOpen }: { onOpen: () => void }): JSX.Element {
+  const { t } = useI18n()
   return (
     <aside
       className={cn(
@@ -19,7 +21,7 @@ function CanvasAssistantLauncher({ onOpen }: { onOpen: () => void }): JSX.Elemen
         'block w-auto h-auto rounded-full',
       )}
       data-collapsed="true"
-      aria-label="生成区 AI 启动器"
+      aria-label={t('canvasAssistant.launcher')}
     >
       <WorkbenchButton
         className={cn(
@@ -32,7 +34,7 @@ function CanvasAssistantLauncher({ onOpen }: { onOpen: () => void }): JSX.Elemen
         )}
         onClick={onOpen}
       >
-        <NomiAILabel markSize={18} wordSize={13} suffix="生成" />
+        <NomiAILabel markSize={18} wordSize={13} suffix={t('canvasAssistant.suffix')} />
       </WorkbenchButton>
     </aside>
   )

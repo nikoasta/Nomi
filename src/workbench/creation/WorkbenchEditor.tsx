@@ -2,15 +2,13 @@ import React from 'react'
 import { EditorContent, type Editor, type JSONContent } from '@tiptap/react'
 import SelectionGeneratePopover from './SelectionGeneratePopover'
 import { WorkbenchIconButton } from '../../design/workbenchActions'
+import { useI18n } from '../../i18n/i18nContext'
 import { cn } from '../../utils/cn'
 import { useWorkbenchStore } from '../workbenchStore'
 import { normalizeWorkbenchContentJson, type CreationDocumentTools } from '../workbenchTypes'
 import { useTransientScrollingClass } from './useTransientScrollingClass'
 import { useNomiRichTextEditor } from '../common/useNomiRichTextEditor'
 import { buildRichTextActions, type RichTextAction } from '../common/richTextActions'
-
-const CREATION_PLACEHOLDER =
-  '从这里开始写你的故事、脚本或文案……  选中文字，点右侧即可生成图片 / 视频节点。'
 
 // 工具栏分组：格式按语义分 3 簇（强调 / 标题 / 列表·引用）靠左，历史（撤销/重做）推到右端。
 // 之前用一个 flex-1 spacer 把 9 个按钮全挤到左侧、右边 ~570px 浪费 —— 这里按语义两端锚定。
@@ -47,7 +45,8 @@ function ToolbarDivider(): JSX.Element {
 }
 
 function WorkbenchEditorToolbar({ editor }: { editor: Editor | null }): JSX.Element {
-  const actions = buildRichTextActions(editor)
+  const { t } = useI18n()
+  const actions = buildRichTextActions(editor, t)
   if (actions.length === 0) {
     return (
       <div
@@ -56,7 +55,7 @@ function WorkbenchEditorToolbar({ editor }: { editor: Editor | null }): JSX.Elem
           'h-[44px] flex items-center gap-1 px-3',
           'border-b border-workbench-border-soft bg-workbench-surface',
         )}
-        aria-label="文本工具栏"
+        aria-label={t('workbenchEditor.toolbar')}
       />
     )
   }
@@ -71,7 +70,7 @@ function WorkbenchEditorToolbar({ editor }: { editor: Editor | null }): JSX.Elem
         'h-[44px] flex items-center gap-1 px-3',
         'border-b border-workbench-border-soft bg-workbench-surface',
       )}
-      aria-label="文本工具栏"
+      aria-label={t('workbenchEditor.toolbar')}
     >
       {leftGroups.map((group, index) => (
         <React.Fragment key={group[0]?.id ?? index}>
@@ -90,6 +89,7 @@ function WorkbenchEditorToolbar({ editor }: { editor: Editor | null }): JSX.Elem
 }
 
 export default function WorkbenchEditor(): JSX.Element {
+  const { t } = useI18n()
   const workbenchDocument = useWorkbenchStore((state) => state.workbenchDocument)
   const setWorkbenchDocument = useWorkbenchStore((state) => state.setWorkbenchDocument)
   const setCreationDocumentTools = useWorkbenchStore((state) => state.setCreationDocumentTools)
@@ -132,7 +132,7 @@ export default function WorkbenchEditor(): JSX.Element {
 
   const { editor, tools } = useNomiRichTextEditor({
     content: editorContent,
-    placeholder: CREATION_PLACEHOLDER,
+    placeholder: t('workbenchEditor.placeholder'),
     onChange: handleChange,
     onSelectionChange: handleSelectionChange,
   })
@@ -169,7 +169,7 @@ export default function WorkbenchEditor(): JSX.Element {
         'bg-workbench-surface-solid shadow-workbench-md',
         'overflow-hidden',
       )}
-      aria-label="创作文档编辑区"
+      aria-label={t('workbenchEditor.aria')}
       onKeyDown={(event) => event.stopPropagation()}
       onKeyUp={(event) => event.stopPropagation()}
     >

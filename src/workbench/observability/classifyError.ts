@@ -4,6 +4,8 @@
 // 对话 bundle；generationRunController 改 re-export 保持既有 import 不破。
 import { narrateGenerationError, type GenerationErrorKind } from './narrate'
 import { parseVendorErrorFromMessage, stripVendorErrorMarker } from '../generationCanvas/runner/vendorErrorIpc'
+import { getRuntimeLocale } from '../../i18n/runtimeLocale'
+import type { SupportedLocale } from '../../i18n/translations'
 
 export type GenerationErrorReport = {
   /** Short human reason, e.g. 配额或限流. */
@@ -71,6 +73,21 @@ function truncateLine(value: string): string {
  * Common cases: API key 无效、模型未配置、配额/限流、网络/超时、内容拦截。
  */
 const STRUCTURED_KINDS: readonly GenerationErrorKind[] = ['auth', 'balance', 'quota', 'network', 'server', 'input']
+
+const WEB_MEDIA_DOWNLOAD_ERROR: Record<SupportedLocale, { reason: string; hint: string }> = {
+  'zh-CN': {
+    reason: '网页媒体下载失败',
+    hint: '部分站点会禁止跨域请求或开启防盗链。请先在浏览器中把图片/视频下载到本地，再复制或拖入画布。',
+  },
+  en: {
+    reason: 'Web media download failed',
+    hint: 'Some sites block cross-origin requests or hotlinking. Download the image/video locally first, then copy or drag it into the canvas.',
+  },
+  ru: {
+    reason: 'Не удалось скачать media со страницы',
+    hint: 'Некоторые сайты блокируют cross-origin запросы или hotlinking. Сначала скачайте изображение/видео локально, затем скопируйте или перетащите его на холст.',
+  },
+}
 
 /** legacy 字符串 → 类别(老项目持久化的 node.error / 非 vendor 错误的兜底识别;文案不在这里)。 */
 function detectLegacyErrorKind(raw: string): GenerationErrorKind | null {
@@ -160,7 +177,8 @@ export function classifyGenerationError(message: string): GenerationErrorReport 
   // S4-2:structured 优先(VendorRequestError 经 IPC 标记穿透,源头保留的事实,不是猜);
   // 老数据/非 vendor 错误退回 legacy 正则识别。两条路只产 kind,文案统一出自 narrate 词表。
   const structured = parseVendorErrorFromMessage(message)
-  const cleanRaw = stripVendorErrorMarker(String(message || '')).split('\n→')[0].trim() || '生成失败'
+  const defaultFailure = narrateGenerationError('unknown').reason
+  const cleanRaw = stripVendorErrorMarker(String(message || '')).split('\n→')[0].trim() || defaultFailure
   // 账号档位闸（会员/企业 Key/网页授权）**最先**判——它的关键词（会员/授权/开通即梦会员）比
   // model-not-open 更具体；反过来放后面会被宽词抢走（即梦 CLI 兜底文案曾被判成「模型未开通」
   // 并给出火山 Ark 指引，2026-07-06 真机走查抓出）。reason 出自 narrate，服务商原话单独提到可见区。
@@ -188,11 +206,12 @@ export function classifyGenerationError(message: string): GenerationErrorReport 
     return { reason, hint, raw: stripVendorErrorMarker(message), ...(providerMessage ? { providerMessage } : {}) }
   }
   // Strip any legacy "\n→ hint" tail that older builds baked into node.error.
-  const raw = stripVendorErrorMarker(String(message || '')).split('\n→')[0].trim() || '生成失败'
+  const raw = stripVendorErrorMarker(String(message || '')).split('\n→')[0].trim() || defaultFailure
   if (raw.includes('网页媒体下载失败')) {
+    const text = WEB_MEDIA_DOWNLOAD_ERROR[getRuntimeLocale()]
     return {
-      reason: '网页媒体下载失败',
-      hint: '部分站点会禁止跨域请求或开启防盗链。请先在浏览器中把图片/视频下载到本地，再复制或拖入画布。',
+      reason: text.reason,
+      hint: text.hint,
       raw,
     }
   }

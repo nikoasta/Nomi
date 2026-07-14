@@ -1,4 +1,6 @@
 import type { GenerationCanvasEdge, GenerationCanvasEdgeMode, GenerationCanvasNode, GenerationNodeKind } from './generationCanvasTypes'
+import { canvasTranslate, type CanvasI18nKey } from '../canvasI18n'
+import type { SupportedLocale } from '../../../i18n/translations'
 import {
   getGenerationNodeDefaultSize,
   getGenerationNodeDefaultTitle,
@@ -13,6 +15,19 @@ export const EDGE_MODE_LABEL: Record<GenerationCanvasEdgeMode, string> = {
   style_ref: '风格',
   character_ref: '角色',
   composition_ref: '构图',
+}
+
+export const EDGE_MODE_LABEL_KEYS: Record<GenerationCanvasEdgeMode, CanvasI18nKey> = {
+  reference: 'edgeMode.reference',
+  first_frame: 'edgeMode.firstFrame',
+  last_frame: 'edgeMode.lastFrame',
+  style_ref: 'edgeMode.styleRef',
+  character_ref: 'edgeMode.characterRef',
+  composition_ref: 'edgeMode.compositionRef',
+}
+
+export function getEdgeModeLabel(mode: GenerationCanvasEdgeMode, locale: SupportedLocale): string {
+  return canvasTranslate(locale, EDGE_MODE_LABEL_KEYS[mode])
 }
 
 export const EDGE_MODE_ORDER: GenerationCanvasEdgeMode[] = [

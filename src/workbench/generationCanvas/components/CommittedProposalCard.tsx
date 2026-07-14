@@ -8,6 +8,8 @@ import {
   runProposalUndo,
   type CommittedProposalRecord,
 } from '../agent/proposalUndo'
+import { useI18n } from '../../../i18n/i18nContext'
+import { canvasTranslate } from '../canvasI18n'
 
 /**
  * 已应用提议卡(S6-5):commit 后存活到下一笔提议或本会话结束(约束①)。
@@ -20,6 +22,8 @@ export default function CommittedProposalCard({ record, onUndone, flat = false }
   /** 时间线内嵌(方案三):去外框,导轨提供视觉结构。 */
   flat?: boolean
 }): JSX.Element {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const [stepsOpen, setStepsOpen] = React.useState(false)
   const [lostEdits, setLostEdits] = React.useState<string[] | null>(null)
   const setActiveCategoryId = useWorkbenchStore((state) => state.setActiveCategoryId)
@@ -47,10 +51,10 @@ export default function CommittedProposalCard({ record, onUndone, flat = false }
       <div className={cn('flex items-start gap-1.5 min-w-0')}>
         <span className={cn('shrink-0 text-caption text-workbench-success-ink')}>✓</span>
         <span className={cn('min-w-0 text-caption text-nomi-ink-80 leading-[1.55]')}>
-          已应用：{record.summary}
+          {tCanvas('proposal.applied', { summary: record.summary })}
         </span>
         {!record.reconciliationOk ? (
-          <span className={cn('shrink-0 text-caption text-[var(--nomi-snap-tag)]')}>有出入</span>
+          <span className={cn('shrink-0 text-caption text-[var(--nomi-snap-tag)]')}>{tCanvas('proposal.deviation')}</span>
         ) : null}
       </div>
       {jumpTargets.length > 0 ? (
@@ -84,7 +88,7 @@ export default function CommittedProposalCard({ record, onUndone, flat = false }
           onClick={() => setStepsOpen((open) => !open)}
         >
           {stepsOpen ? <IconChevronDown size={12} stroke={1.8} /> : <IconChevronRight size={12} stroke={1.8} />}
-          查看步骤
+          {tCanvas('proposal.viewSteps')}
         </button>
         <WorkbenchButton
           className={cn('ml-auto shrink-0')}
@@ -93,7 +97,7 @@ export default function CommittedProposalCard({ record, onUndone, flat = false }
           data-proposal-undo-all='true'
           onClick={handleUndo}
         >
-          撤销这次改动
+          {tCanvas('proposal.undo')}
         </WorkbenchButton>
       </div>
       {stepsOpen ? (
@@ -108,17 +112,17 @@ export default function CommittedProposalCard({ record, onUndone, flat = false }
       {lostEdits ? (
         <div className={cn('flex flex-col gap-2 p-2 rounded-nomi-sm bg-nomi-paper border border-nomi-line')}>
           <span className={cn('text-caption font-medium text-[var(--nomi-snap-tag)]')}>
-            撤销将一并丢失你 commit 后的修改：
+            {tCanvas('proposal.lostEdits')}
           </span>
           {lostEdits.map((line, index) => (
             <span key={index} className={cn('text-caption text-nomi-ink-80')}>· {line}</span>
           ))}
           <div className={cn('flex items-center justify-end gap-2')}>
             <WorkbenchButton variant='default' size='sm' onClick={() => setLostEdits(null)}>
-              取消
+              {tCanvas('proposal.cancel')}
             </WorkbenchButton>
             <WorkbenchButton variant='primary' size='sm' data-proposal-undo-confirm='true' onClick={handleUndo}>
-              仍要撤销
+              {tCanvas('proposal.confirmUndo')}
             </WorkbenchButton>
           </div>
         </div>

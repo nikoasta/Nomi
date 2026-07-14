@@ -1,6 +1,7 @@
 import React from 'react'
 import { Html } from '@react-three/drei'
 import { IconCamera, IconChevronRight, IconPencil, IconPlus, IconTrash, IconUser } from '@tabler/icons-react'
+import { useScene3DI18n } from '../scene3dI18n'
 import type {
   TrajectoryBindTarget,
   TrajectoryContextMenuState,
@@ -17,6 +18,7 @@ export function TrajectoryCreateMenu({
   onClose: () => void
   onCreateTrajectory: (position: [number, number, number]) => void
 }): JSX.Element | null {
+  const t3d = useScene3DI18n()
   React.useEffect(() => {
     if (!menu) return undefined
     const handlePointerDown = (event: PointerEvent) => {
@@ -65,7 +67,7 @@ export function TrajectoryCreateMenu({
           }}
         >
           <IconPlus size={14} stroke={1.9} />
-          <span>添加轨迹</span>
+          <span>{t3d('trajectory.addTrajectory')}</span>
         </button>
       </div>
     </Html>
@@ -85,6 +87,7 @@ export function TrajectoryContextMenu({
   onEditTrajectory?: (trajectoryId: string) => void
   onDeleteTrajectory?: (trajectoryId: string) => void
 }): JSX.Element | null {
+  const t3d = useScene3DI18n()
   React.useEffect(() => {
     if (!menu) return undefined
     const handlePointerDown = (event: PointerEvent) => {
@@ -134,7 +137,7 @@ export function TrajectoryContextMenu({
             }}
           >
             <IconPlus size={14} stroke={1.9} />
-            <span>添加控制点</span>
+            <span>{t3d('trajectory.addControlPoint')}</span>
           </button>
         ) : null}
         <button
@@ -148,7 +151,7 @@ export function TrajectoryContextMenu({
           }}
         >
           <IconPencil size={14} stroke={1.9} />
-          <span>编辑</span>
+          <span>{t3d('trajectory.edit')}</span>
         </button>
         <button
           type="button"
@@ -161,7 +164,7 @@ export function TrajectoryContextMenu({
           }}
         >
           <IconTrash size={14} stroke={1.9} />
-          <span>删除</span>
+          <span>{t3d('inspector.delete')}</span>
         </button>
       </div>
     </Html>
@@ -179,6 +182,7 @@ export function TrajectoryPointBindMenu({
   onClose: () => void
   onBindTarget?: (trajectoryId: string, targetId: string, pointId?: string | null) => void
 }): JSX.Element | null {
+  const t3d = useScene3DI18n()
   const [hoveredType, setHoveredType] = React.useState<TrajectoryBindTarget['type']>('mannequin')
   const targetsByType = React.useMemo(() => ({
     mannequin: targets.filter((target) => target.type === 'mannequin'),
@@ -216,8 +220,8 @@ export function TrajectoryPointBindMenu({
     icon: JSX.Element
     items: TrajectoryBindTarget[]
   }> = [
-    { type: 'mannequin', label: '假人', icon: <IconUser size={14} stroke={1.9} />, items: targetsByType.mannequin },
-    { type: 'camera', label: '相机', icon: <IconCamera size={14} stroke={1.9} />, items: targetsByType.camera },
+    { type: 'mannequin', label: t3d('trajectory.mannequin'), icon: <IconUser size={14} stroke={1.9} />, items: targetsByType.mannequin },
+    { type: 'camera', label: t3d('trajectory.camera'), icon: <IconCamera size={14} stroke={1.9} />, items: targetsByType.camera },
   ]
   const hoveredItems = targetsByType[hoveredType]
 
@@ -254,7 +258,7 @@ export function TrajectoryPointBindMenu({
         ))}
         <div className="absolute left-[calc(100%+6px)] top-1 min-w-[148px] rounded-nomi-sm border border-[var(--nomi-line-soft)] bg-[var(--nomi-paper)] p-1 shadow-workbench-pop">
           {hoveredItems.length === 0 ? (
-            <div className="px-2 py-2 text-micro text-[var(--nomi-ink-40)]">暂无可绑定节点</div>
+            <div className="px-2 py-2 text-micro text-[var(--nomi-ink-40)]">{t3d('trajectory.noBindableNodes')}</div>
           ) : hoveredItems.map((target) => (
             <button
               key={target.id}

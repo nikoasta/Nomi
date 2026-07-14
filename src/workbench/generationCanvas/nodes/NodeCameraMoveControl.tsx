@@ -25,13 +25,14 @@ import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import {
   CAMERA_MOVES,
-  CAMERA_MOVE_LABEL,
   CAMERA_SPEED_DURATION,
   type CameraMove,
   type CameraSpeed,
   type StagingShot,
 } from './scene3d/cameraMoveVocab'
 import { createCameraMoveReferenceNode } from './scene3d/cameraMoveReferenceNode'
+import { useI18n } from '../../../i18n/i18nContext'
+import type { TranslationKey } from '../../../i18n/translations'
 
 // 手动运镜控件（B1）：视频镜头 composer 底栏的一枚「运镜」芯片 + 弹层，是 AI 工具 create_camera_move
 // 的**第二道门**——不搭 3D 场景，选个精确运镜 + 速度 + 景别，一键建灰模运镜小片自动接入本镜的
@@ -57,10 +58,36 @@ const MOVE_ICON: Record<CameraMove, Icon> = {
 
 // 速度：慢/中/快 → slow/medium/fast（值来自 CAMERA_SPEED_DURATION 的键，时长从表里读，不硬编）。
 const SPEED_ORDER: CameraSpeed[] = ['slow', 'medium', 'fast']
-const SPEED_LABEL: Record<CameraSpeed, string> = { slow: '慢', medium: '中', fast: '快' }
 // 景别：远/中/近 → wide/medium/close（StagingShot 三档，与 cameraMoveVocab 的 CAMERA_MOVE_FRAMING 同键）。
 const SHOT_ORDER: StagingShot[] = ['wide', 'medium', 'close']
-const SHOT_LABEL: Record<StagingShot, string> = { wide: '远', medium: '中', close: '近' }
+
+const MOVE_LABEL_KEYS: Record<CameraMove, TranslationKey> = {
+  push_in: 'tool.camera.move.push_in',
+  pull_out: 'tool.camera.move.pull_out',
+  orbit_left: 'tool.camera.move.orbit_left',
+  orbit_right: 'tool.camera.move.orbit_right',
+  crane_up: 'tool.camera.move.crane_up',
+  crane_down: 'tool.camera.move.crane_down',
+  track_left: 'tool.camera.move.track_left',
+  track_right: 'tool.camera.move.track_right',
+  arc_left: 'tool.camera.move.arc_left',
+  arc_right: 'tool.camera.move.arc_right',
+  zoom_in: 'tool.camera.move.zoom_in',
+  zoom_out: 'tool.camera.move.zoom_out',
+  dolly_zoom: 'tool.camera.move.dolly_zoom',
+}
+
+const SPEED_LABEL_KEYS: Record<CameraSpeed, TranslationKey> = {
+  slow: 'tool.camera.speed.slow',
+  medium: 'tool.camera.speed.medium',
+  fast: 'tool.camera.speed.fast',
+}
+
+const SHOT_LABEL_KEYS: Record<StagingShot, TranslationKey> = {
+  wide: 'tool.camera.shot.wide',
+  medium: 'tool.camera.shot.medium',
+  close: 'tool.camera.shot.close',
+}
 
 const DEFAULT_MOVE: CameraMove = 'push_in'
 const DEFAULT_SPEED: CameraSpeed = 'medium'
@@ -134,6 +161,7 @@ function Segmented<T extends string>({
 }
 
 export default function NodeCameraMoveControl({ node }: { node: GenerationCanvasNode }): JSX.Element {
+  const { t } = useI18n()
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
   const [open, setOpen] = React.useState(false)
   // 弹层内的草稿选择（打开时从 meta 初始化）——落节点只在「应用」时写，避免每点一下就写盘/串态。
@@ -144,8 +172,10 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
 
   const saved = readPick(node.meta)
   // 芯片标签：上次「应用」过的运镜 · 速度（如「运镜 · 推近 慢」）。
-  const chipSummary = `${CAMERA_MOVE_LABEL[saved.move]} ${SPEED_LABEL[saved.speed]}`
+  const chipSummary = `${t(MOVE_LABEL_KEYS[saved.move])} ${t(SPEED_LABEL_KEYS[saved.speed])}`
   const duration = CAMERA_SPEED_DURATION[draft.speed]
+  const draftMoveLabel = t(MOVE_LABEL_KEYS[draft.move])
+  const draftSpeedLabel = t(SPEED_LABEL_KEYS[draft.speed])
 
   // 单一真相源写法：从 store 读最新 meta 再 spread（防 lost-update 竞态，与 NodeParameterControls 同规）。
   const getLatestMeta = (): Record<string, unknown> =>
@@ -161,7 +191,7 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
       spec: { move: draft.move, speed: draft.speed, shot: draft.shot },
       targetNodeId: node.id,
     })
-    toast(`已生成「${CAMERA_MOVE_LABEL[draft.move]} · ${SPEED_LABEL[draft.speed]} · ${duration}s」运镜片，正在离屏渲染并接入本镜运镜参考。`, 'success')
+    toast(t('tool.camera.toastCreated', { move: draftMoveLabel, speed: draftSpeedLabel, duration }), 'success')
     setOpen(false)
   }
 
@@ -178,8 +208,8 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
       <Popover.Target>
         <button
           type="button"
-          aria-label="运镜"
-          title="运镜：不用搭 3D 场景，一键生成灰模运镜片接入本镜"
+          aria-label={t('tool.camera.title')}
+          title={t('tool.camera.tooltip')}
           onClick={(event) => {
             event.stopPropagation()
             setOpen((prev) => !prev)
@@ -190,7 +220,7 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
           )}
         >
           <IconVideo size={13} stroke={1.6} className="shrink-0 text-nomi-ink-40" aria-hidden />
-          <span className="shrink-0">运镜</span>
+          <span className="shrink-0">{t('tool.camera.title')}</span>
           <span className="text-nomi-ink-40" aria-hidden>·</span>
           <span className="shrink-0 whitespace-nowrap">{chipSummary}</span>
           <IconChevronDown size={12} stroke={1.6} className="shrink-0 text-nomi-ink-40 pointer-events-none" aria-hidden />
@@ -211,12 +241,12 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
         <div className={cn('flex flex-col gap-3 w-[300px]')}>
           {/* 标题 + hint（对齐样张：标题「运镜」+ 副「不用搭 3D 场景」）。 */}
           <div className={cn('flex flex-col gap-0.5')}>
-            <span className={cn('text-body-sm font-semibold text-nomi-ink')}>运镜</span>
-            <span className={cn('text-micro text-nomi-ink-40')}>不用搭 3D 场景</span>
+            <span className={cn('text-body-sm font-semibold text-nomi-ink')}>{t('tool.camera.title')}</span>
+            <span className={cn('text-micro text-nomi-ink-40')}>{t('tool.camera.subtitle')}</span>
           </div>
 
           {/* (1) 10 个精确运镜网格：图标 + 标签，单选。集合来自 CAMERA_MOVES，标签来自 CAMERA_MOVE_LABEL。 */}
-          <div className={cn('grid grid-cols-5 gap-1')} role="group" aria-label="运镜类型">
+          <div className={cn('grid grid-cols-5 gap-1')} role="group" aria-label={t('tool.camera.typeAria')}>
             {CAMERA_MOVES.map((move) => {
               const IconCmp = MOVE_ICON[move]
               const isActive = draft.move === move
@@ -226,7 +256,7 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
                   type="button"
                   aria-pressed={isActive}
                   data-active={isActive ? 'true' : 'false'}
-                  title={CAMERA_MOVE_LABEL[move]}
+                  title={t(MOVE_LABEL_KEYS[move])}
                   className={cn(
                     'flex flex-col items-center gap-1 py-1.5 rounded-nomi-sm border border-transparent',
                     'text-nomi-ink-60 cursor-pointer transition-colors hover:bg-nomi-ink-05',
@@ -238,7 +268,7 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
                   }}
                 >
                   <IconCmp size={18} stroke={1.6} aria-hidden />
-                  <span className={cn('text-micro leading-none')}>{CAMERA_MOVE_LABEL[move]}</span>
+                  <span className={cn('text-micro leading-none')}>{t(MOVE_LABEL_KEYS[move])}</span>
                 </button>
               )
             })}
@@ -246,17 +276,17 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
 
           {/* (2) 速度 慢/中/快 → slow/medium/fast。 */}
           <Segmented
-            label="速度"
+            label={t('tool.camera.speed')}
             value={draft.speed}
-            options={SPEED_ORDER.map((speed) => ({ value: speed, label: SPEED_LABEL[speed] }))}
+            options={SPEED_ORDER.map((speed) => ({ value: speed, label: t(SPEED_LABEL_KEYS[speed]) }))}
             onChange={(speed) => setDraft((prev) => ({ ...prev, speed }))}
           />
 
           {/* (3) 景别 远/中/近 → wide/medium/close。 */}
           <Segmented
-            label="景别"
+            label={t('tool.camera.shot')}
             value={draft.shot}
-            options={SHOT_ORDER.map((shot) => ({ value: shot, label: SHOT_LABEL[shot] }))}
+            options={SHOT_ORDER.map((shot) => ({ value: shot, label: t(SHOT_LABEL_KEYS[shot]) }))}
             onChange={(shot) => setDraft((prev) => ({ ...prev, shot }))}
           />
 
@@ -265,7 +295,7 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
             type="button"
             disabled
             aria-disabled="true"
-            title="叠加第二段运镜——敬请期待"
+            title={t('tool.camera.layerSoonTitle')}
             className={cn(
               'inline-flex items-center justify-center gap-1 h-7 rounded-pill border border-dashed border-nomi-line',
               'text-caption text-nomi-ink-40 self-start px-3 cursor-not-allowed opacity-70',
@@ -273,14 +303,14 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
             onClick={(event) => event.stopPropagation()}
           >
             <IconPlus size={12} stroke={1.6} aria-hidden />
-            叠一层
-            <span className={cn('text-micro text-nomi-ink-40')}>敬请期待</span>
+            {t('tool.camera.addLayer')}
+            <span className={cn('text-micro text-nomi-ink-40')}>{t('tool.camera.comingSoon')}</span>
           </button>
 
           {/* (5) 底部读出 + 应用：readout 由当前草稿 derive（运镜 · 速度 · 秒 → 灰模片接入 video_ref）。 */}
           <div className={cn('flex items-center gap-2 pt-1 border-t border-nomi-line-soft')}>
             <span className={cn('flex-1 text-micro text-nomi-ink-60 leading-[1.35]')}>
-              {CAMERA_MOVE_LABEL[draft.move]} · {SPEED_LABEL[draft.speed]} · {duration}s → 灰模运镜片自动接入 video_ref
+              {t('tool.camera.readout', { move: draftMoveLabel, speed: draftSpeedLabel, duration })}
             </span>
             <button
               type="button"
@@ -291,7 +321,7 @@ export default function NodeCameraMoveControl({ node }: { node: GenerationCanvas
               )}
               onClick={handleApply}
             >
-              应用
+              {t('tool.camera.apply')}
             </button>
           </div>
         </div>

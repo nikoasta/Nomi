@@ -1,6 +1,7 @@
 import React from 'react'
 import { IconCheck, IconX } from '@tabler/icons-react'
 import { cn } from '../../../../utils/cn'
+import { useI18n } from '../../../../i18n/i18nContext'
 
 export type CropRect = { x: number; y: number; w: number; h: number }
 export type CropGridResult = { rect: CropRect; cols: number[]; rows: number[] }
@@ -65,6 +66,7 @@ export default function ImageCropGridOverlay({
 }): JSX.Element {
   const boxRef = React.useRef<HTMLDivElement>(null)
   const dragRef = React.useRef<ActiveDrag | null>(null)
+  const { t } = useI18n()
   // 切图默认框接近整图（通常要切整张）；纯裁剪沿用原来的居中八分。
   const [rect, setRect] = React.useState<CropRect>(
     gridSize === 1 ? { x: 0.1, y: 0.1, w: 0.8, h: 0.8 } : { x: 0.04, y: 0.04, w: 0.92, h: 0.92 },
@@ -215,8 +217,8 @@ export default function ImageCropGridOverlay({
       <div className="absolute right-2 top-2 flex items-center gap-1.5">
         <button
           type="button"
-          aria-label="取消"
-          title="取消"
+          aria-label={t('imageCrop.cancel')}
+          title={t('imageCrop.cancel')}
           className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-nomi-paper text-nomi-ink-80 shadow-nomi-md"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => { event.stopPropagation(); onCancel() }}
@@ -225,8 +227,8 @@ export default function ImageCropGridOverlay({
         </button>
         <button
           type="button"
-          aria-label={gridSize === 1 ? '确认裁剪' : '确认切图'}
-          title={gridSize === 1 ? '确认裁剪' : '确认切图'}
+          aria-label={gridSize === 1 ? t('imageCrop.confirmCrop') : t('imageCrop.confirmSplit')}
+          title={gridSize === 1 ? t('imageCrop.confirmCrop') : t('imageCrop.confirmSplit')}
           className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-nomi-ink text-nomi-paper shadow-nomi-md hover:bg-nomi-accent"
           onPointerDown={(event) => event.stopPropagation()}
           onClick={(event) => { event.stopPropagation(); onConfirm({ rect, cols, rows }) }}

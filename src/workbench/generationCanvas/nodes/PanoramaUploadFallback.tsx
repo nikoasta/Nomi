@@ -1,5 +1,6 @@
 import React from 'react'
 import { cn } from '../../../utils/cn'
+import { useI18n } from '../../../i18n/i18nContext'
 
 /**
  * 全景节点「未生成」态的「+ 上传全景图」回退入口。
@@ -10,6 +11,7 @@ export default function PanoramaUploadFallback({
 }: {
   onChange: (event: React.ChangeEvent<HTMLInputElement>) => void
 }): JSX.Element {
+  const { t } = useI18n()
   return (
     <div className={cn('flex w-full h-full items-center justify-center')}>
       <label
@@ -20,7 +22,7 @@ export default function PanoramaUploadFallback({
         )}
         onPointerDown={(event) => event.stopPropagation()}
       >
-        <span>+ 上传全景图</span>
+        <span>{t('tool.panorama.upload')}</span>
         <input className='hidden' type='file' accept='image/*' onChange={onChange} />
       </label>
     </div>

@@ -1,5 +1,6 @@
 import React from 'react'
 import { getDesktopBridge } from '../../desktop/bridge'
+import { useI18n } from '../../i18n/i18nContext'
 import type { WorkspaceFileListResult } from '../../../electron/workspace/workspaceFileIndex'
 
 export type WorkspaceFilesState = WorkspaceFileListResult & {
@@ -13,6 +14,7 @@ export type WorkspaceFilesState = WorkspaceFileListResult & {
 const WORKSPACE_FILE_LIMIT = 2000
 
 export function useWorkspaceFiles(projectId: string | null): WorkspaceFilesState & { refresh: () => void } {
+  const { t } = useI18n()
   const [state, setState] = React.useState<WorkspaceFilesState>({ items: [], truncated: false, loading: false, error: null })
   const [version, setVersion] = React.useState(0)
 
@@ -33,12 +35,12 @@ export function useWorkspaceFiles(projectId: string | null): WorkspaceFilesState
         if (!canceled) setState({ items: result.items, truncated: result.truncated, loading: false, error: null })
       })
       .catch(() => {
-        if (!canceled) setState({ items: [], truncated: false, loading: false, error: '无法读取项目文件夹，请检查权限或重新打开文件夹' })
+        if (!canceled) setState({ items: [], truncated: false, loading: false, error: t('workspaceFiles.readError') })
       })
     return () => {
       canceled = true
     }
-  }, [projectId, version])
+  }, [projectId, t, version])
 
   return { ...state, refresh }
 }

@@ -13,6 +13,7 @@ import { getDesktopActiveProjectId } from '../../../../desktop/activeProject'
 import { listWorkbenchModelCatalogVendors } from '../../../api/modelCatalogApi'
 import { confirmDialog } from '../../../../design/confirmDialogStore'
 import { toast } from '../../../../ui/toast'
+import { canvasRuntimeTranslate } from '../../canvasI18n'
 
 /**
  * 没接 Replicate 时不甩死胡同错误，而是引导去「模型接入」（那里已有 Replicate 卡：官网链接 +
@@ -23,11 +24,10 @@ async function ensureReplicateConnectedOrGuide(): Promise<boolean> {
   const replicate = vendors.find((v) => v.key === 'replicate')
   if (replicate?.enabled && replicate.hasApiKey) return true
   const go = await confirmDialog({
-    title: '拆解元素需要先接入 Replicate',
-    message:
-      '元素拆解用开源模型 qwen-image-layered（Replicate 托管，约 $0.05/张，按量付费）。\n去「模型接入」填入 Replicate API Token 即可使用——登录 replicate.com → Account → API tokens 获取（r8_ 开头），凭证本地加密存储。',
-    confirmLabel: '去接入',
-    cancelLabel: '以后再说',
+    title: canvasRuntimeTranslate('decompose.connectTitle'),
+    message: canvasRuntimeTranslate('decompose.connectMessage'),
+    confirmLabel: canvasRuntimeTranslate('decompose.connectConfirm'),
+    cancelLabel: canvasRuntimeTranslate('decompose.connectCancel'),
   })
   if (go) window.dispatchEvent(new CustomEvent('nomi-open-model-catalog'))
   return false
@@ -52,17 +52,17 @@ export function useDecomposeLayers(node: GenerationCanvasNode, imageUrl: string)
     if (!(await ensureReplicateConnectedOrGuide())) return
     const grantId = await confirmAndMintGrant({
       nodeIds: [node.id],
-      title: '拆解元素',
-      message: `${describeGenerationCost(1, 'image')}（把这张图拆成可独立编辑的图层）`,
-      confirmLabel: '拆解',
+      title: canvasRuntimeTranslate('decompose.title'),
+      message: canvasRuntimeTranslate('decompose.message', { cost: describeGenerationCost(1, 'image') }),
+      confirmLabel: canvasRuntimeTranslate('decompose.confirm'),
       light: true,
     })
     if (!grantId) return
     setDecomposeBusy(true)
-    toast('拆解中…约 15 秒', 'info')
+    toast(canvasRuntimeTranslate('decompose.running'), 'info')
     try {
       const bridge = getDesktopBridge()
-      if (!bridge) throw new Error('桌面端不可用')
+      if (!bridge) throw new Error(canvasRuntimeTranslate('decompose.desktopUnavailable'))
       // 主进程已就地把图层落盘成 nomi-local（传 projectId 触发），渲染层拿到即用、秒开白板。
       const { layers } = await bridge.image.decomposeLayers({
         nodeId: node.id,
@@ -71,12 +71,12 @@ export function useDecomposeLayers(node: GenerationCanvasNode, imageUrl: string)
         grantId,
         projectId: getDesktopActiveProjectId() || undefined,
       })
-      if (!layers || layers.length === 0) throw new Error('拆解未返回图层')
+      if (!layers || layers.length === 0) throw new Error(canvasRuntimeTranslate('decompose.noLayers'))
       const ratio = inferWhiteboardAspectRatio(node.meta?.imageWidth, node.meta?.imageHeight)
       setDecomposeState(buildLayerWhiteboardState(layers, ratio))
-      toast('已拆成图层，拖动元素后关闭画板即合成回图', 'success')
+      toast(canvasRuntimeTranslate('decompose.success'), 'success')
     } catch (error) {
-      toast(error instanceof Error && error.message ? error.message : '拆解失败，请稍后重试', 'error')
+      toast(error instanceof Error && error.message ? error.message : canvasRuntimeTranslate('decompose.failed'), 'error')
     } finally {
       setDecomposeBusy(false)
     }

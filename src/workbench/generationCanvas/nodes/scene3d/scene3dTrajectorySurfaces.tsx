@@ -10,6 +10,7 @@ import { TrajectoryPanel } from './trajectory/TrajectoryPanel'
 import { TrajectoryTimeline } from './trajectory/TrajectoryTimeline'
 import { TrajectoryPlayback } from './trajectory/TrajectoryPlayback'
 import type { Scene3DReferenceTargetSummary } from './scene3dReferenceDirector'
+import { useScene3DI18n } from './scene3dI18n'
 
 export type Scene3DRightPanelTab = 'properties' | 'trajectory'
 
@@ -46,16 +47,17 @@ export function Scene3DCameraViewBanner({
   cameraName: string
   onExit: () => void
 }): JSX.Element {
+  const t3d = useScene3DI18n()
   return (
     <div className="pointer-events-auto absolute left-1/2 top-4 z-[3] flex -translate-x-1/2 items-center gap-2 rounded-nomi border border-[var(--nomi-line-soft)] bg-[var(--nomi-paper)] px-3 py-2 text-caption text-[var(--nomi-ink)] shadow-[var(--nomi-shadow-md)]">
       <IconCamera size={15} className="text-[var(--nomi-ink-60)]" />
-      <span className="max-w-[220px] truncate">取景调整 · {cameraName}</span>
+      <span className="max-w-[220px] truncate">{t3d('banner.cameraView', { name: cameraName })}</span>
       <button
         className="rounded-nomi-sm bg-[var(--nomi-ink-05)] px-2 py-1 text-micro text-[var(--nomi-ink-60)] hover:bg-[var(--nomi-ink-10)] hover:text-[var(--nomi-ink)]"
         type="button"
         onClick={onExit}
       >
-        退出
+        {t3d('banner.exit')}
       </button>
     </div>
   )
@@ -69,10 +71,11 @@ export function Scene3DTrajectoryEditBanner({
   trajectory: Scene3DTrajectoryEditing
   onEnterEdit: () => void
 }): JSX.Element {
+  const t3d = useScene3DI18n()
   return (
     <div className="pointer-events-auto absolute left-1/2 top-4 z-[3] flex -translate-x-1/2 items-center gap-2 rounded-nomi border border-[var(--nomi-line-soft)] bg-[var(--nomi-paper)] px-3 py-2 text-caption text-[var(--nomi-ink)] shadow-[var(--nomi-shadow-md)]">
       <IconRoute size={15} className="text-[var(--nomi-ink-60)]" />
-      <span>{trajectory.trajectoryEditMode ? '轨迹编辑中 · 双击空地加点' : '轨迹查看'}</span>
+      <span>{trajectory.trajectoryEditMode ? t3d('banner.trajectoryEditing') : t3d('banner.trajectoryView')}</span>
       <button
         className="rounded-nomi-sm bg-[var(--nomi-ink-05)] px-2 py-1 text-micro text-[var(--nomi-ink-60)] hover:bg-[var(--nomi-ink-10)] hover:text-[var(--nomi-ink)]"
         type="button"
@@ -82,7 +85,7 @@ export function Scene3DTrajectoryEditBanner({
           if (next) onEnterEdit()
         }}
       >
-        {trajectory.trajectoryEditMode ? '退出编辑' : '进入编辑'}
+        {trajectory.trajectoryEditMode ? t3d('banner.exitEdit') : t3d('banner.enterEdit')}
       </button>
     </div>
   )
@@ -116,16 +119,17 @@ export function Scene3DRightPanelBody({
   onExportCameraMoveFrames: (cameraId: string) => void
   referenceTarget?: Scene3DReferenceTargetSummary
 }): JSX.Element {
+  const t3d = useScene3DI18n()
   return (
     <>
       <div className="flex shrink-0 items-center gap-1 border-b border-[var(--workbench-border)] bg-[var(--workbench-surface-solid)] px-2 py-2">
-        <PanelButton title="属性" active={tab === 'properties'} onClick={() => onTabChange('properties')}>
+        <PanelButton title={t3d('tabs.properties')} active={tab === 'properties'} onClick={() => onTabChange('properties')}>
           <IconSettings size={14} />
-          <span>属性</span>
+          <span>{t3d('tabs.properties')}</span>
         </PanelButton>
-        <PanelButton title="轨迹" active={tab === 'trajectory'} onClick={() => onTabChange('trajectory')}>
+        <PanelButton title={t3d('toolbar.trajectory')} active={tab === 'trajectory'} onClick={() => onTabChange('trajectory')}>
           <IconRoute size={14} />
-          <span>轨迹</span>
+          <span>{t3d('toolbar.trajectory')}</span>
         </PanelButton>
       </div>
       {tab === 'trajectory' ? (
@@ -194,6 +198,7 @@ export function Scene3DTrajectoryTimelineBar({
   trajectory: Scene3DTrajectoryEditing
   readOnly: boolean
 }): JSX.Element {
+  const t3d = useScene3DI18n()
   return (
     <TrajectoryTimeline
       visible={trajectory.timelineOpen}
@@ -203,7 +208,7 @@ export function Scene3DTrajectoryTimelineBar({
       playheadRef={trajectory.playheadRef}
       onPlayChange={(playing) => {
         if (playing && !trajectory.hasPlayableBinding) {
-          toast('请先为轨迹绑定对象或相机', 'warning')
+          toast(t3d('trajectory.bindTargetFirst'), 'warning')
           return
         }
         trajectory.setIsPlaying(playing)

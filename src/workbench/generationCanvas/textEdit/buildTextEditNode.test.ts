@@ -33,7 +33,7 @@ describe('buildTextEditNodeSpec', () => {
 
   it('标题派生 + 位置在源节点右侧', () => {
     const spec = buildTextEditNodeSpec(node({ title: '促销海报', result: { type: 'image', url: 'https://x/a.png' } }))
-    expect(spec?.title).toBe('促销海报·改字')
+    expect(spec?.title).toBe('促销海报 · 改字')
     expect(spec?.position.x).toBeGreaterThan(10)
   })
 

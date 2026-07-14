@@ -4,6 +4,7 @@ import { persistActiveWorkbenchProjectNow } from '../../project/workbenchProject
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { useWorkbenchStore } from '../../workbenchStore'
 import { toast } from '../../../ui/toast'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 import { mintSpendGrant } from '../../api/taskApi'
 import { describeGenerationCost, useSpendConfirmStore } from '../spend/spendConfirm'
 import { generationNodeExecutor, type GenerationNodeExecutor } from './generationNodeExecutor'
@@ -104,8 +105,8 @@ export async function runGenerationNode(
   if (!initialNode) throw new Error('node not found')
   if (!canRunGenerationNode(initialNode, { nodes: initialState.nodes, edges: initialState.edges })) {
     throw new Error(initialNode.kind === 'video'
-      ? '视频节点缺少上游真实图片或视频资产 URL。请先生成或选择首帧/参考图后再生成视频。'
-      : `暂不支持「${initialNode.kind}」类型节点的生成`)
+      ? canvasRuntimeTranslate('generation.missingVideoReference')
+      : canvasRuntimeTranslate('generation.unsupportedKind', { kind: initialNode.kind }))
   }
 
   const run = initialState.appendNodeRun(id, {
@@ -160,7 +161,7 @@ export async function runGenerationNode(
         await waitForRetry(attempt, baseDelayMs)
       }
     }
-    if (!result) throw new Error('生成失败')
+    if (!result) throw new Error(canvasRuntimeTranslate('runner.generationFailed'))
     useGenerationCanvasStore.getState().addNodeResult(id, result)
     await persistActiveWorkbenchProjectNow().catch(() => {})
     return result
@@ -174,7 +175,7 @@ export async function runGenerationNode(
     // Store the RAW message; the UI (NodeErrorReport) runs classifyGenerationError
     // to show a human reason + hint + the raw detail. Keeping node.error a plain
     // string avoids a persisted-shape migration for existing project files.
-    const rawMessage = error instanceof Error && error.message ? error.message : '生成失败'
+    const rawMessage = error instanceof Error && error.message ? error.message : canvasRuntimeTranslate('runner.generationFailed')
     useGenerationCanvasStore.getState().setNodeStatus(id, 'error', rawMessage)
     throw error
   }
@@ -282,7 +283,7 @@ export async function runGenerationNodesByPlan(
       if (failedDep) {
         failedIds.add(nodeId)
         const depTitle = useGenerationCanvasStore.getState().nodes.find((node) => node.id === failedDep)?.title || failedDep
-        failNode(nodeId, `上游「${depTitle}」本批生成失败,本节点未执行`)
+        failNode(nodeId, canvasRuntimeTranslate('generation.upstreamFailed', { title: depTitle }))
       } else {
         runnable.push(nodeId)
       }
@@ -305,9 +306,9 @@ export async function runGenerationNodesByPlan(
 export async function confirmAndRunNode(nodeId: string, opts: { rerun?: boolean } = {}): Promise<void> {
   const node = useGenerationCanvasStore.getState().nodes.find((n) => n.id === nodeId)
   const ok = await useSpendConfirmStore.getState().requestConfirm({
-    title: opts.rerun ? '生成变体' : '开始生成',
+    title: opts.rerun ? canvasRuntimeTranslate('generation.variant') : canvasRuntimeTranslate('generation.start'),
     message: describeGenerationCost(1, node ? spendCostKind(node.kind) : 'image'),
-    confirmLabel: opts.rerun ? '生成变体' : '生成',
+    confirmLabel: opts.rerun ? canvasRuntimeTranslate('generation.variant') : canvasRuntimeTranslate('generation.confirm'),
     light: true,
   })
   if (!ok) return
@@ -321,7 +322,7 @@ export async function confirmAndRunNode(nodeId: string, opts: { rerun?: boolean 
   try {
     grantId = await mintSpendGrant([runId])
   } catch (error) {
-    toast(error instanceof Error && error.message ? error.message : '付费授权失败', 'error')
+    toast(error instanceof Error && error.message ? error.message : canvasRuntimeTranslate('batchRun.spendAuthFailed'), 'error')
     return
   }
   try {
@@ -354,9 +355,9 @@ export async function regenerateNodeInPlace(nodeId: string): Promise<void> {
   if (!id) return
   const node = useGenerationCanvasStore.getState().nodes.find((n) => n.id === id)
   const ok = await useSpendConfirmStore.getState().requestConfirm({
-    title: '重新生成',
+    title: canvasRuntimeTranslate('generation.regenerate'),
     message: describeGenerationCost(1, node ? spendCostKind(node.kind) : 'image'),
-    confirmLabel: '重新生成',
+    confirmLabel: canvasRuntimeTranslate('generation.regenerate'),
     light: true,
   })
   if (!ok) return
@@ -364,7 +365,7 @@ export async function regenerateNodeInPlace(nodeId: string): Promise<void> {
   try {
     grantId = await mintSpendGrant([id])
   } catch (error) {
-    toast(error instanceof Error && error.message ? error.message : '付费授权失败', 'error')
+    toast(error instanceof Error && error.message ? error.message : canvasRuntimeTranslate('batchRun.spendAuthFailed'), 'error')
     return
   }
   try {

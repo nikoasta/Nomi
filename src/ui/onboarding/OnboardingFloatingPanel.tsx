@@ -10,6 +10,7 @@
 import React from 'react'
 import { Portal } from '@mantine/core'
 import { OnboardingDrawer } from './OnboardingDrawer'
+import { useI18n } from '../../i18n/i18nContext'
 
 const PANEL_WIDTH = 320
 const TOP_OFFSET = 64    // 留出 AppBar (56px) + 一点空隙
@@ -21,6 +22,7 @@ type Props = {
 }
 
 export function OnboardingFloatingPanel({ opened, onClose }: Props): JSX.Element | null {
+  const { t } = useI18n()
   const panelRef = React.useRef<HTMLDivElement>(null)
 
   // ESC 关闭
@@ -68,7 +70,7 @@ export function OnboardingFloatingPanel({ opened, onClose }: Props): JSX.Element
       <div
         ref={panelRef}
         role="dialog"
-        aria-label="模型设置"
+        aria-label={t('modelSetup.dialog.aria')}
         style={{
           position: 'fixed',
           top: TOP_OFFSET,

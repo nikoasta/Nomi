@@ -7,6 +7,8 @@
 // 这是纯状态机:不调模型、不下单、不弹确认。startRound 只推进计数;真付费仍由调用方走 spendConfirm。
 // roundsUsed 达 maxRounds → 闭环必须停、落「已尽力」态,**绝不静默续花**。
 
+import { canvasRuntimeTranslate } from '../canvasI18n'
+
 export const DEFAULT_LOOP_MAX_ROUNDS = 2
 /** 上限:防误配置成超大轮次把额度烧穿(同 retry 上限 5 的精神)。 */
 export const LOOP_MAX_ROUNDS_CEILING = 5
@@ -43,7 +45,7 @@ export function canStartRound(state: LoopBudgetState): boolean {
 /** 推进一轮(纯:返回新 state,不改原)。预算耗尽时调用 = 编程错误,抛错(调用方必须先 canStartRound)。 */
 export function startRound(state: LoopBudgetState): LoopBudgetState {
   if (!canStartRound(state)) {
-    throw new Error('闭环轮次预算已耗尽，不能再开新一轮(必须先 canStartRound 守门)')
+    throw new Error(canvasRuntimeTranslate('loopBudget.exhausted'))
   }
   return { maxRounds: state.maxRounds, roundsUsed: state.roundsUsed + 1 }
 }

@@ -3,6 +3,7 @@ import { cn } from '../../../utils/cn'
 import { IconCoin, IconRobot } from '@tabler/icons-react'
 import { WorkbenchButton } from '../../../design'
 import { useSpendConfirmStore } from './spendConfirm'
+import { useI18n } from '../../../i18n/i18nContext'
 
 // 付费生成确认对话框（单一收口，挂一次于工作区根）。极简：标题 + 一句人话 + 取消/确认。
 // 三种来源共用这一个对话框（不另造并行卡，P1）：
@@ -14,6 +15,7 @@ export function SpendConfirmDialog() {
   const resolvePending = useSpendConfirmStore((state) => state.resolvePending)
   const [suppress, setSuppress] = React.useState(false)
   const [remainingMs, setRemainingMs] = React.useState(0)
+  const { t } = useI18n()
 
   React.useEffect(() => {
     if (!pending) setSuppress(false)
@@ -69,7 +71,7 @@ export function SpendConfirmDialog() {
           </span>
           <div className={cn('min-w-0')}>
             <p className={cn('text-title font-medium text-nomi-ink truncate')}>{pending.title}</p>
-            {isAgent ? <p className={cn('text-micro text-nomi-ink-60')}>经 AI 助手（MCP）驱动 · 需你确认花费</p> : null}
+            {isAgent ? <p className={cn('text-micro text-nomi-ink-60')}>{t('spend.agentDriven')}</p> : null}
           </div>
         </div>
 
@@ -94,26 +96,26 @@ export function SpendConfirmDialog() {
                 style={{ width: `${remainingPct}%` }}
               />
             </div>
-            <span className={cn('text-micro text-nomi-ink-60 tabular-nums shrink-0 w-[88px] text-right')}>{remainingSec}s 后自动忽略</span>
+            <span className={cn('text-micro text-nomi-ink-60 tabular-nums shrink-0 w-[88px] text-right')}>{t('spend.autoIgnore', { seconds: remainingSec })}</span>
           </div>
         ) : null}
 
         {pending.light ? (
           <label className={cn('flex items-center gap-2 mb-4 cursor-pointer select-none text-caption text-nomi-ink-60')}>
             <input type="checkbox" checked={suppress} onChange={(event) => setSuppress(event.target.checked)} />
-            本次会话不再提示
+            {t('spend.suppressSession')}
           </label>
         ) : null}
 
         <div className={cn('flex items-center justify-end gap-2')}>
           <WorkbenchButton className={cn('h-8 px-4 cursor-pointer')} onClick={() => resolvePending(false)}>
-            {isAgent ? '忽略' : '取消'}
+            {isAgent ? t('spend.ignore') : t('spend.cancel')}
           </WorkbenchButton>
           <WorkbenchButton
             className={cn('h-8 px-4 cursor-pointer bg-nomi-ink text-nomi-paper border-nomi-ink hover:bg-nomi-accent hover:text-nomi-paper')}
             onClick={() => resolvePending(true, suppress)}
           >
-            {pending.confirmLabel || '确认生成'}
+            {pending.confirmLabel || t('spend.confirmGenerate')}
           </WorkbenchButton>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import React from 'react'
 import { IconBrain, IconChevronDown, IconPin, IconPinFilled, IconX } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
+import { canvasTranslate, type CanvasI18nKey } from '../canvasI18n'
+import { useI18n } from '../../../i18n/i18nContext'
 import {
   fetchProjectMemoryFacts,
   removeProjectMemoryFact,
@@ -8,12 +10,12 @@ import {
   type MemoryFactView,
 } from '../agent/projectMemoryClient'
 
-const KIND_LABEL: Record<MemoryFactView['kind'], string> = {
-  character: '设定',
-  style: '风格',
-  brand: '品牌',
-  preference: '偏好',
-  constraint: '约束',
+const KIND_LABEL_KEY: Record<MemoryFactView['kind'], CanvasI18nKey> = {
+  character: 'memory.kind.character',
+  style: 'memory.kind.style',
+  brand: 'memory.kind.brand',
+  preference: 'memory.kind.preference',
+  constraint: 'memory.kind.constraint',
 }
 
 /**
@@ -22,6 +24,11 @@ const KIND_LABEL: Record<MemoryFactView['kind'], string> = {
  * 极简折叠条形态;refreshKey 由面板在每轮对话后递增触发重取。
  */
 export function MemoryFold({ refreshKey }: { refreshKey: number }): JSX.Element | null {
+  const { locale } = useI18n()
+  const tCanvas = React.useCallback(
+    (key: CanvasI18nKey, params?: Record<string, string | number>) => canvasTranslate(locale, key, params),
+    [locale],
+  )
   const [open, setOpen] = React.useState(false)
   const [facts, setFacts] = React.useState<MemoryFactView[]>([])
   const [editingId, setEditingId] = React.useState<string | null>(null)
@@ -57,17 +64,17 @@ export function MemoryFold({ refreshKey }: { refreshKey: number }): JSX.Element 
           'text-micro text-nomi-ink-40 hover:text-nomi-ink-60 cursor-pointer',
         )}
         aria-expanded={open}
-        aria-label='项目记忆'
+        aria-label={tCanvas('memory.aria')}
       >
         <IconBrain size={13} stroke={1.8} />
-        AI 记得 {facts.length} 条
+        {tCanvas('memory.count', { count: facts.length })}
         <IconChevronDown size={11} className={cn('ml-0.5 transition-transform', open && 'rotate-180')} />
       </button>
       {open ? (
         <ul className={cn('flex flex-col gap-1 px-3 pb-2 list-none p-0 m-0')}>
           {facts.map((fact) => (
             <li key={fact.id} className={cn('flex items-start gap-1 group')}>
-              <span className={cn('shrink-0 mt-px text-micro text-nomi-ink-40')}>{KIND_LABEL[fact.kind] || fact.kind}</span>
+              <span className={cn('shrink-0 mt-px text-micro text-nomi-ink-40')}>{tCanvas(KIND_LABEL_KEY[fact.kind]) || fact.kind}</span>
               {editingId === fact.id ? (
                 <input
                   className={cn(
@@ -86,7 +93,7 @@ export function MemoryFold({ refreshKey }: { refreshKey: number }): JSX.Element 
               ) : (
                 <span
                   className={cn('flex-1 min-w-0 text-micro text-nomi-ink-80 cursor-text', fact.origin === 'user' && 'text-nomi-ink')}
-                  title='双击修改(改后 AI 不再自动覆盖这条)'
+                  title={tCanvas('memory.editTitle')}
                   onDoubleClick={() => {
                     setEditingId(fact.id)
                     setDraft(fact.text)
@@ -101,7 +108,7 @@ export function MemoryFold({ refreshKey }: { refreshKey: number }): JSX.Element 
                   'shrink-0 inline-grid place-items-center w-5 h-5 border-0 bg-transparent p-0 cursor-pointer',
                   fact.pinned ? 'text-nomi-accent' : 'text-nomi-ink-30 opacity-0 group-hover:opacity-100 hover:text-nomi-ink-60',
                 )}
-                aria-label={fact.pinned ? '取消置顶' : '置顶(优先注入)'}
+                aria-label={fact.pinned ? tCanvas('memory.unpin') : tCanvas('memory.pin')}
                 onClick={async () => setFacts(await updateProjectMemoryFact(fact.id, { pinned: !fact.pinned }))}
               >
                 {fact.pinned ? <IconPinFilled size={12} /> : <IconPin size={12} stroke={1.8} />}
@@ -112,7 +119,7 @@ export function MemoryFold({ refreshKey }: { refreshKey: number }): JSX.Element 
                   'shrink-0 inline-grid place-items-center w-5 h-5 border-0 bg-transparent p-0 cursor-pointer',
                   'text-nomi-ink-30 opacity-0 group-hover:opacity-100 hover:text-nomi-ink-60',
                 )}
-                aria-label='删除这条记忆'
+                aria-label={tCanvas('memory.delete')}
                 onClick={async () => setFacts(await removeProjectMemoryFact(fact.id))}
               >
                 <IconX size={12} stroke={1.8} />

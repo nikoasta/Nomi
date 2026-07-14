@@ -4,6 +4,7 @@
 import React from 'react'
 import { toast } from '../../../ui/toast'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 const TIDY_ANIM_MS = 600
 
@@ -18,7 +19,7 @@ export function useTidyCanvas(categoryId: string): { isTidying: boolean; tidy: (
     (targetAspect: number) => {
       setIsTidying(true)
       tidyCategory(categoryId, targetAspect)
-      toast('已整理 · ⌘Z 撤销', 'info')
+      toast(canvasRuntimeTranslate('canvas.tidyDone'), 'info')
       if (timerRef.current !== null) window.clearTimeout(timerRef.current)
       timerRef.current = window.setTimeout(() => setIsTidying(false), TIDY_ANIM_MS)
     },

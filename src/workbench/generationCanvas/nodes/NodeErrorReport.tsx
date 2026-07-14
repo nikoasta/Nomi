@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconChevronDown, IconChevronRight, IconRefresh } fro
 import { cn } from '../../../utils/cn'
 import { WorkbenchButton } from '../../../design'
 import { classifyGenerationError } from '../runner/generationRunController'
+import { useI18n } from '../../../i18n/i18nContext'
 
 /**
  * 生成失败态 —— 节点正文内联错误卡（方案 B，2026-06-03 6 角色评审后重构）。
@@ -18,6 +19,7 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
   const report = React.useMemo(() => classifyGenerationError(message), [message])
   const [showRaw, setShowRaw] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
+  const { t } = useI18n()
 
   const handleRetry = React.useCallback(
     (event: React.MouseEvent) => {
@@ -44,7 +46,7 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
   return (
     <div
       role="alert"
-      aria-label={`生成失败：${report.reason}`}
+      aria-label={t('nodeError.aria', { reason: report.reason })}
       className={cn(
         'absolute inset-0 z-[5] flex flex-col rounded-nomi p-4',
         // 不透明浅红底：盖住下面的棋盘格占位，缩放时也一眼看出是失败态。
@@ -62,7 +64,7 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
       {/* 服务商真实原话——提到可见区，别再让用户去折叠的「技术详情」里挖（一脸懵逼的根源）。 */}
       {report.providerMessage ? (
         <p className="mt-2 select-text cursor-text rounded-nomi-sm bg-nomi-ink-05 p-2 text-caption leading-relaxed text-nomi-ink-60">
-          <span className="text-nomi-ink-40">服务商原话：</span>
+          <span className="text-nomi-ink-40">{t('nodeError.provider')}</span>
           {report.providerMessage}
         </p>
       ) : null}
@@ -83,11 +85,11 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
           <WorkbenchButton
             size="sm"
             onClick={handleRetry}
-            aria-label="重试生成"
+            aria-label={t('nodeError.retry')}
             className="bg-workbench-danger text-nomi-paper border-0 hover:bg-workbench-danger-soft"
           >
             <IconRefresh size={13} stroke={1.6} />
-            重试
+            {t('assistantError.retry')}
           </WorkbenchButton>
         ) : null}
         <button
@@ -95,7 +97,7 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
           onClick={handleCopy}
           className="text-caption text-nomi-ink-40 hover:text-nomi-ink"
         >
-          {copied ? '已复制' : '复制详情'}
+          {copied ? t('nodeError.copied') : t('nodeError.copy')}
         </button>
         <div className="min-w-0 flex-1" />
         <button
@@ -107,7 +109,7 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
           aria-expanded={showRaw}
           className="inline-flex items-center gap-0.5 text-micro text-nomi-ink-40 hover:text-nomi-ink-60"
         >
-          技术详情
+          {t('nodeError.technicalDetails')}
           {showRaw ? <IconChevronDown size={13} stroke={1.6} /> : <IconChevronRight size={13} stroke={1.6} />}
         </button>
       </div>

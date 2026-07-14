@@ -164,14 +164,14 @@ export async function runWorkbenchTextTaskStream(
       } else if (evt?.type === 'done') {
         finish(() => resolve(evt.result as TaskResultDto))
       } else if (evt?.type === 'error') {
-        finish(() => reject(new Error(evt.message || '文本流式生成失败')))
+        finish(() => reject(new Error(evt.message || 'Text streaming generation failed')))
       }
     })
     // 外部取消：通知主进程真中断流 + 兜底 reject。
     if (opts.signal) {
       const onAbort = () => finish(() => {
         void desktop.tasks.cancelTextStream(streamId)
-        reject(new DOMException('文本流式已取消', 'AbortError'))
+        reject(new DOMException('Text streaming was canceled', 'AbortError'))
       })
       if (opts.signal.aborted) onAbort()
       else opts.signal.addEventListener('abort', onAbort, { once: true })

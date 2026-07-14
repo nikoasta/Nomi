@@ -2,6 +2,7 @@ import React from 'react'
 import type { GenerationCanvasNode, GenerationProvenance } from '../model/generationCanvasTypes'
 import { cn } from '../../../utils/cn'
 import { WorkbenchButton } from '../../../design'
+import { useI18n } from '../../../i18n/i18nContext'
 
 /**
  * Phase E Task E11 — Provenance viewer.
@@ -27,14 +28,16 @@ function copyToClipboard(text: string): void {
 }
 
 export default function ProvenancePanel({ node, open, onClose, onRegenerate }: Props): JSX.Element | null {
+  const { t } = useI18n()
   if (!open) return null
   const provenance = node.result?.provenance
+  const nodeName = node.title || node.kind
   return (
     <div
       className="fixed inset-0 z-[210] grid place-items-center bg-black/30 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="生成 Provenance"
+      aria-label={t('tool.provenance.aria')}
       onClick={onClose}
     >
       <div
@@ -45,39 +48,39 @@ export default function ProvenancePanel({ node, open, onClose, onRegenerate }: P
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-title font-medium text-nomi-ink m-0">生成记录 · {node.title || node.kind}</h2>
+          <h2 className="text-title font-medium text-nomi-ink m-0">{t('tool.provenance.title', { name: nodeName })}</h2>
           <button
             type="button"
             onClick={onClose}
             className="text-nomi-ink-40 hover:text-nomi-ink text-h2 leading-none"
-            aria-label="关闭"
+            aria-label={t('tool.provenance.close')}
           >×</button>
         </div>
 
         {!provenance ? (
           <div className="text-body-sm text-nomi-ink-40 leading-relaxed">
-            该节点没有可追溯的生成记录。
+            {t('tool.provenance.empty')}
             <div className="mt-2 text-caption">
-              可能原因：
+              {t('tool.provenance.possibleReasons')}
               <ul className="list-disc list-inside mt-1 space-y-0.5">
-                <li>节点来自 v0.4.0 之前的旧项目（Provenance 是 v0.5 新增能力）</li>
-                <li>素材为本地导入，非 AI 生成</li>
-                <li>生成调用失败，未写入 Provenance</li>
+                <li>{t('tool.provenance.reasonLegacy')}</li>
+                <li>{t('tool.provenance.reasonLocal')}</li>
+                <li>{t('tool.provenance.reasonFailed')}</li>
               </ul>
             </div>
           </div>
         ) : (
           <div className="space-y-3 text-caption">
-            <ProvenanceRow label="供应商" value={provenance.provider || '—'} />
-            <ProvenanceRow label="模型" value={provenance.modelKey || '—'} />
-            <ProvenanceRow label="时间" value={new Date(provenance.timestamp).toLocaleString('zh-CN')} />
+            <ProvenanceRow label={t('tool.provenance.provider')} value={provenance.provider || '—'} />
+            <ProvenanceRow label={t('tool.provenance.model')} value={provenance.modelKey || '—'} />
+            <ProvenanceRow label={t('tool.provenance.time')} value={new Date(provenance.timestamp).toLocaleString()} />
             {typeof provenance.seed === 'number' ? (
               <ProvenanceRow label="Seed" value={String(provenance.seed)} mono />
             ) : null}
             <div>
               <div className="text-micro text-nomi-ink-40 uppercase tracking-wide mb-1">Prompt</div>
               <div className="bg-nomi-bg border border-nomi-line-soft rounded-nomi-sm p-2 text-caption font-mono leading-relaxed whitespace-pre-wrap break-words text-nomi-ink-80">
-                {provenance.prompt || '(空)'}
+                {provenance.prompt || t('tool.provenance.emptyPrompt')}
               </div>
               {provenance.prompt ? (
                 <button
@@ -85,7 +88,7 @@ export default function ProvenancePanel({ node, open, onClose, onRegenerate }: P
                   onClick={() => copyToClipboard(provenance.prompt || '')}
                   className="mt-1 text-micro text-nomi-accent hover:underline"
                 >
-                  复制 Prompt
+                  {t('tool.provenance.copyPrompt')}
                 </button>
               ) : null}
             </div>
@@ -99,7 +102,7 @@ export default function ProvenancePanel({ node, open, onClose, onRegenerate }: P
             ) : null}
             {provenance.params && Object.keys(provenance.params).length > 0 ? (
               <div>
-                <div className="text-micro text-nomi-ink-40 uppercase tracking-wide mb-1">参数</div>
+                <div className="text-micro text-nomi-ink-40 uppercase tracking-wide mb-1">{t('tool.provenance.params')}</div>
                 <pre className="bg-nomi-bg border border-nomi-line-soft rounded-nomi-sm p-2 text-micro font-mono overflow-x-auto text-nomi-ink-80">
 {JSON.stringify(provenance.params, null, 2)}
                 </pre>
@@ -114,11 +117,11 @@ export default function ProvenancePanel({ node, open, onClose, onRegenerate }: P
         <div className="flex items-center justify-end gap-2 mt-5 pt-3 border-t border-nomi-line-soft">
           {provenance && onRegenerate ? (
             <WorkbenchButton variant="primary" onClick={() => onRegenerate(provenance)}>
-              用相同参数重生成
+              {t('tool.provenance.regenerate')}
             </WorkbenchButton>
           ) : null}
           <WorkbenchButton variant="default" onClick={onClose}>
-            关闭
+            {t('tool.provenance.close')}
           </WorkbenchButton>
         </div>
       </div>

@@ -31,10 +31,10 @@ import { nextAvailableObjectPosition } from './scene3dObjects'
 import { useScene3DTrajectoryEditing } from './useScene3DTrajectoryEditing'
 import { setScene3DPlayheadSeconds, trajectoryPointTimeRatio } from './trajectory'
 import { applyCameraMovePreset, type CameraMovePresetSpec } from './cameraMovePreset'
-import { CAMERA_MOVE_LABEL } from './cameraMoveVocab'
 import { cameraWithPlaybackPosition } from './scene3dPlayback'
 import { makePropObject } from './scene3dPropSpecs'
-import { buildSceneTemplateObjects, SCENE_TEMPLATE_LABEL, type Scene3DSceneTemplate } from './scene3dSceneTemplates'
+import { buildSceneTemplateObjects, type Scene3DSceneTemplate } from './scene3dSceneTemplates'
+import { useScene3DI18n, type Scene3DI18nKey } from './scene3dI18n'
 
 export type Scene3DClipboardItem =
   | { type: 'object'; item: Scene3DObject; pasteCount: number }
@@ -63,6 +63,7 @@ export function useScene3DClipboardActions({
   setViewLocked,
   setFocusId,
 }: ClipboardActionsOptions) {
+  const t3d = useScene3DI18n()
   const startKeyboardNavigation = React.useCallback(() => {
     const currentSelection = selectionRef.current
     setViewLocked(false)
@@ -120,7 +121,7 @@ export function useScene3DClipboardActions({
     if (clipboard.type === 'object') {
       const current = stateRef.current
       if (current.objects.length >= OBJECT_LIMIT) {
-        toast('单个 3D 场景最多支持 100 个对象', 'warning')
+        toast(t3d('toast.objectLimit', { limit: OBJECT_LIMIT }), 'warning')
         return true
       }
       const object = makePastedObject(clipboard.item, pasteCount)
@@ -148,7 +149,7 @@ export function useScene3DClipboardActions({
     setSelection({ type: 'camera', id: camera.id })
     setViewLocked(false)
     return true
-  }, [readOnly, clipboardRef, stateRef, setState, setSelection, setViewLocked])
+  }, [readOnly, clipboardRef, stateRef, setState, setSelection, setViewLocked, t3d])
 
   return { startKeyboardNavigation, stopKeyboardNavigation, copySelection, pasteClipboard }
 }
@@ -174,6 +175,7 @@ export function useScene3DTrajectoryModeActions({
   setState,
   setSelection,
 }: TrajectoryModeActionsOptions) {
+  const t3d = useScene3DI18n()
   const selectTrajectoryForMode = React.useCallback((trajectoryId: string) => {
     trajectory.selectTrajectory(trajectoryId)
     enterTrajectoryMode()
@@ -253,7 +255,7 @@ export function useScene3DTrajectoryModeActions({
       binding.objects.some((boundObject) => boundObject.objectId === targetId)
     ))
     if (alreadyBound) {
-      toast('同一节点只能绑定一条轨迹', 'warning')
+      toast(t3d('toast.alreadyBound'), 'warning')
       return
     }
     const pointIndex = pointId ? targetTrajectory.points.findIndex((point) => point.id === pointId) : -1
@@ -264,16 +266,16 @@ export function useScene3DTrajectoryModeActions({
     trajectory.setTimelineOpen(true)
     enterTrajectoryMode(false)
     setSelection(cameraExists ? { type: 'camera', id: targetId } : { type: 'object', id: targetId })
-  }, [enterTrajectoryMode, readOnly, trajectory, stateRef, setSelection])
+  }, [enterTrajectoryMode, readOnly, trajectory, stateRef, setSelection, t3d])
 
   const requestTrajectoryPlayChange = React.useCallback((playing: boolean) => {
     if (playing && !trajectory.hasPlayableBinding) {
-      toast('请先为轨迹绑定对象或相机', 'warning')
+      toast(t3d('trajectory.bindTargetFirst'), 'warning')
       return
     }
     trajectory.setIsPlaying(playing)
     if (playing) trajectory.setTimelineOpen(true)
-  }, [trajectory])
+  }, [trajectory, t3d])
 
   return {
     selectTrajectoryForMode,
@@ -384,11 +386,12 @@ export function useScene3DAddActions({
   addCrowd: (options: CrowdAddOptions) => void
   applySceneTemplate: (template: Scene3DSceneTemplate) => void
 } {
+  const t3d = useScene3DI18n()
   // 语义道具：与 addObject 同结构（限流 + 避让摆位 + 选中），kind 走 spec 表。
   const addProp = React.useCallback((kind: Scene3DPropKind) => {
     if (readOnly) return
     if (stateRef.current.objects.length >= OBJECT_LIMIT) {
-      toast('单个 3D 场景最多支持 100 个对象', 'warning')
+      toast(t3d('toast.objectLimit', { limit: OBJECT_LIMIT }), 'warning')
       return
     }
     const object = makePropObject(kind)
@@ -397,12 +400,12 @@ export function useScene3DAddActions({
     setSelection({ type: 'object', id: object.id })
     exitTrajectoryMode()
     setViewLocked(false)
-  }, [exitTrajectoryMode, readOnly, setSelection, setState, setViewLocked, stateRef])
+  }, [exitTrajectoryMode, readOnly, setSelection, setState, setViewLocked, stateRef, t3d])
 
   const addObject = React.useCallback((kind: Scene3DGeometry | 'mannequin' | 'light') => {
     if (readOnly) return
     if (stateRef.current.objects.length >= OBJECT_LIMIT) {
-      toast('单个 3D 场景最多支持 100 个对象', 'warning')
+      toast(t3d('toast.objectLimit', { limit: OBJECT_LIMIT }), 'warning')
       return
     }
     const roleIndex = kind === 'mannequin'
@@ -420,7 +423,7 @@ export function useScene3DAddActions({
     setSelection({ type: 'object', id: object.id })
     exitTrajectoryMode()
     setViewLocked(false)
-  }, [exitTrajectoryMode, readOnly, setSelection, setState, setViewLocked, stateRef])
+  }, [exitTrajectoryMode, readOnly, setSelection, setState, setViewLocked, stateRef, t3d])
 
   const addCamera = React.useCallback(() => {
     if (readOnly) return
@@ -434,7 +437,7 @@ export function useScene3DAddActions({
   const addCrowd = React.useCallback((options: CrowdAddOptions) => {
     if (readOnly) return
     if (stateRef.current.objects.length >= OBJECT_LIMIT) {
-      toast('单个 3D 场景最多支持 100 个对象', 'warning')
+      toast(t3d('toast.objectLimit', { limit: OBJECT_LIMIT }), 'warning')
       return
     }
     const crowd = makeCrowdObject(options)
@@ -443,22 +446,22 @@ export function useScene3DAddActions({
     setSelection({ type: 'object', id: crowd.id })
     exitTrajectoryMode()
     setViewLocked(false)
-  }, [exitTrajectoryMode, readOnly, setSelection, setState, setViewLocked, stateRef])
+  }, [exitTrajectoryMode, readOnly, setSelection, setState, setViewLocked, stateRef, t3d])
 
   // 场景模板：一键搭灰模布景。**追加**进当前场景（绝不清用户已摆的东西），超容量整组拒绝。
   const applySceneTemplate = React.useCallback((template: Scene3DSceneTemplate) => {
     if (readOnly) return
     const additions = buildSceneTemplateObjects(template)
     if (stateRef.current.objects.length + additions.length > OBJECT_LIMIT) {
-      toast(`场景对象将超过 ${OBJECT_LIMIT} 个上限，请先清理再套模板`, 'warning')
+      toast(t3d('toast.templateLimit', { limit: OBJECT_LIMIT }), 'warning')
       return
     }
     setState((current) => ({ ...current, objects: [...current.objects, ...additions] }))
     setSelection(null)
     exitTrajectoryMode()
     setViewLocked(false)
-    toast(`已搭好「${SCENE_TEMPLATE_LABEL[template]}」（追加 ${additions.length} 个物体，未动原有内容）`, 'success')
-  }, [exitTrajectoryMode, readOnly, setSelection, setState, setViewLocked, stateRef])
+    toast(t3d('toast.templateApplied', { template: t3d(`template.${template}` as Scene3DI18nKey), count: additions.length }), 'success')
+  }, [exitTrajectoryMode, readOnly, setSelection, setState, setViewLocked, stateRef, t3d])
 
   return { addObject, addProp, addCamera, addCrowd, applySceneTemplate }
 }
@@ -477,6 +480,7 @@ export function useScene3DMoveFrameExport({
   trajectory: ReturnType<typeof useScene3DTrajectoryEditing>
   onScreenshot: (capture: Scene3DCaptureResult) => void
 }) {
+  const t3d = useScene3DI18n()
   return React.useCallback(async (cameraId: string) => {
     const camera = stateRef.current.cameras.find((candidate) => candidate.id === cameraId)
     if (!camera) return
@@ -484,7 +488,7 @@ export function useScene3DMoveFrameExport({
       binding.objects.some((bound) => bound.objectId === cameraId)
     ))
     if (bindings.length === 0) {
-      toast('该相机还没有运镜段：先点「运镜预设」或在轨迹模式绑定轨迹', 'warning')
+      toast(t3d('toast.noCameraMove'), 'warning')
       return
     }
     const start = Math.min(...bindings.map((binding) => binding.startTime))
@@ -494,23 +498,23 @@ export function useScene3DMoveFrameExport({
       window.requestAnimationFrame(() => window.requestAnimationFrame(() => resolve()))
     })
     const captures: Scene3DCaptureResult[] = []
-    for (const [time, label] of [[start, '首帧'], [end, '尾帧']] as const) {
+    for (const [time, label] of [[start, t3d('capture.firstFrame')], [end, t3d('capture.lastFrame')]] as const) {
       trajectory.playheadRef.current = time
       setScene3DPlayheadSeconds(time)
       await waitTwoFrames()
       const playbackCamera = cameraWithPlaybackPosition(stateRef.current, camera, time, trajectory.activeTrajectoryIds)
       const capture = captureApiRef.current?.captureCamera(playbackCamera)
-      if (capture) captures.push({ ...capture, title: `${camera.name} · 运镜${label}` })
+      if (capture) captures.push({ ...capture, title: `${camera.name} · ${label}` })
     }
     trajectory.playheadRef.current = restore
     setScene3DPlayheadSeconds(restore)
     if (captures.length < 2) {
-      toast('首尾帧截图失败，请重试', 'error')
+      toast(t3d('toast.frameExportFailed'), 'error')
       return
     }
     captures.forEach(onScreenshot)
-    toast('已把运镜首帧/尾帧导出为画布图片节点', 'success')
-  }, [captureApiRef, onScreenshot, stateRef, trajectory])
+    toast(t3d('toast.frameExportSuccess'), 'success')
+  }, [captureApiRef, onScreenshot, stateRef, trajectory, t3d])
 }
 
 // 运镜预设：按当前机位就地落一段轨迹并追加到时间轴末尾（连点串联）。在 stateRef 上算好再 setState
@@ -526,6 +530,7 @@ export function useScene3DCameraMoveAction({
   setState: React.Dispatch<React.SetStateAction<Scene3DState>>
   trajectory: ReturnType<typeof useScene3DTrajectoryEditing>
 }) {
+  const t3d = useScene3DI18n()
   return React.useCallback((cameraId: string, spec: CameraMovePresetSpec) => {
     if (readOnly) return
     const result = applyCameraMovePreset(stateRef.current, cameraId, spec)
@@ -533,6 +538,11 @@ export function useScene3DCameraMoveAction({
     setState(result.state)
     trajectory.setTimelineOpen(true)
     const duration = result.endTime - result.startTime
-    toast(`已追加「${CAMERA_MOVE_LABEL[spec.move]} · ${duration}s」到时间轴（${result.startTime}s-${result.endTime}s）`, 'success')
-  }, [readOnly, setState, stateRef, trajectory])
+    toast(t3d('toast.cameraMoveAdded', {
+      move: t3d(`cameraMove.${spec.move}` as Scene3DI18nKey),
+      duration,
+      start: result.startTime,
+      end: result.endTime,
+    }), 'success')
+  }, [readOnly, setState, stateRef, trajectory, t3d])
 }

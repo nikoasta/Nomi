@@ -3,6 +3,7 @@ import { Portal } from '@mantine/core'
 import { IconCopy, IconExternalLink, IconLayoutBoard, IconCheck, IconX, IconVideo, IconPhoto } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import type { LibraryPrompt } from '../api/promptLibraryApi'
+import { useI18n } from '../../i18n/i18nContext'
 
 type Props = {
   prompt: LibraryPrompt
@@ -16,6 +17,7 @@ const ANIM_MS = 260
 
 // 预览浮层:从被点卡片的位置 FLIP 放大浮到屏幕中央(transform-origin 0 0,先映射回原位再过渡到正位)。
 export function PromptPreviewOverlay({ prompt, originRect, onClose, onSendToCanvas }: Props): JSX.Element {
+  const { t } = useI18n()
   const boxRef = React.useRef<HTMLDivElement>(null)
   const [closing, setClosing] = React.useState(false)
   const [sent, setSent] = React.useState(false)
@@ -101,15 +103,15 @@ export function PromptPreviewOverlay({ prompt, originRect, onClose, onSendToCanv
             ) : (
               <div className={cn('absolute inset-0 grid place-items-center gap-1 text-nomi-ink-30')}>
                 {isVideo ? <IconVideo size={40} stroke={1.3} /> : <IconPhoto size={40} stroke={1.3} />}
-                <span className={cn('text-caption text-nomi-ink-40')}>此条暂无封面媒体</span>
+                <span className={cn('text-caption text-nomi-ink-40')}>{t('promptPreview.noMedia')}</span>
               </div>
             )}
             <span className={cn('absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-micro', 'bg-nomi-overlay-chip text-nomi-paper backdrop-blur-sm')}>
-              {isVideo ? '视频' : '图片'} · {prompt.source}
+              {isVideo ? t('mediaType.video') : t('mediaType.image')} · {prompt.source}
             </span>
             <button
               type="button"
-              aria-label="关闭"
+              aria-label={t('promptPreview.close')}
               onClick={close}
               className={cn('absolute top-2 right-2 w-7 h-7 grid place-items-center rounded-full cursor-pointer border-0', 'bg-nomi-overlay-chip text-nomi-paper hover:bg-nomi-overlay-chip-strong')}
             >
@@ -131,16 +133,16 @@ export function PromptPreviewOverlay({ prompt, originRect, onClose, onSendToCanv
               className={cn('inline-flex items-center gap-1.5 h-9 px-4 rounded-full cursor-pointer border-0', 'bg-nomi-ink text-nomi-paper text-body-sm font-semibold hover:bg-nomi-accent', 'transition-[background] duration-[var(--nomi-transition-fast)]')}
             >
               {sent ? <IconCheck size={16} stroke={2} /> : <IconLayoutBoard size={16} stroke={1.8} />}
-              {sent ? '已送上画布' : '送上画布'}
+              {sent ? t('promptPreview.sent') : t('promptPreview.send')}
             </button>
             <button
               type="button"
               onClick={handleCopy}
-              aria-label="复制提示词"
+              aria-label={t('promptPreview.copy')}
               className={cn('inline-flex items-center gap-1.5 h-9 px-3 rounded-full cursor-pointer', 'border border-nomi-line bg-transparent text-nomi-ink-80 text-body-sm hover:bg-nomi-ink-05')}
             >
               {copied ? <IconCheck size={15} stroke={2} /> : <IconCopy size={15} stroke={1.8} />}
-              {copied ? '已复制' : '复制'}
+              {copied ? t('promptPreview.copied') : t('promptPreview.copy')}
             </button>
             <span className={cn('flex-1')} />
             {prompt.sourceUrl ? (
@@ -151,10 +153,10 @@ export function PromptPreviewOverlay({ prompt, originRect, onClose, onSendToCanv
                 className={cn('inline-flex items-center gap-1 text-caption text-nomi-ink-40 hover:text-nomi-ink')}
               >
                 <IconExternalLink size={13} stroke={1.7} />
-                来源
+                {t('promptPreview.source')}
               </a>
             ) : (
-              <span className={cn('inline-flex items-center gap-1 text-caption text-nomi-ink-40')}>我的库 · 仅本地</span>
+              <span className={cn('inline-flex items-center gap-1 text-caption text-nomi-ink-40')}>{t('promptPreview.localOnly')}</span>
             )}
           </div>
         </div>

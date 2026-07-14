@@ -13,14 +13,16 @@ import {
   switchConversation,
 } from './conversationPersistence'
 import { type ConvArea, threadDisplayTitle } from './conversationThreads'
+import { useI18n } from '../../i18n/i18nContext'
+import type { TranslationKey } from '../../i18n/translations'
 
 /** 相对时间:刚刚 / N 分钟前 / N 小时前 / 昨天 / M/D。 */
-function relativeTime(ts: number, now: number): string {
+function relativeTime(ts: number, now: number, t: (key: TranslationKey, params?: Record<string, string | number>) => string): string {
   const diff = now - ts
-  if (diff < 60_000) return '刚刚'
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`
-  if (diff < 172_800_000) return '昨天'
+  if (diff < 60_000) return t('conversation.justNow')
+  if (diff < 3_600_000) return t('conversation.minutesAgo', { count: Math.floor(diff / 60_000) })
+  if (diff < 86_400_000) return t('conversation.hoursAgo', { count: Math.floor(diff / 3_600_000) })
+  if (diff < 172_800_000) return t('conversation.yesterday')
   const date = new Date(ts)
   return `${date.getMonth() + 1}/${date.getDate()}`
 }
@@ -40,6 +42,7 @@ export function ConversationHistoryList({
   const threads = React.useMemo(() => listConversations(area), [area, revision])
   const activeId = getActiveConversationId(area)
   const now = Date.now()
+  const { t } = useI18n()
 
   return (
     <div className={cn('w-64 rounded-nomi border border-nomi-line bg-nomi-paper shadow-nomi-md p-1')}>
@@ -55,8 +58,8 @@ export function ConversationHistoryList({
         }}
       >
         <IconPlus size={15} className={cn('shrink-0 text-nomi-ink-60')} />
-        <span className={cn('text-body-sm text-nomi-ink')}>新对话</span>
-        <span className={cn('ml-auto text-micro text-nomi-ink-40')}>当前会存入历史</span>
+        <span className={cn('text-body-sm text-nomi-ink')}>{t('conversation.new')}</span>
+        <span className={cn('ml-auto text-micro text-nomi-ink-40')}>{t('conversation.savedToHistory')}</span>
       </button>
 
       <div className={cn('h-px bg-nomi-line-soft mx-1.5 my-1')} />
@@ -85,7 +88,7 @@ export function ConversationHistoryList({
               >
                 {threadDisplayTitle(thread)}
               </span>
-              <span className={cn('shrink-0 text-micro text-nomi-ink-40')}>{relativeTime(thread.updatedAt, now)}</span>
+              <span className={cn('shrink-0 text-micro text-nomi-ink-40')}>{relativeTime(thread.updatedAt, now, t)}</span>
               {isActive ? null : (
                 <button
                   type="button"
@@ -93,7 +96,7 @@ export function ConversationHistoryList({
                     'shrink-0 inline-grid place-items-center size-5 border-0 bg-transparent p-0 cursor-pointer',
                     'text-nomi-ink-30 opacity-0 group-hover:opacity-100 hover:text-nomi-ink-60',
                   )}
-                  aria-label="删除这段对话"
+                  aria-label={t('conversation.delete')}
                   onClick={(event) => {
                     event.stopPropagation()
                     deleteConversation(area, thread.id)

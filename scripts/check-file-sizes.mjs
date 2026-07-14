@@ -48,7 +48,8 @@ function listFiles() {
     .filter(Boolean)
     .filter((f) => /\.tsx?$/.test(f))
     .filter((f) => !/\.test\.tsx?$/.test(f))
-    .filter((f) => !/\.d\.ts$/.test(f));
+    .filter((f) => !/\.d\.ts$/.test(f))
+    .filter((f) => fs.existsSync(path.join(ROOT, f)));
 }
 
 function countLines(absPath) {

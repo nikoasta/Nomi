@@ -7,6 +7,7 @@
  * 改文案只改这里，两处自动同步。iconKey = tabler 图标名去掉 `Icon` 前缀的 kebab（如 `pencil`）：
  * html 渲 `ti ti-<iconKey>`；React panel 用 HANDBOOK_ICON map（key→vendor 组件，都已登记，build 安全）。
  */
+import type { SupportedLocale } from '../../i18n/translations'
 
 export type HandbookPipelineStep = { iconKey: string; label: string; accent?: boolean }
 export type HandbookFirstWinStep = { n: number; title: string; body: string }
@@ -102,3 +103,203 @@ export const HANDBOOK_GOTCHAS: HandbookGotcha[] = [
 
 export const HANDBOOK_TITLE = 'Nomi 一页上手'
 export const HANDBOOK_SUBTITLE = '本地优先的 AI 视频创作台 · 从一句话到一条成片'
+
+export type HandbookContent = {
+  title: string
+  subtitle: string
+  pipelineIntro: string
+  firstWinTitle: string
+  firstWinBody: string
+  routesTitle: string
+  routesBody: string
+  gotchasTitle: string
+  pipeline: HandbookPipelineStep[]
+  firstWin: HandbookFirstWinStep[]
+  intentRoutes: HandbookIntentRoute[]
+  gotchas: HandbookGotcha[]
+}
+
+const HANDBOOK_CONTENT_ZH: HandbookContent = {
+  title: HANDBOOK_TITLE,
+  subtitle: HANDBOOK_SUBTITLE,
+  pipelineIntro: '一条流水线，全程在你眼皮底下',
+  firstWinTitle: '90 秒先尝到甜头',
+  firstWinBody: '不用读完手册——先看一条片自己跑出来，再上手做你自己的。',
+  routesTitle: '我想做 X → 走这条路',
+  routesBody: '能做的指清楚路径，做不到的当场标，不让你撞墙找半天。',
+  gotchasTitle: '卡住了看这里',
+  pipeline: HANDBOOK_PIPELINE,
+  firstWin: HANDBOOK_FIRST_WIN,
+  intentRoutes: HANDBOOK_INTENT_ROUTES,
+  gotchas: HANDBOOK_GOTCHAS,
+}
+
+const HANDBOOK_CONTENT_EN: HandbookContent = {
+  title: 'Nomi one-page guide',
+  subtitle: 'Local-first AI video studio · from one sentence to a finished cut',
+  pipelineIntro: 'One pipeline, visible from start to finish',
+  firstWinTitle: 'Get a first win in 90 seconds',
+  firstWinBody: 'You do not need to read the whole guide first. Watch one video run itself, then make your own.',
+  routesTitle: 'I want to do X → take this route',
+  routesBody: 'Supported paths are clear, and missing features are marked upfront.',
+  gotchasTitle: 'If you get stuck',
+  pipeline: [
+    { iconKey: 'pencil', label: 'Write story' },
+    { iconKey: 'scissors', label: 'AI shot breakdown' },
+    { iconKey: 'layout-grid', label: 'Canvas' },
+    { iconKey: 'wand', label: 'Identity / camera' },
+    { iconKey: 'timeline', label: 'Timeline' },
+    { iconKey: 'movie', label: 'Export MP4', accent: true },
+  ],
+  firstWin: [
+    { n: 1, title: 'Watch the replay', body: 'On the home screen, start the 60-second Nomi walkthrough and see the full pipeline with no credits spent.' },
+    { n: 2, title: 'Connect one model', body: 'Use your own key, or connect the Agnes free gateway to unlock text, image, and video.' },
+    { n: 3, title: 'Write one line + split shots', body: 'Write a story in the creation area and ask for shot breakdown. Choose image-first boards or video boards, then place them on the canvas.' },
+    { n: 4, title: 'Generate + export', body: 'Generate from the shot cards, arrange them on the timeline, and export MP4 from the top right.' },
+  ],
+  intentRoutes: [
+    {
+      iconKey: 'user-check',
+      title: 'Keep the same person across shots',
+      body: 'Use an identity card to lock the face, then connect it to every shot as a reference.',
+    },
+    {
+      iconKey: 'box',
+      title: 'Control who stands where',
+      body: 'Set up a 3D staging reference and AI follows the layout.',
+    },
+    {
+      iconKey: 'device-gamepad-2',
+      title: 'Make characters move or add camera motion',
+      body: 'Use game-style 3D controls: WASD movement, action presets, camera placement, and a recorded take as generation reference.',
+      badge: 'New in 0.16',
+    },
+    {
+      iconKey: 'gift',
+      title: 'No API credits yet',
+      body: 'Connect Agnes AI in model setup: one key unlocks text, image, and video for free.',
+      badge: 'New in 0.16',
+    },
+    {
+      iconKey: 'typography',
+      title: 'Add captions and title cards',
+      body: 'Use the timeline preview area and tune the rhythm yourself.',
+    },
+    {
+      iconKey: 'alert-triangle',
+      title: 'Precise lip sync',
+      body: 'Not supported yet. This is marked honestly instead of hidden behind vague wording.',
+      warn: true,
+    },
+  ],
+  gotchas: [
+    {
+      iconKey: 'plug-connected-x',
+      title: 'Model connected but generation does not work',
+      body: 'Most often the text brain is missing. Add a text model in model setup so shot breakdown and chat can run.',
+    },
+    {
+      iconKey: 'mood-confuzed',
+      title: 'Faces change between shots',
+      body: 'Connect the identity card to the shot as a reference. Without it, the model cannot know who is who.',
+    },
+    {
+      iconKey: 'alert-circle',
+      title: 'Model is connected but unusable',
+      body: 'Check the error message. It is often an account tier, membership, enterprise key, or web authorization requirement.',
+    },
+    {
+      iconKey: 'volume-off',
+      title: 'No sound after export',
+      body: 'Confirm that audio is on the timeline audio track. Export mixing is fixed in the latest build.',
+    },
+  ],
+}
+
+const HANDBOOK_CONTENT_RU: HandbookContent = {
+  title: 'Nomi: короткое руководство',
+  subtitle: 'Локальная AI-студия видео · от одной фразы до готового ролика',
+  pipelineIntro: 'Один процесс, все шаги видны',
+  firstWinTitle: 'Первый результат за 90 секунд',
+  firstWinBody: 'Не нужно читать все руководство. Сначала посмотрите, как один ролик собирается сам, затем сделайте свой.',
+  routesTitle: 'Я хочу сделать X → вот путь',
+  routesBody: 'Поддержанные сценарии показаны прямо, а отсутствующие возможности отмечены заранее.',
+  gotchasTitle: 'Если застряли',
+  pipeline: [
+    { iconKey: 'pencil', label: 'Сценарий' },
+    { iconKey: 'scissors', label: 'AI разбивка' },
+    { iconKey: 'layout-grid', label: 'Холст' },
+    { iconKey: 'wand', label: 'Личность / камера' },
+    { iconKey: 'timeline', label: 'Таймлайн' },
+    { iconKey: 'movie', label: 'Экспорт MP4', accent: true },
+  ],
+  firstWin: [
+    { n: 1, title: 'Посмотрите replay', body: 'На главном экране запустите 60-секундный показ Nomi и увидьте весь процесс без траты лимитов.' },
+    { n: 2, title: 'Подключите модель', body: 'Используйте свой ключ или подключите бесплатный шлюз Agnes для текста, изображений и видео.' },
+    { n: 3, title: 'Напишите фразу + разбейте на кадры', body: 'Напишите историю в области сценария и попросите разбить ее на кадры. Можно начать с картинок или сразу с видео.' },
+    { n: 4, title: 'Сгенерируйте и экспортируйте', body: 'Запустите генерацию на карточках кадров, разложите их на таймлайне и экспортируйте MP4 сверху справа.' },
+  ],
+  intentRoutes: [
+    {
+      iconKey: 'user-check',
+      title: 'Один и тот же человек во всех кадрах',
+      body: 'Создайте карточку идентичности, чтобы зафиксировать лицо, и подключите ее к каждому кадру как reference.',
+    },
+    {
+      iconKey: 'box',
+      title: 'Контролировать, кто где стоит',
+      body: 'Соберите 3D-референс расстановки, и AI будет следовать этой схеме.',
+    },
+    {
+      iconKey: 'device-gamepad-2',
+      title: 'Движение персонажей и камера',
+      body: 'Используйте 3D-управление как в игре: WASD, набор действий, постановку камеры и записанный take как reference.',
+      badge: 'Новое в 0.16',
+    },
+    {
+      iconKey: 'gift',
+      title: 'Пока нет API-лимитов',
+      body: 'Подключите Agnes AI в настройке моделей: один ключ открывает текст, изображения и видео бесплатно.',
+      badge: 'Новое в 0.16',
+    },
+    {
+      iconKey: 'typography',
+      title: 'Добавить субтитры и титры',
+      body: 'Перейдите в предпросмотр таймлайна и настройте ритм.',
+    },
+    {
+      iconKey: 'alert-triangle',
+      title: 'Точный lip sync',
+      body: 'Пока не поддерживается. Это отмечено честно, без размытых обещаний.',
+      warn: true,
+    },
+  ],
+  gotchas: [
+    {
+      iconKey: 'plug-connected-x',
+      title: 'Модель подключена, но генерация не идет',
+      body: 'Чаще всего не хватает текстовой модели. Добавьте ее в настройке моделей, чтобы работали чат и разбивка на кадры.',
+    },
+    {
+      iconKey: 'mood-confuzed',
+      title: 'Лица меняются от кадра к кадру',
+      body: 'Подключите карточку идентичности к кадру как reference. Без нее модель не знает, кто есть кто.',
+    },
+    {
+      iconKey: 'alert-circle',
+      title: 'Модель подключена, но недоступна',
+      body: 'Посмотрите текст ошибки. Часто нужен другой тариф, подписка, enterprise key или авторизация через веб.',
+    },
+    {
+      iconKey: 'volume-off',
+      title: 'После экспорта нет звука',
+      body: 'Проверьте, что аудио лежит на аудиодорожке таймлайна. Сведение при экспорте исправлено в последней сборке.',
+    },
+  ],
+}
+
+export function getHandbookContent(locale: SupportedLocale): HandbookContent {
+  if (locale === 'en') return HANDBOOK_CONTENT_EN
+  if (locale === 'ru') return HANDBOOK_CONTENT_RU
+  return HANDBOOK_CONTENT_ZH
+}

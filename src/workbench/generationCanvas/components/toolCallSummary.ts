@@ -1,11 +1,13 @@
 // 工具调用的人话摘要(时间线步骤标题 / committed 记录 stepLabels 共用单源)。
 // 杀 toolName 原文与 raw JSON:面板里直接显示给用户看的只能是这套词表。
-import { getDefaultCategoryForNodeKind, type GenerationNodeKind } from '../model/generationCanvasTypes'
+import { getDefaultCategoryForNodeKind, type GenerationCanvasEdgeMode, type GenerationNodeKind } from '../model/generationCanvasTypes'
 import { getGenerationNodeDefaultTitle, isGenerationNodeKind } from '../model/generationNodeKinds'
-import { EDGE_MODE_LABEL } from '../model/graphOps'
+import { EDGE_MODE_LABEL_KEYS, getEdgeModeLabel } from '../model/graphOps'
 import { BUILTIN_CATEGORIES } from '../../project/projectCategories'
 import { CAMERA_MOVE_LABEL, CAMERA_SPEED_DURATION, type CameraMove, type CameraSpeed } from '../nodes/scene3d/cameraMoveVocab'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
+import { canvasRuntimeTranslate } from '../canvasI18n'
+import { getRuntimeLocale } from '../../../i18n/runtimeLocale'
 
 const CATEGORY_NAME = new Map(BUILTIN_CATEGORIES.map((category) => [category.id, category.name]))
 
@@ -21,7 +23,7 @@ function joinNodeTitles(ids: string[]): string {
   const titles = ids.map(nodeTitleById).filter((t): t is string => Boolean(t))
   if (titles.length === 0) return ''
   const head = titles.slice(0, 3).map((t) => `「${t}」`).join('、')
-  return titles.length > 3 ? `${head} 等 ${titles.length} 个` : head
+  return titles.length > 3 ? canvasRuntimeTranslate('tool.moreCount', { head, count: titles.length }) : head
 }
 
 function categoryLabelOf(categoryId: string): string {
@@ -38,52 +40,55 @@ export function summarizeToolCall(toolName: string, args: unknown): string {
   if (toolName === 'create_canvas_nodes') {
     const nodes = Array.isArray(record.nodes) ? record.nodes : []
     const summary = typeof record.summary === 'string' ? record.summary : ''
-    return `创建 ${nodes.length} 个节点${summary ? `：${summary}` : ''}`
+    return canvasRuntimeTranslate('tool.createNodes', {
+      count: nodes.length,
+      summary: summary ? canvasRuntimeTranslate('tool.summarySuffix', { summary }) : '',
+    })
   }
   if (toolName === 'connect_canvas_edges') {
     const edges = Array.isArray(record.edges) ? record.edges : []
-    return `连接 ${edges.length} 条引用线`
+    return canvasRuntimeTranslate('tool.connectEdges', { count: edges.length })
   }
   if (toolName === 'set_node_prompt') {
     const title = record.nodeId ? nodeTitleById(String(record.nodeId)) : null
-    return title ? `改写「${title}」的提示词` : '改写节点提示词'
+    return title ? canvasRuntimeTranslate('tool.rewritePromptForTitle', { title }) : canvasRuntimeTranslate('tool.rewritePrompt')
   }
   if (toolName === 'delete_canvas_nodes') {
     const ids = Array.isArray(record.nodeIds) ? record.nodeIds : []
-    return `删除 ${ids.length} 个节点`
+    return canvasRuntimeTranslate('tool.deleteNodes', { count: ids.length })
   }
   if (toolName === 'run_generation_batch') {
     const ids = Array.isArray(record.nodeIds) ? record.nodeIds : []
-    return `批量生成 ${ids.length} 个节点（将产生生成费用）`
+    return canvasRuntimeTranslate('tool.runBatch', { count: ids.length })
   }
   if (toolName === 'read_canvas_state') {
-    return '读取画布当前状态'
+    return canvasRuntimeTranslate('tool.readCanvas')
   }
   if (toolName === 'arrange_storyboard_to_timeline') {
     const ids = Array.isArray(record.nodeIds) ? record.nodeIds : []
-    return ids.length ? `把 ${ids.length} 个镜头按剧本时序排入时间轴` : '把整条故事板按剧本时序排入时间轴'
+    return ids.length ? canvasRuntimeTranslate('tool.arrangeSelected', { count: ids.length }) : canvasRuntimeTranslate('tool.arrangeAll')
   }
   if (toolName === 'tidy_canvas') {
-    const cat = typeof record.categoryId === 'string' && record.categoryId ? categoryLabelOf(record.categoryId) : '当前画布'
-    return `整理${cat}（按镜序归位 · ⌘Z 可撤销）`
+    const cat = typeof record.categoryId === 'string' && record.categoryId ? categoryLabelOf(record.categoryId) : canvasRuntimeTranslate('tool.currentCanvas')
+    return canvasRuntimeTranslate('tool.tidyCanvas', { category: cat })
   }
   if (toolName === 'create_staging_reference') {
     const characters = Array.isArray(record.characters) ? record.characters : []
     const camera = record.camera && typeof record.camera === 'object' ? (record.camera as Record<string, unknown>) : {}
     const parts = [
-      `${characters.length} 角色`,
+      canvasRuntimeTranslate('tool.charactersCount', { count: characters.length }),
       typeof record.layout === 'string' ? String(record.layout) : null,
       typeof camera.shot === 'string' ? String(camera.shot) : null,
     ].filter(Boolean)
-    return `建站位参考图（${parts.join(' · ')}）`
+    return canvasRuntimeTranslate('tool.createStaging', { parts: parts.join(' · ') })
   }
   if (toolName === 'create_camera_move') {
     const move = record.move as CameraMove
-    const label = CAMERA_MOVE_LABEL[move] ?? String(record.move ?? '运镜')
+    const label = CAMERA_MOVE_LABEL[move] ?? String(record.move ?? canvasRuntimeTranslate('tool.cameraMoveFallback'))
     const speed = (typeof record.speed === 'string' ? record.speed : 'medium') as CameraSpeed
     const duration = CAMERA_SPEED_DURATION[speed] ?? CAMERA_SPEED_DURATION.medium
     const shot = typeof record.shot === 'string' ? record.shot : 'medium'
-    return `建运镜参考（${label} · ${shot} · ≈${duration}s）`
+    return canvasRuntimeTranslate('tool.createCameraMove', { label, shot, duration })
   }
   return toolName
 }
@@ -105,7 +110,7 @@ export function buildStepDetailLabels(toolName: string, args: unknown): string[]
         typeof node.title === 'string' && node.title.trim()
           ? node.title.trim()
           : `${getGenerationNodeDefaultTitle(kind)} ${index + 1}`
-      return `「${title}」→ ${categoryLabelOf(getDefaultCategoryForNodeKind(kind))}`
+      return canvasRuntimeTranslate('tool.nodeToCategory', { title, category: categoryLabelOf(getDefaultCategoryForNodeKind(kind)) })
     })
   }
   if (toolName === 'connect_canvas_edges') {
@@ -116,10 +121,13 @@ export function buildStepDetailLabels(toolName: string, args: unknown): string[]
       byMode.set(mode, (byMode.get(mode) ?? 0) + 1)
     }
     const parts = Array.from(byMode.entries()).map(([mode, count]) => {
-      const label = (EDGE_MODE_LABEL as Record<string, string>)[mode] ?? mode
+      const label = mode in EDGE_MODE_LABEL_KEYS ? getEdgeModeLabel(mode as GenerationCanvasEdgeMode, getRuntimeLocale()) : mode
       return `${label} ${count}`
     })
-    return [`连接 ${edges.length} 条引用线${parts.length ? `（${parts.join(' · ')}）` : ''}`]
+    return [canvasRuntimeTranslate('tool.connectEdgesWithParts', {
+      count: edges.length,
+      parts: parts.length ? canvasRuntimeTranslate('tool.partsWrap', { parts: parts.join(' · ') }) : '',
+    })]
   }
   return [summarizeToolCall(toolName, args)]
 }

@@ -10,6 +10,7 @@ import { clearWorkbenchAgentSession } from '../../../api/desktopClient'
 import { getAssistantModelPref } from '../../ai/assistantModelPref'
 import { readWindowUrlParam } from '../../windowUrlParam'
 import type { ShotVerifyDeps } from './shotVerifyRunner'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 /** verify 用独立会话键(与创作/生成区线程隔离,不污染用户对话历史)。 */
 function verifySessionKey(): string {
@@ -22,10 +23,10 @@ export function makeShotVerifyDeps(): ShotVerifyDeps {
   return {
     extractFrame: async (videoUrl: string): Promise<string> => {
       const extract = getDesktopBridge()?.video?.extractFrame
-      if (!extract) throw new Error('当前环境不支持抽帧(需桌面端)')
+      if (!extract) throw new Error(canvasRuntimeTranslate('verify.extractUnsupported'))
       const result = await extract({ videoUrl, which: 'first', projectId })
       const url = result?.url
-      if (!url) throw new Error('抽帧未返回 URL')
+      if (!url) throw new Error(canvasRuntimeTranslate('verify.noFrameUrl'))
       return url
     },
     judge: async (prompt: string, frameImageUrl: string): Promise<string> => {

@@ -28,7 +28,7 @@ export type PropSpec = {
 
 export const PROP_SPECS: Record<Scene3DPropKind, PropSpec> = {
   car: {
-    label: '车辆',
+    label: 'Car',
     defaultColor: '#8f9aa8',
     footprint: { width: 1.9, depth: 4.6 },
     parts: [
@@ -41,7 +41,7 @@ export const PROP_SPECS: Record<Scene3DPropKind, PropSpec> = {
     ],
   },
   building: {
-    label: '建筑',
+    label: 'Building',
     defaultColor: '#b3aca0',
     footprint: { width: 6.4, depth: 6.4 },
     parts: [
@@ -50,7 +50,7 @@ export const PROP_SPECS: Record<Scene3DPropKind, PropSpec> = {
     ],
   },
   tree: {
-    label: '树木',
+    label: 'Tree',
     defaultColor: '#5c9457',
     footprint: { width: 2.3, depth: 2.3 },
     parts: [
@@ -60,7 +60,7 @@ export const PROP_SPECS: Record<Scene3DPropKind, PropSpec> = {
     ],
   },
   streetlamp: {
-    label: '路灯',
+    label: 'Streetlamp',
     defaultColor: '#6b7078',
     footprint: { width: 1.0, depth: 1.0 },
     parts: [
@@ -71,7 +71,7 @@ export const PROP_SPECS: Record<Scene3DPropKind, PropSpec> = {
     ],
   },
   wall: {
-    label: '墙面',
+    label: 'Wall',
     defaultColor: '#b9b2a6',
     footprint: { width: 4.0, depth: 0.3 },
     parts: [

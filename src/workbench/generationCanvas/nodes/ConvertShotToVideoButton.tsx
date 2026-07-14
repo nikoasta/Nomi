@@ -4,6 +4,7 @@ import { cn } from '../../../utils/cn'
 import { toast } from '../../../ui/toast'
 import { convertImageShotToVideo } from '../agent/convertShotToVideo'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
+import { useI18n } from '../../../i18n/i18nContext'
 
 /**
  * 分镜预览层的两件 overlay（从 BaseGenerationNode 抽出，R9/R12 防巨壳）：
@@ -27,13 +28,14 @@ export function ShotPreviewOverlays({
   hasResult: boolean
   isGenerating: boolean
 }): JSX.Element | null {
+  const { t } = useI18n()
   if (shotIndex == null) return null
   const showConvert = !readOnly && node.kind === 'image' && node.result?.type === 'image' && hasResult && !isGenerating
   return (
     <>
       {hasResult || selected ? (
         <span className="absolute top-1.5 left-1.5 z-[3] inline-flex items-center h-[18px] px-2 rounded-full bg-nomi-ink/85 text-nomi-paper text-micro font-bold tabular-nums pointer-events-none shadow-nomi-sm backdrop-blur-[2px]">
-          镜头 {shotIndex}
+          {t('tool.convertShot.badge', { index: shotIndex })}
         </span>
       ) : null}
       {showConvert ? <ConvertShotToVideoButton node={node} selected={selected} /> : null}
@@ -43,11 +45,12 @@ export function ShotPreviewOverlays({
 
 /** 悬浮「转视频」按钮：hover/选中浮现，不常驻挡画面。 */
 function ConvertShotToVideoButton({ node, selected }: { node: GenerationCanvasNode; selected: boolean }): JSX.Element {
+  const { t } = useI18n()
   return (
     <button
       type="button"
-      aria-label="把这张图转成视频镜头（作为首帧）"
-      title="转视频镜头 · 这张图作为首帧"
+      aria-label={t('tool.convertShot.aria')}
+      title={t('tool.convertShot.title')}
       data-convert-shot-to-video={node.id}
       className={cn(
         'absolute bottom-1.5 right-1.5 z-[4] inline-flex items-center gap-1 h-6 px-2 rounded-full',
@@ -60,11 +63,11 @@ function ConvertShotToVideoButton({ node, selected }: { node: GenerationCanvasNo
       onClick={(event) => {
         event.stopPropagation()
         const { existed } = convertImageShotToVideo(node)
-        toast(existed ? '这一镜已转过视频，已选中它' : '已转出视频镜头 · 这张图作为首帧', 'info')
+        toast(existed ? t('tool.convertShot.already') : t('tool.convertShot.created'), 'info')
       }}
     >
       <IconMovie size={12} stroke={1.8} />
-      转视频
+      {t('tool.convertShot.button')}
     </button>
   )
 }

@@ -18,6 +18,7 @@ import {
   listWorkbenchModelCatalogVendors,
   upsertWorkbenchModelCatalogModel,
 } from '../api/modelCatalogApi'
+import { useI18n } from '../../i18n/i18nContext'
 
 type Recoverable = { vendorKey: string; modelKey: string; labelZh: string }
 type CardState = 'prompt' | 'enabling' | 'done'
@@ -40,6 +41,7 @@ async function findRecoverableBrain(): Promise<Recoverable | null> {
 export function NoTextModelRecoveryCard({ onResolved }: { onResolved?: () => void }): JSX.Element {
   const [state, setState] = React.useState<CardState>('prompt')
   const [recoverable, setRecoverable] = React.useState<Recoverable | null>(null)
+  const { t } = useI18n()
 
   React.useEffect(() => {
     let alive = true
@@ -71,9 +73,9 @@ export function NoTextModelRecoveryCard({ onResolved }: { onResolved?: () => voi
         <div className={cn('flex items-start gap-2 p-3 rounded-nomi border border-nomi-line bg-nomi-ink-05')}>
           <IconCheck size={16} className={cn('mt-0.5 shrink-0 text-nomi-ink-80')} />
           <div className={cn('flex flex-col gap-1')}>
-            <span className={cn('text-body-sm font-medium text-nomi-ink')}>大脑已就位</span>
+            <span className={cn('text-body-sm font-medium text-nomi-ink')}>{t('noTextModel.readyTitle')}</span>
             <span className={cn('text-caption text-nomi-ink-60 leading-snug')}>
-              「模型设置」里多了一行「文本」。现在可以拆镜头、对话了——再发一次试试。
+              {t('noTextModel.readyBody')}
             </span>
           </div>
         </div>
@@ -82,10 +84,11 @@ export function NoTextModelRecoveryCard({ onResolved }: { onResolved?: () => voi
           <div className={cn('flex items-start gap-2')}>
             <IconBulb size={18} className={cn('mt-0.5 shrink-0 text-nomi-ink-60')} />
             <div className={cn('flex flex-col gap-1')}>
-              <span className={cn('text-body-sm font-medium text-nomi-ink leading-snug')}>创作助手还缺一个文本大脑</span>
+              <span className={cn('text-body-sm font-medium text-nomi-ink leading-snug')}>{t('noTextModel.title')}</span>
               <span className={cn('text-caption text-nomi-ink-60 leading-snug')}>
-                你接的是图片 / 视频生成模型，负责出画面。拆镜头、对话、写文案需要一个
-                <span className={cn('text-nomi-ink')}>文本对话模型</span>当大脑。
+                {t('noTextModel.bodyBefore')}
+                <span className={cn('text-nomi-ink')}>{t('noTextModel.bodyModel')}</span>
+                {t('noTextModel.bodyAfter')}
               </span>
             </div>
           </div>
@@ -98,12 +101,12 @@ export function NoTextModelRecoveryCard({ onResolved }: { onResolved?: () => voi
                 onClick={() => void enableBrain()}
               >
                 <IconBulb />
-                <span className="min-w-0 truncate">启用 {recoverable.labelZh}</span>
+                <span className="min-w-0 truncate">{t('noTextModel.enable', { name: recoverable.labelZh })}</span>
               </WorkbenchButton>
             ) : null}
             <WorkbenchButton variant="default" className="w-full" onClick={openSettings}>
               <IconSettings />
-              去模型设置
+              {t('noTextModel.settings')}
             </WorkbenchButton>
           </div>
         </div>

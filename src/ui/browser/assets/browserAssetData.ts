@@ -52,16 +52,16 @@ export type NomiBrowserAssetSourceDefinition = {
 }
 
 export const NOMI_BROWSER_ASSET_TABS: readonly NomiBrowserAssetTabDefinition[] = [
-  { key: 'all', label: '全部', icon: IconLayoutGrid },
-  { key: 'image', label: '图片', icon: IconPhoto },
-  { key: 'video', label: '视频', icon: IconVideo },
-  { key: 'prompt', label: '提示词', icon: IconFileText },
-  { key: 'folder', label: '文件夹', icon: IconFolder },
+  { key: 'all', label: 'All', icon: IconLayoutGrid },
+  { key: 'image', label: 'Images', icon: IconPhoto },
+  { key: 'video', label: 'Videos', icon: IconVideo },
+  { key: 'prompt', label: 'Prompts', icon: IconFileText },
+  { key: 'folder', label: 'Folders', icon: IconFolder },
 ]
 
 export const NOMI_BROWSER_ASSET_SOURCES: readonly NomiBrowserAssetSourceDefinition[] = [
-  { key: 'my', label: '项目素材' },
-  { key: 'transcript', label: '提示词库' },
+  { key: 'my', label: 'Project assets' },
+  { key: 'transcript', label: 'Prompt library' },
 ]
 
 export const NOMI_BROWSER_ASSETS: readonly NomiBrowserAsset[] = []
@@ -91,7 +91,7 @@ export function filterNomiBrowserAssets(
       promptCard?.prompt,
       promptCard?.promptType,
       promptCard?.extractionMode,
-      promptCard?.extractionMode === 'style' ? '画面风格' : promptCard?.extractionMode === 'replicate' ? '画面复刻' : '',
+      promptCard?.extractionMode === 'style' ? 'visual style' : promptCard?.extractionMode === 'replicate' ? 'image replication' : '',
       ...(promptCard?.referenceImages.map((reference) => `${reference.title ?? ''} ${reference.sourceUrl ?? ''}`) ?? []),
       ...(asset.tags ?? []),
     ]

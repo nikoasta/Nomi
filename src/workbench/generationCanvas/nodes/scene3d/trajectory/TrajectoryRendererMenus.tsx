@@ -12,6 +12,7 @@ import {
   vectorToScene,
 } from './trajectoryRendererShared'
 import { buildTrajectoryCurve, createTrajectoryTubeGeometry } from './trajectoryUtils'
+import { useScene3DI18n } from '../scene3dI18n'
 
 export function TrajectoryEditPlane({
   onCreateTrajectory,
@@ -98,6 +99,7 @@ export function TrajectoryCreateMenu({
   onClose: () => void
   onCreateTrajectory: (position: Scene3DVector3) => void
 }): JSX.Element | null {
+  const t3d = useScene3DI18n()
   React.useEffect(() => {
     if (!menu) return undefined
     const handlePointerDown = (event: PointerEvent) => {
@@ -146,7 +148,7 @@ export function TrajectoryCreateMenu({
           }}
         >
           <IconPlus size={14} stroke={1.9} />
-          <span>添加轨迹</span>
+          <span>{t3d('trajectory.addTrajectory')}</span>
         </button>
       </div>
     </Html>
@@ -166,6 +168,7 @@ export function TrajectoryContextMenu({
   onEditTrajectory?: (trajectoryId: string) => void
   onDeleteTrajectory?: (trajectoryId: string) => void
 }): JSX.Element | null {
+  const t3d = useScene3DI18n()
   React.useEffect(() => {
     if (!menu) return undefined
     const handlePointerDown = (event: PointerEvent) => {
@@ -215,7 +218,7 @@ export function TrajectoryContextMenu({
             }}
           >
             <IconPlus size={14} stroke={1.9} />
-            <span>添加控制点</span>
+            <span>{t3d('trajectory.addControlPoint')}</span>
           </button>
         ) : null}
         <button
@@ -229,7 +232,7 @@ export function TrajectoryContextMenu({
           }}
         >
           <IconPencil size={14} stroke={1.9} />
-          <span>编辑</span>
+          <span>{t3d('trajectory.edit')}</span>
         </button>
         <button
           type="button"
@@ -242,7 +245,7 @@ export function TrajectoryContextMenu({
           }}
         >
           <IconTrash size={14} stroke={1.9} />
-          <span>删除</span>
+          <span>{t3d('inspector.delete')}</span>
         </button>
       </div>
     </Html>
@@ -260,6 +263,7 @@ export function TrajectoryPointBindMenu({
   onClose: () => void
   onBindTarget?: (trajectoryId: string, targetId: string, pointId?: string | null) => void
 }): JSX.Element | null {
+  const t3d = useScene3DI18n()
   const [hoveredType, setHoveredType] = React.useState<TrajectoryBindTarget['type']>('mannequin')
   const targetsByType = React.useMemo(
     () => ({
@@ -302,13 +306,13 @@ export function TrajectoryPointBindMenu({
   }> = [
     {
       type: 'mannequin',
-      label: '假人',
+      label: t3d('trajectory.mannequin'),
       icon: <IconUser size={14} stroke={1.9} />,
       items: targetsByType.mannequin,
     },
     {
       type: 'camera',
-      label: '相机',
+      label: t3d('trajectory.camera'),
       icon: <IconCamera size={14} stroke={1.9} />,
       items: targetsByType.camera,
     },
@@ -348,7 +352,7 @@ export function TrajectoryPointBindMenu({
         ))}
         <div className="absolute left-[calc(100%+6px)] top-1 min-w-[148px] rounded-nomi border border-[var(--nomi-line-soft)] bg-[var(--nomi-paper)] p-1 shadow-[0_14px_34px_rgba(18,24,38,0.2)]">
           {hoveredItems.length === 0 ? (
-            <div className="px-2 py-2 text-micro text-[var(--nomi-ink-40)]">暂无可绑定节点</div>
+            <div className="px-2 py-2 text-micro text-[var(--nomi-ink-40)]">{t3d('trajectory.noBindableNodes')}</div>
           ) : (
             hoveredItems.map((target) => (
               <button

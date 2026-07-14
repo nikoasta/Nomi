@@ -46,7 +46,7 @@ function normalizeBrowserPromptExtractionTemplate(input: unknown): BrowserPrompt
   if (!id || id.startsWith('default:')) return null
   return {
     id,
-    title: title || '未命名模板',
+    title: title || 'Untitled template',
     prompt,
     createdAt: typeof record.createdAt === 'string' ? record.createdAt : new Date().toISOString(),
     updatedAt: typeof record.updatedAt === 'string' ? record.updatedAt : undefined,

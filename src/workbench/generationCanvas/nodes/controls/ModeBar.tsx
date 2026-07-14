@@ -1,5 +1,6 @@
 import React from 'react'
 import { cn } from '../../../../utils/cn'
+import { useI18n } from '../../../../i18n/i18nContext'
 import type { ArchetypeModeChoice } from './archetypeMeta'
 
 // 「生成方式」分段切换 —— 常驻参考区的头（样张 v3：切它能当场看到下方参考槽变化，不被弹层遮挡）。
@@ -14,16 +15,17 @@ type ModeBarProps = {
 }
 
 export default function ModeBar({ choices, activeId, onSelect }: ModeBarProps): JSX.Element | null {
+  const { t } = useI18n()
   // 只有 >1 模式时才显示分段（单模式无需切换）。
   if (choices.length <= 1) return null
   const active = choices.find((c) => c.id === activeId) ?? choices[0]
   return (
     <div className={cn('flex flex-col gap-1')}>
-      <span className={cn('text-nomi-ink-40 text-micro leading-none')}>生成方式</span>
+      <span className={cn('text-nomi-ink-40 text-micro leading-none')}>{t('modeBar.generationMode')}</span>
       <div
         className={cn('inline-flex flex-wrap gap-0.5 p-0.5 rounded-nomi-sm bg-nomi-ink-05 self-start')}
         role="group"
-        aria-label="生成方式"
+        aria-label={t('modeBar.generationMode')}
       >
         {choices.map((choice) => {
           const isActive = choice.id === active.id

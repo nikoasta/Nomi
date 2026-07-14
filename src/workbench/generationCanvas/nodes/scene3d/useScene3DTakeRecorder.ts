@@ -13,6 +13,7 @@ import { clonePoseValue } from './scene3dMath'
 import { isPossessingCamera, type PossessTarget } from './scene3dPossessTarget'
 import type { Scene3DPoseEvent } from './scene3dPoseTrack'
 import type { Scene3DState, Scene3DVector3 } from './scene3dTypes'
+import { useScene3DI18n } from './scene3dI18n'
 
 // 录制期内部用：动作事件按 wall-clock(ms) 暂存，停止时再归一为「录制起点起算的秒」。
 type RawPoseEvent = { ms: number; presetId?: string; pose?: Record<string, Scene3DVector3> }
@@ -61,6 +62,7 @@ export function useScene3DTakeRecorder({
   stateRef: React.MutableRefObject<Scene3DState>
   onRecorded: (recordedState: Scene3DState) => void
 }): TakeRecorder {
+  const t3d = useScene3DI18n()
   const [isRecording, setIsRecording] = React.useState(false)
   const [elapsedSeconds, setElapsedSeconds] = React.useState(0)
 
@@ -163,7 +165,7 @@ export function useScene3DTakeRecorder({
     setIsRecording(false)
     // 即时反馈（用户反馈 #11）：点停止后按钮瞬间变回「录 take」，用户以为白录。先即时确认「已停止」，
     // 出片是异步的，结果状态由画布上「录制走位参考」节点的徽标接力（生成中 → 已生成 ✓，见 Scene3DEditor）。
-    toast('已停止录制，正在生成参考视频…', 'success')
+    toast(t3d('toast.recordingStopped'), 'success')
     const endMs = performance.now()
     const target = possessTargetRef.current
     const characterSamples = characterSamplesRef.current
@@ -191,7 +193,7 @@ export function useScene3DTakeRecorder({
       }
       const recordedState = buildRecordedCameraTakeScene(stateRef.current, cameraTake)
       if (!recordedState) {
-        toast('没录到运镜（镜头全程没动），请 WASD 飞镜头 / 转朝向后再录', 'warning')
+        toast(t3d('toast.noCameraMoveRecorded'), 'warning')
         return
       }
       onRecorded(recordedState)
@@ -202,11 +204,11 @@ export function useScene3DTakeRecorder({
     const take: RecordedTake = { possessedObjectId: target.id, characterSamples, cameraSamples, poseEvents, durationSeconds }
     const recordedState = buildRecordedTakeScene(stateRef.current, take)
     if (!recordedState) {
-      toast('没录到走位（角色全程没移动），请操控角色走动后再录', 'warning')
+      toast(t3d('toast.noBlockingRecorded'), 'warning')
       return
     }
     onRecorded(recordedState)
-  }, [clearTick, onRecorded, stateRef])
+  }, [clearTick, onRecorded, stateRef, t3d])
 
   // 兜底 only：正常「退出操控」现在由触发退出的动作本身先调 stopRecording()（见 Scene3DFullscreen 的
   // onBeforeExit 接线），出片/toast/建 take 节点都已在那一步跑完，这里不会再赶上 isRecording=true。

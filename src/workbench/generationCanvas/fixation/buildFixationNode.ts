@@ -8,6 +8,7 @@ import { readCharacterMeta } from '../model/nodeMetaFields'
 import { buildBasicCharacterFixation, buildBasicSceneFixation } from './fixationPromptTemplates'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import { toast } from '../../../ui/toast'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 export type FixationNodeSpec = {
   title: string
@@ -35,7 +36,7 @@ export function buildFixationNodeSpec(node: GenerationCanvasNode): FixationNodeS
   const srcUrl = node.result?.url
   if (!srcUrl) return null
   const isScene = node.categoryId === 'scene' || node.kind === 'scene'
-  const name = (node.title || '').trim() || (isScene ? '场景' : '角色')
+  const name = (node.title || '').trim() || (isScene ? canvasRuntimeTranslate('fixation.defaultSceneName') : canvasRuntimeTranslate('fixation.defaultCharacterName'))
   const tagline = readCharacterMeta(node).tagline
   const prompt = isScene
     ? buildBasicSceneFixation(name, { tagline })
@@ -54,7 +55,7 @@ export function buildFixationNodeSpec(node: GenerationCanvasNode): FixationNodeS
       }
     : GPT_IMAGE_2_FALLBACK_MODEL_META
   return {
-    title: `${name}·定妆`,
+    title: `${name} · ${canvasRuntimeTranslate('fixation.titleSuffix')}`,
     prompt,
     references: [srcUrl],
     meta: { ...modelMeta, referenceImages: [srcUrl], referenceImageUrls: [srcUrl] },
@@ -71,5 +72,5 @@ export function applyFixationMakeup(node: GenerationCanvasNode): void {
   store.updateNode(created.id, { prompt: spec.prompt, references: spec.references, meta: spec.meta })
   store.selectNode(created.id)
   // 节点出现在画布即反馈，toast 只留有用的下一步引导（弹窗审计 R2）。
-  toast('检查提示词后点生成', 'info')
+  toast(canvasRuntimeTranslate('fixation.nextStep'), 'info')
 }

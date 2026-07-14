@@ -48,8 +48,8 @@ export function StagingCaptureHost(): JSX.Element | null {
         const createdAt = Date.now()
         const imageNode = store.addNode({
           kind: 'image',
-          title: '站位参考',
-          prompt: '3D 站位参考（站位 + 动作 + 机位）',
+          title: 'Blocking reference',
+          prompt: '3D blocking reference (blocking + action + camera)',
           position: { x: Math.round(node.position.x + 380), y: Math.round(node.position.y) },
         })
         const size = imageNodeSize(capture.width, capture.height)

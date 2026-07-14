@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn'
 import TimelinePanel from '../timeline/TimelinePanel'
 import { computeTimelineDuration, resolveActiveClipsAtFrame } from '../timeline/timelineMath'
 import TimelinePreview from './TimelinePreview'
+import { useI18n } from '../../i18n/i18nContext'
 
 function formatTimecode(frame: number, fps: number): string {
   const totalSeconds = Math.floor(frame / fps)
@@ -14,6 +15,7 @@ function formatTimecode(frame: number, fps: number): string {
 }
 
 export default function PreviewWorkspace(): JSX.Element {
+  const { t } = useI18n()
   const timeline = useWorkbenchStore((state) => state.timeline)
   const tracks = useWorkbenchStore((state) => state.timeline.tracks)
   // 文字 clip 也计入时长（片尾标题卡/字幕，见 computeTimelineDuration）：必须订阅它，
@@ -71,7 +73,7 @@ export default function PreviewWorkspace(): JSX.Element {
       'workbench-preview',
       'w-full h-full min-w-0 min-h-0 grid grid-rows-[minmax(0,1fr)_var(--workbench-preview-timeline-height)]',
       'overflow-hidden bg-[var(--workbench-bg)]',
-    )} aria-label="预览区">
+    )} aria-label={t('preview.aria')}>
       <TimelinePreview
         activeClips={activeClips}
         aspectRatio={previewAspectRatio}
@@ -79,7 +81,12 @@ export default function PreviewWorkspace(): JSX.Element {
         playheadFrame={timeline.playheadFrame}
         timeline={timeline}
       />
-      <TimelinePanel density="full" regionLabel="预览时间轴" actionLabelPrefix="预览时间轴-" showTextTrack />
+      <TimelinePanel
+        density="full"
+        regionLabel={t('preview.timeline.region')}
+        actionLabelPrefix={t('preview.timeline.actionPrefix')}
+        showTextTrack
+      />
     </section>
   )
 }

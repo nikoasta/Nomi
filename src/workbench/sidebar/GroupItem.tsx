@@ -1,5 +1,6 @@
 import React from 'react'
 import { cn } from '../../utils/cn'
+import { useI18n } from '../../i18n/i18nContext'
 import type { GenerationCanvasNode, NodeGroup } from '../generationCanvas/model/generationCanvasTypes'
 import NodeItem from './NodeItem'
 
@@ -21,6 +22,7 @@ type Props = {
 }
 
 export default function GroupItem({ group, nodes, selectedNodeIds, editing = false, onCommitName, onCancelEdit, onSelectNode, onDropNode, onDropGroup, onContextMenu, onNodeContextMenu }: Props): JSX.Element {
+  const { t } = useI18n()
   const [expanded, setExpanded] = React.useState(!group.collapsed)
   const [dragOver, setDragOver] = React.useState(false)
   // 已提交/取消标记：避免 Enter/Escape 后 input 再 blur 触发二次提交。
@@ -73,7 +75,7 @@ export default function GroupItem({ group, nodes, selectedNodeIds, editing = fal
           <input
             autoFocus
             defaultValue={group.name}
-            aria-label="子组名称"
+            aria-label={t('groupItem.nameAria')}
             onFocus={(event) => event.currentTarget.select()}
             onClick={(event) => event.stopPropagation()}
             onKeyDown={(event) => {
@@ -120,7 +122,7 @@ export default function GroupItem({ group, nodes, selectedNodeIds, editing = fal
             onContextMenu={onNodeContextMenu}
           />
           )) : (
-            <div className="px-7 py-1.5 text-micro text-nomi-ink-30">空组</div>
+            <div className="px-7 py-1.5 text-micro text-nomi-ink-30">{t('groupItem.empty')}</div>
           )}
         </div>
       ) : null}

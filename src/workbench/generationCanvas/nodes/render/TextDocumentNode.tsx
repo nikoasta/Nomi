@@ -14,14 +14,13 @@ import React from 'react'
 import { IconGripVertical } from '@tabler/icons-react'
 import { EditorContent, useEditorState, type JSONContent } from '@tiptap/react'
 import { cn } from '../../../../utils/cn'
+import { useI18n } from '../../../../i18n/i18nContext'
 import type { GenerationCanvasNode, TiptapDocJson } from '../../model/generationCanvasTypes'
 import { useGenerationCanvasStore } from '../../store/generationCanvasStore'
 import { useNomiRichTextEditor } from '../../../common/useNomiRichTextEditor'
 import { buildRichTextActions } from '../../../common/richTextActions'
 
 const EMPTY_DOC: JSONContent = { type: 'doc', content: [] }
-const TEXT_NODE_PLACEHOLDER = '在这里写文本……'
-
 type Props = {
   node: GenerationCanvasNode
 }
@@ -37,6 +36,7 @@ function isDocEmpty(doc?: TiptapDocJson): boolean {
 }
 
 function TextDocumentNodeImpl({ node }: Props): JSX.Element {
+  const { t } = useI18n()
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
   const commitPersistedChange = useGenerationCanvasStore((state) => state.commitPersistedChange)
 
@@ -65,7 +65,7 @@ function TextDocumentNodeImpl({ node }: Props): JSX.Element {
 
   const { editor, tools } = useNomiRichTextEditor({
     content,
-    placeholder: TEXT_NODE_PLACEHOLDER,
+    placeholder: t('textDocument.placeholder'),
     onChange: handleChange,
     onSelectionChange: handleSelectionChange,
   })
@@ -94,7 +94,7 @@ function TextDocumentNodeImpl({ node }: Props): JSX.Element {
   }, [resultId, pendingApplyId, node.id, node.result?.text, tools])
 
   const showPlaceholder = isDocEmpty(node.contentJson)
-  const actions = buildRichTextActions(editor)
+  const actions = buildRichTextActions(editor, t)
 
   return (
     // 外层 overflow 可见，让格式条能浮到节点上方；圆角/阴影/裁剪都收进内层 body。
@@ -103,7 +103,7 @@ function TextDocumentNodeImpl({ node }: Props): JSX.Element {
       {editor && isFocused ? (
         <div
           role="toolbar"
-          aria-label="文本格式"
+          aria-label={t('textDocument.toolbar')}
           onPointerDown={(event) => event.stopPropagation()}
           className={cn(
             'absolute left-1/2 top-[-44px] z-[9] -translate-x-1/2',
@@ -143,9 +143,9 @@ function TextDocumentNodeImpl({ node }: Props): JSX.Element {
             'border-b border-nomi-line-soft text-nomi-ink-40',
             'cursor-grab select-none',
           )}
-          aria-label="拖动文本节点">
+          aria-label={t('textDocument.drag')}>
           <IconGripVertical size={13} stroke={1.8} aria-hidden="true" />
-          <span className="text-micro font-medium tracking-[0.04em]">文本</span>
+          <span className="text-micro font-medium tracking-[0.04em]">{t('textDocument.label')}</span>
         </header>
 
         {/* 正文：ProseMirror 编辑区。stopPropagation 挡画布快捷键；select-text/touch-auto 覆盖
@@ -161,7 +161,7 @@ function TextDocumentNodeImpl({ node }: Props): JSX.Element {
           onBlur={() => commitPersistedChange()}>
           {showPlaceholder ? (
             <span className="pointer-events-none absolute left-8 top-6 text-title leading-relaxed text-nomi-ink-40">
-              {TEXT_NODE_PLACEHOLDER}
+              {t('textDocument.placeholder')}
             </span>
           ) : null}
           <EditorContent editor={editor} />

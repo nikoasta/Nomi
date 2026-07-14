@@ -9,6 +9,7 @@ import { NomiMarkdown } from '../common/NomiMarkdown'
 import { AiReplyActionButton } from './AiReplyActionButton'
 import { AttachmentRail } from './composer/AttachmentRail'
 import type { ComposerAttachment } from './composer/composerAttachmentTypes'
+import { useI18n } from '../../i18n/i18nContext'
 
 /** 一行轻身份：真 brand logo mark + 「Nomi」名。两个助手共用，是「同一个 Nomi」的锚。
  *  export 供恢复卡等同样「以 Nomi 身份发言」的组件复用（统一 logo+文字规则，单一真相源 P1）。 */
@@ -58,13 +59,14 @@ export const AssistantMessageView = React.memo(function AssistantMessageView({
   cancelled = false,
 }: AssistantMessageViewProps): JSX.Element {
   const hasContent = content.trim().length > 0
+  const { t } = useI18n()
   return (
     <div className={cn('self-start w-full max-w-full')} data-role="assistant">
       <NomiIdentityRow />
       {attachments?.length ? <AttachmentRail attachments={attachments} readOnly className={cn('mb-1.5')} /> : null}
       {streaming && !hasContent ? (
         <div className={cn('flex items-center gap-2')}>
-          <NomiLoadingMark size={14} label="处理中" />
+          <NomiLoadingMark size={14} label={t('assistantMessage.processing')} />
           {pendingLabel ? <span className={cn('text-body-sm text-nomi-ink-60 leading-snug')}>{pendingLabel}</span> : null}
         </div>
       ) : (
@@ -74,7 +76,7 @@ export const AssistantMessageView = React.memo(function AssistantMessageView({
       {cancelled ? (
         <span className={cn('mt-1.5 inline-flex items-center gap-1 text-micro text-nomi-ink-40')}>
           <IconPlayerStopFilled size={11} />
-          已停止
+          {t('assistantMessage.stopped')}
         </span>
       ) : null}
       {!streaming && !cancelled && hasContent ? (

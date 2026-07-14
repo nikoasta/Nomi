@@ -18,12 +18,14 @@ import { STRIPED_BG_CLASS, UsageDot, VariantChip, UploadFallback } from './CardC
 import { useNodeImageUpload } from '../../adapters/useNodeImageUpload'
 import { EditableNodeTitle } from './EditableNodeTitle'
 import { DeferredNodeImage } from '../DeferredNodeMedia'
+import { useI18n } from '../../../../i18n/i18nContext'
 
 type Props = {
   node: GenerationCanvasNode
 }
 
 function CharacterCardNodeImpl({ node }: Props): JSX.Element {
+  const { t } = useI18n()
   const meta = readCharacterMeta(node)
   const usageCount = useNodeUsageCount(node.id, node.title)
   const variantCount = useNodeVariantCount(node.id)
@@ -46,7 +48,7 @@ function CharacterCardNodeImpl({ node }: Props): JSX.Element {
             className="w-full h-full object-contain object-center select-none pointer-events-none"
           />
         ) : (
-          <UploadFallback accept="image/*" label="角色图" onUpload={handleUpload} />
+          <UploadFallback accept="image/*" label={t('card.characterImage')} onUpload={handleUpload} />
         )}
       </div>
 
@@ -56,7 +58,7 @@ function CharacterCardNodeImpl({ node }: Props): JSX.Element {
             <EditableNodeTitle
               nodeId={node.id}
               value={node.title || ''}
-              placeholder="未命名角色"
+              placeholder={t('card.unnamedCharacter')}
             />
             <UsageDot count={usageCount} />
           </div>

@@ -4,6 +4,7 @@
 import * as React from 'react'
 import { cn } from '../../utils/cn'
 import { getDesktopBridge } from '../../desktop/bridge'
+import { useI18n } from '../../i18n/i18nContext'
 import { workbenchSessionKey, type WorkbenchAgentArea } from './workbenchAgentRunner'
 
 /**
@@ -36,10 +37,11 @@ export function useStaleConversationBoundary(messageIds: readonly string[], area
 }
 
 export function StaleConversationDivider() {
+  const { t } = useI18n()
   return (
     <div className={cn('flex w-full items-center gap-2 py-1')} role="separator">
       <span className={cn('h-px flex-1 bg-nomi-ink-10')} />
-      <span className={cn('shrink-0 text-micro text-nomi-ink-40')}>以上对话 AI 已不再记得</span>
+      <span className={cn('shrink-0 text-micro text-nomi-ink-40')}>{t('staleConversation.divider')}</span>
       <span className={cn('h-px flex-1 bg-nomi-ink-10')} />
     </div>
   )

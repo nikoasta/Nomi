@@ -15,6 +15,7 @@ import {
 } from '../../explorer/workspaceFileDrag'
 import { dropKindFromMime, dropKindFromWorkspaceKind, resolveNodeArraySlots } from '../model/nodeAssetDrop'
 import { type AddAssetOutcome, addAssetUrlToNode } from './nodeAssetWrite'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 type DropHandlers = {
   onDragOver: (event: React.DragEvent<HTMLElement>) => void
@@ -31,8 +32,8 @@ export type NodeAssetDrop = {
 }
 
 function reportOutcome(outcome: AddAssetOutcome): void {
-  if (outcome.status === 'full') showInfoToast(`最多 ${outcome.max} 个${outcome.label}`)
-  else if (outcome.status === 'no-slot') showInfoToast('当前模式没有可放该类型的参考')
+  if (outcome.status === 'full') showInfoToast(canvasRuntimeTranslate('reference.maxItems', { count: outcome.max, label: outcome.label }))
+  else if (outcome.status === 'no-slot') showInfoToast(canvasRuntimeTranslate('reference.noSlotForType'))
 }
 
 export function useNodeAssetDrop(node: GenerationCanvasNode): NodeAssetDrop {
@@ -71,7 +72,7 @@ export function useNodeAssetDrop(node: GenerationCanvasNode): NodeAssetDrop {
       const workspace = parseWorkspaceFileDrag(dt.getData(WORKSPACE_FILE_DRAG_MIME))
       if (workspace) {
         const kind = dropKindFromWorkspaceKind(workspace.kind)
-        if (!kind) { showInfoToast('当前模式没有可放该类型的参考'); return }
+        if (!kind) { showInfoToast(canvasRuntimeTranslate('reference.noSlotForType')); return }
         reportOutcome(addAssetUrlToNode(node.id, kind, buildWorkspaceFileUrl(workspace.projectId, workspace.relativePath)))
         return
       }
@@ -83,17 +84,17 @@ export function useNodeAssetDrop(node: GenerationCanvasNode): NodeAssetDrop {
       try {
         for (const file of files) {
           const kind = dropKindFromMime(file.type)
-          if (!kind) { showInfoToast('不支持的文件类型'); continue }
+          if (!kind) { showInfoToast(canvasRuntimeTranslate('reference.unsupportedFile')); continue }
           try {
-            const uploaded = await importWorkbenchLocalAssetFile(file, file.name || '拖入素材', {
+            const uploaded = await importWorkbenchLocalAssetFile(file, file.name || canvasRuntimeTranslate('assetDrop.localAsset'), {
               ownerNodeId: node.id,
               taskKind: 'image_edit',
             })
             const url = assetUrl(uploaded)
-            if (!url) throw new Error('服务器没有返回素材 URL')
+            if (!url) throw new Error(canvasRuntimeTranslate('reference.serverNoAssetUrl'))
             reportOutcome(addAssetUrlToNode(node.id, kind, url))
           } catch (error) {
-            showInfoToast(error instanceof Error ? error.message : '上传失败')
+            showInfoToast(error instanceof Error ? error.message : canvasRuntimeTranslate('reference.uploadFailed'))
           }
         }
       } finally {

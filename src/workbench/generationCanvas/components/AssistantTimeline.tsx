@@ -18,6 +18,8 @@ import type { CommittedProposalRecord } from '../agent/proposalUndo'
 import type { ReconcileDeviation } from '../agent/reconcile'
 import type { PendingToolCallLike } from './agentPlanSummary'
 import type { WorkbenchAiMessage } from '../../ai/workbenchAiTypes'
+import { useI18n } from '../../../i18n/i18nContext'
+import type { TranslationKey } from '../../../i18n/translations'
 
 type StepTone = 'done' | 'active' | 'warn'
 
@@ -72,10 +74,15 @@ export type AssistantTimelineProps = {
   threadBottomRef: React.RefObject<HTMLDivElement>
 }
 
-const EMPTY_SUGGESTIONS = ['列 3 个镜头铺到画布', '给选中的镜头写一版提示词', '把镜头按先后顺序连起来']
+const EMPTY_SUGGESTION_KEYS: TranslationKey[] = [
+  'canvasAssistant.suggestion.shots',
+  'canvasAssistant.suggestion.prompt',
+  'canvasAssistant.suggestion.connect',
+]
 
 export default function AssistantTimeline(props: AssistantTimelineProps): JSX.Element {
   const { messages, staleBoundaryId, pendingToolCalls } = props
+  const { t } = useI18n()
   // memo:流式吐字会每帧重渲染本组件,但计划只随 pendingToolCalls 变——不 memo 则每帧重算 +
   // 产出新 plan 引用,连带 React.memo(AgentPlanCard) 失效、8 节点计划卡每帧重画(卡顿放大)。
   const plan = React.useMemo(() => summarizeAgentPlan(pendingToolCalls), [pendingToolCalls])
@@ -149,10 +156,10 @@ export default function AssistantTimeline(props: AssistantTimelineProps): JSX.El
           {detail ? <div className={cn('text-nomi-ink-60 text-caption leading-[1.6]')}>{detail}</div> : null}
           <div className={cn('flex items-center gap-2')}>
             <WorkbenchButton variant="default" size="sm" onClick={() => props.rejectPending(call.toolCallId)}>
-              拒绝
+              {t('canvasAssistant.reject')}
             </WorkbenchButton>
             <WorkbenchButton variant="primary" size="sm" onClick={() => props.approveCalls([{ toolCallId: call.toolCallId }])}>
-              确认
+              {t('canvasAssistant.confirm')}
             </WorkbenchButton>
           </div>
         </div>
@@ -164,14 +171,16 @@ export default function AssistantTimeline(props: AssistantTimelineProps): JSX.El
     return (
       <div className={cn('flex flex-1 flex-col min-h-0 overflow-auto p-4')}>
         <div className={cn('flex flex-1 flex-col items-center justify-center gap-2 max-w-[240px] mx-auto py-6 px-3 text-center')}>
-          <div className={cn('text-nomi-ink font-nomi-display text-title font-medium')}>我帮你搭画布</div>
+          <div className={cn('text-nomi-ink font-nomi-display text-title font-medium')}>{t('canvasAssistant.emptyTitle')}</div>
           <div className={cn('text-nomi-ink-60 text-body-sm leading-relaxed')}>
-            铺镜头、改提示词、连节点都交给我；出图按节点上的「生成」键。
+            {t('canvasAssistant.emptyBody')}
           </div>
           <div className={cn('flex flex-col gap-1.5 w-full mt-2')}>
-            {EMPTY_SUGGESTIONS.map((suggestion) => (
+            {EMPTY_SUGGESTION_KEYS.map((key) => {
+              const suggestion = t(key)
+              return (
               <WorkbenchButton
-                key={suggestion}
+                key={key}
                 className={cn(
                   'w-full min-h-9 py-2 px-3 border border-transparent rounded-nomi',
                   'flex items-center justify-between gap-2 text-left font-normal',
@@ -182,7 +191,8 @@ export default function AssistantTimeline(props: AssistantTimelineProps): JSX.El
                 <span className={cn('min-w-0')}>{suggestion}</span>
                 <IconCornerDownLeft size={13} className={cn('shrink-0 text-nomi-ink-40')} />
               </WorkbenchButton>
-            ))}
+              )
+            })}
           </div>
         </div>
       </div>

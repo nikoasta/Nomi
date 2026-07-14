@@ -4,6 +4,7 @@ import type { PreviewAspectRatio } from '../workbenchTypes'
 import { resolveVideoClipMediaTimeSeconds } from '../player/timelinePlayback'
 import { drawTextBox } from '../timeline/textOverlayCanvas'
 import { computeFramedRect, resolveClipFraming } from '../timeline/clipFraming'
+import { canvasRuntimeTranslate } from '../generationCanvas/canvasI18n'
 
 export type ExportStatus = 'idle' | 'preparing' | 'recording' | 'done' | 'error'
 
@@ -80,7 +81,7 @@ function loadImage(url: string): Promise<HTMLImageElement> {
     image.crossOrigin = 'anonymous'
     image.decoding = 'async'
     image.onload = () => resolve(image)
-    image.onerror = () => reject(new Error(`无法加载导出图片素材：${url}`))
+    image.onerror = () => reject(new Error(canvasRuntimeTranslate('export.loadImageFailed', { url })))
     image.src = url
   })
 }
@@ -94,7 +95,7 @@ function loadVideo(url: string): Promise<HTMLVideoElement> {
     video.playsInline = true
     video.preload = 'auto'
     video.onloadedmetadata = () => resolve(video)
-    video.onerror = () => reject(new Error(`无法加载导出视频素材：${url}`))
+    video.onerror = () => reject(new Error(canvasRuntimeTranslate('export.loadVideoFailed', { url })))
     video.src = url
     video.load()
   })
@@ -108,11 +109,11 @@ function waitForSeeked(video: HTMLVideoElement): Promise<void> {
         video.removeEventListener('error', handleError)
       }
       const handleSeeked = (): void => { cleanup(); resolve() }
-      const handleError = (): void => { cleanup(); reject(new Error('视频素材 seek 失败')) }
+      const handleError = (): void => { cleanup(); reject(new Error(canvasRuntimeTranslate('export.seekFailed'))) }
       video.addEventListener('seeked', handleSeeked, { once: true })
       video.addEventListener('error', handleError, { once: true })
     }),
-    new Promise<void>((_, reject) => setTimeout(() => reject(new Error('视频定位超时')), 5000)),
+    new Promise<void>((_, reject) => setTimeout(() => reject(new Error(canvasRuntimeTranslate('export.seekTimeout'))), 5000)),
   ])
 }
 
@@ -200,7 +201,7 @@ export function drawTimelineFrame(input: DrawTimelineFrameInput): void {
 function resolveRecorderMimeType(explicitMimeType?: string): string | undefined {
   if (explicitMimeType) {
     if (!MediaRecorder.isTypeSupported(explicitMimeType)) {
-      throw new Error(`当前浏览器不支持导出格式：${explicitMimeType}`)
+      throw new Error(canvasRuntimeTranslate('export.unsupportedFormat', { type: explicitMimeType }))
     }
     return explicitMimeType
   }
@@ -231,11 +232,11 @@ export function createTimelineExportFilename(extension: 'webm' | 'mp4' = 'webm')
 }
 
 export async function exportTimelineToWebm(options: TimelineWebmExportOptions): Promise<Blob> {
-  if (typeof document === 'undefined') throw new Error('导出只能在浏览器环境执行')
-  if (typeof MediaRecorder === 'undefined') throw new Error('当前浏览器不支持 MediaRecorder，无法导出 WebM')
+  if (typeof document === 'undefined') throw new Error(canvasRuntimeTranslate('export.browserOnly'))
+  if (typeof MediaRecorder === 'undefined') throw new Error(canvasRuntimeTranslate('export.mediaRecorderUnsupported'))
 
   const durationFrame = computeTimelineDuration(options.timeline)
-  if (durationFrame <= 0) throw new Error('时间轴为空，无法导出')
+  if (durationFrame <= 0) throw new Error(canvasRuntimeTranslate('export.emptyTimeline'))
 
   const size = resolveExportCanvasSize(options.aspectRatio, options.width)
   options.onProgress?.({ status: 'preparing', frame: 0, totalFrames: durationFrame, ratio: 0 })
@@ -245,7 +246,7 @@ export async function exportTimelineToWebm(options: TimelineWebmExportOptions): 
   canvas.width = size.width
   canvas.height = size.height
   const context = canvas.getContext('2d')
-  if (!context) throw new Error('无法创建导出画布')
+  if (!context) throw new Error(canvasRuntimeTranslate('export.canvasFailed'))
 
   const stream = canvas.captureStream(options.timeline.fps)
   const mimeType = resolveRecorderMimeType(options.mimeType)
@@ -256,7 +257,7 @@ export async function exportTimelineToWebm(options: TimelineWebmExportOptions): 
     recorder.ondataavailable = (event) => {
       if (event.data.size > 0) chunks.push(event.data)
     }
-    recorder.onerror = () => reject(new Error('导出录制失败'))
+    recorder.onerror = () => reject(new Error(canvasRuntimeTranslate('export.recordFailed')))
     recorder.onstop = () => {
       resolve(new Blob(chunks, { type: recorder.mimeType || 'video/webm' }))
     }
@@ -322,7 +323,7 @@ export async function exportTimelineToWebm(options: TimelineWebmExportOptions): 
     video.pause()
   }
   const blob = await recording
-  if (blob.size <= 0) throw new Error('导出结果为空')
+  if (blob.size <= 0) throw new Error(canvasRuntimeTranslate('export.emptyResult'))
   options.onProgress?.({ status: 'done', frame: durationFrame, totalFrames: durationFrame, ratio: 1 })
   const filename = createTimelineExportFilename('webm')
   if (options.autoDownload !== false) {

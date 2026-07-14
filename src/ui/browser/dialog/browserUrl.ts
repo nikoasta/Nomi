@@ -29,5 +29,5 @@ export function browserUrlDisplayTitle(url: string): string {
   } catch {
     // Fall through to a compact fallback.
   }
-  return url || '新标签页'
+  return url || 'New tab'
 }

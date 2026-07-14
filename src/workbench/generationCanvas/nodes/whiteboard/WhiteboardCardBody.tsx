@@ -6,6 +6,7 @@ import { useGenerationCanvasStore } from '../../store/generationCanvasStore'
 import { NodeBodyHeader, EmptyStateLauncher } from '../render/CardCommon'
 import WhiteboardModal from './WhiteboardModal'
 import { readWhiteboardState } from './whiteboardState'
+import { useI18n } from '../../../../i18n/i18nContext'
 
 /**
  * 画板节点的 body —— 只画「毛笔启动器」，外壳(header/ring/把手/缩放/聚焦闪光)全由 BaseGenerationNode 提供，
@@ -17,6 +18,7 @@ import { readWhiteboardState } from './whiteboardState'
  * 卡片其余区域照常可拖。
  */
 function WhiteboardCardBodyImpl({ node, readOnly = false }: { node: GenerationCanvasNode; readOnly?: boolean }): JSX.Element {
+  const { t } = useI18n()
   const [open, setOpen] = React.useState(false)
   const selectNode = useGenerationCanvasStore((state) => state.selectNode)
 
@@ -30,14 +32,14 @@ function WhiteboardCardBodyImpl({ node, readOnly = false }: { node: GenerationCa
     <div className={cn('flex h-full w-full flex-col bg-nomi-paper')}>
       {/* 标题走左上角，统一 NodeBodyHeader（和占位/镜头节点同款）。 */}
       <div className={cn('p-2.5 pointer-events-none')}>
-        <NodeBodyHeader title={node.title || '画板'} />
+        <NodeBodyHeader title={node.title || t('whiteboard.title')} />
       </div>
       {/* 中间只留启动器（用户拍板）；圆底图标 + 点击行为统一 EmptyStateLauncher(onActivate)。 */}
       <div className={cn('flex-1 min-h-0 flex flex-col items-center justify-center pb-3')}>
         <EmptyStateLauncher
           icon={<IconBrush size={24} stroke={1.55} />}
-          hint="点击打开画板"
-          activateAriaLabel="打开画板"
+          hint={t('whiteboard.openHint')}
+          activateAriaLabel={t('whiteboard.open')}
           onActivate={handleOpen}
         />
       </div>
@@ -45,7 +47,7 @@ function WhiteboardCardBodyImpl({ node, readOnly = false }: { node: GenerationCa
         <WhiteboardModal
           nodeId={node.id}
           sourceKind="whiteboard"
-          nodeTitle={node.title || '画板'}
+          nodeTitle={node.title || t('whiteboard.title')}
           initialState={readWhiteboardState(node)}
           onClose={() => setOpen(false)}
         />

@@ -249,7 +249,7 @@ export function CameraMoveCaptureHost(): JSX.Element | null {
       state={state}
       frameCount={frameCount}
       fps={fps}
-      title="运镜参考"
+      title="Camera move reference"
       onResult={(result) => settleAttempt(nodeId, processing.attempt, fps, result ? 'ok' : 'null', result)}
     />
   )
