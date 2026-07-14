@@ -353,7 +353,7 @@ async function createWindow(
 
   if (options.maximize) mainWindow.maximize();
 
-  if (isDev) {
+  if (isDev && process.env.NOMI_E2E !== "1") {
     mainWindow.webContents.openDevTools({ mode: "detach" });
   }
   return mainWindow;
