@@ -172,6 +172,10 @@ function UpdateBody({ updater }: { updater: ReturnType<typeof useUpdater> }): JS
     )
   }
 
+  if (phase === 'manual') {
+    return <ManualUpdateBody updater={updater} />
+  }
+
   if (phase === 'downloading') {
     return (
       <div>
@@ -205,17 +209,37 @@ function UpdateBody({ updater }: { updater: ReturnType<typeof useUpdater> }): JS
           <span className="min-w-0 break-words">{updater.errorMessage || t('about.update.error')}</span>
         </div>
         <div className="mt-2.5 flex justify-end">
-          <WorkbenchButton variant="default" onClick={updater.check}>{t('about.update.retry')}</WorkbenchButton>
+          <WorkbenchButton variant="default" onClick={updater.canAutoInstall ? updater.check : updater.openRelease}>
+            {updater.canAutoInstall ? t('about.update.retry') : t('about.update.openDownload')}
+          </WorkbenchButton>
         </div>
       </div>
     )
   }
 
   // idle
+  if (!updater.canAutoInstall) {
+    return <ManualUpdateBody updater={updater} />
+  }
+
   return (
     <div className="flex items-center justify-between gap-3 min-h-8">
       <span className="text-body-sm text-[var(--nomi-ink-60)]">{t('about.update.idle')}</span>
       <WorkbenchButton variant="primary" onClick={updater.check}>{t('about.update.check')}</WorkbenchButton>
+    </div>
+  )
+}
+
+function ManualUpdateBody({ updater }: { updater: ReturnType<typeof useUpdater> }): JSX.Element {
+  const { t } = useI18n()
+  return (
+    <div className="flex items-start justify-between gap-3 min-h-8">
+      <p className="min-w-0 text-micro leading-relaxed text-[var(--nomi-ink-60)]">
+        {t('about.update.manualMac')}
+      </p>
+      <WorkbenchButton className="shrink-0" variant="primary" onClick={updater.openRelease}>
+        {t('about.update.openDownload')}
+      </WorkbenchButton>
     </div>
   )
 }

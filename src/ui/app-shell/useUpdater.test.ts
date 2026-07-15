@@ -14,6 +14,12 @@ describe('reduceUpdaterState', () => {
     expect(next.notes).toBe('修复音频')
   })
 
+  it('manual-update-only 进入手动更新态且不残留错误', () => {
+    const dirty = { ...UPDATER_INITIAL_STATE, phase: 'error' as const, errorMessage: 'app-update.yml missing' }
+    const next = reduceUpdaterState(dirty, { type: 'manual-update-only' })
+    expect(next).toEqual({ ...UPDATER_INITIAL_STATE, phase: 'manual' })
+  })
+
   it('up-to-date 不残留上一次的版本号', () => {
     const had = reduceUpdaterState(UPDATER_INITIAL_STATE, { type: 'available', version: '0.11.0', notes: '' })
     const next = reduceUpdaterState(had, { type: 'up-to-date' })

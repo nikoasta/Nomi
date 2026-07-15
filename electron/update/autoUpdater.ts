@@ -19,6 +19,7 @@ const EVENT_CHANNEL = "nomi:update:event";
 
 // 手动更新兜底落地页：GitHub 最新 release。
 const RELEASE_PAGE_URL = "https://github.com/aqm857886159/Nomi/releases/latest";
+const MANUAL_UPDATE_REASON = "manual-update-only";
 
 // 未签名 mac 无法就地自动安装；其余平台（Windows NSIS）可以。
 const CAN_AUTO_INSTALL = process.platform !== "darwin";
@@ -27,6 +28,11 @@ function broadcast(payload: Record<string, unknown>): void {
   for (const win of BrowserWindow.getAllWindows()) {
     if (!win.isDestroyed()) win.webContents.send(EVENT_CHANNEL, payload);
   }
+}
+
+function manualUpdateOnlyResponse(): { ok: false; reason: typeof MANUAL_UPDATE_REASON } {
+  broadcast({ type: "manual-update-only" });
+  return { ok: false, reason: MANUAL_UPDATE_REASON };
 }
 
 function describeError(error: unknown): string {
@@ -103,6 +109,9 @@ export function registerUpdaterIpc(): void {
       broadcast({ type: "error", message: "开发模式下不可用，请在安装版中检查更新" });
       return { ok: false, reason: "not-packaged" };
     }
+    if (!CAN_AUTO_INSTALL) {
+      return manualUpdateOnlyResponse();
+    }
     try {
       const autoUpdater = await loadAutoUpdater();
       await autoUpdater.checkForUpdates();
@@ -114,6 +123,9 @@ export function registerUpdaterIpc(): void {
   });
 
   ipcMain.handle("nomi:update:download", async () => {
+    if (!CAN_AUTO_INSTALL) {
+      return manualUpdateOnlyResponse();
+    }
     try {
       const autoUpdater = await loadAutoUpdater();
       await autoUpdater.downloadUpdate();
@@ -125,6 +137,9 @@ export function registerUpdaterIpc(): void {
   });
 
   ipcMain.handle("nomi:update:install", () => {
+    if (!CAN_AUTO_INSTALL) {
+      return manualUpdateOnlyResponse();
+    }
     // 立即重启并安装（非静默）。mac 未签名会被 Gatekeeper 拦——降级实况以真机为准。
     setImmediate(() => {
       try {

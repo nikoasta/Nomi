@@ -240,6 +240,7 @@ export type DesktopUpdateEvent =
   | { type: 'checking' }
   | { type: 'up-to-date' }
   | { type: 'available'; version: string; notes: string }
+  | { type: 'manual-update-only' }
   | { type: 'progress'; percent: number }
   | { type: 'downloaded'; version: string }
   | { type: 'error'; message: string }

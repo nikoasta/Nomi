@@ -10,6 +10,7 @@ export type UpdaterPhase =
   | 'checking'
   | 'up-to-date'
   | 'available'
+  | 'manual'
   | 'downloading'
   | 'downloaded'
   | 'error'
@@ -54,6 +55,8 @@ export function reduceUpdaterState(state: State, event: DesktopUpdateEvent): Sta
       return { ...INITIAL, phase: 'up-to-date' }
     case 'available':
       return { ...INITIAL, phase: 'available', latestVersion: event.version, notes: event.notes }
+    case 'manual-update-only':
+      return { ...INITIAL, phase: 'manual' }
     case 'progress':
       return { ...state, phase: 'downloading', percent: event.percent }
     case 'downloaded':
@@ -93,9 +96,13 @@ export function useUpdater(): Updater {
   }, [state.phase])
 
   const check = React.useCallback(() => {
+    if (appInfo?.canAutoInstall === false) {
+      setState({ ...INITIAL, phase: 'manual' })
+      return
+    }
     setState({ ...INITIAL, phase: 'checking' })
     void update?.check().catch(() => undefined)
-  }, [update])
+  }, [appInfo?.canAutoInstall, update])
 
   const download = React.useCallback(() => {
     setState((prev) => ({ ...prev, phase: 'downloading', percent: 0 }))
