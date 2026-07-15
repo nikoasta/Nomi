@@ -1,6 +1,7 @@
 import React from 'react'
 import { cn } from '../../../../utils/cn'
 import { useI18n } from '../../../../i18n/i18nContext'
+import { translateDisplayText } from '../../../../i18n/displayText'
 import type { ArchetypeModeChoice } from './archetypeMeta'
 
 // 「生成方式」分段切换 —— 常驻参考区的头（样张 v3：切它能当场看到下方参考槽变化，不被弹层遮挡）。
@@ -15,7 +16,7 @@ type ModeBarProps = {
 }
 
 export default function ModeBar({ choices, activeId, onSelect }: ModeBarProps): JSX.Element | null {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   // 只有 >1 模式时才显示分段（单模式无需切换）。
   if (choices.length <= 1) return null
   const active = choices.find((c) => c.id === activeId) ?? choices[0]
@@ -46,13 +47,13 @@ export default function ModeBar({ choices, activeId, onSelect }: ModeBarProps): 
                 onSelect(choice.id)
               }}
             >
-              {choice.vendorTerm}
+              {translateDisplayText(locale, choice.vendorTerm)}
             </button>
           )
         })}
       </div>
       <div className={cn('text-nomi-ink-40 text-micro leading-[1.35]')}>
-        {active.hint}
+        {translateDisplayText(locale, active.hint)}
       </div>
     </div>
   )

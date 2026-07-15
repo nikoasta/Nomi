@@ -8,6 +8,9 @@ import React from 'react'
 import type { ModelOption } from '../../config/models'
 import type { NomiSelectOption } from '../../design'
 import { dedupeModelOptions, resolveBestProvider, type DedupedModel } from '../../config/modelIdentity'
+import { useI18n } from '../../i18n/i18nContext'
+import { providerCountLabel, translateDisplayText } from '../../i18n/displayText'
+import type { SupportedLocale } from '../../i18n/translations'
 
 import type { ModelProviderRef } from '../../config/modelIdentity'
 
@@ -27,13 +30,13 @@ const VENDOR_LABELS: Record<string, string> = {
 
 /** 厂商显示名：内置短名映射（下拉附注要短）> option.vendorName（自定义中转的真名）> key 原样。
  *  短名优先：catalog 里内置家的 name 是接入卡全称（如「即梦会员（本地 CLI）」），当 trailing 太啰嗦。 */
-function providerLabel(provider?: ModelProviderRef | null): string {
-  if (!provider) return '默认'
+function providerLabel(locale: SupportedLocale, provider?: ModelProviderRef | null): string {
+  if (!provider) return translateDisplayText(locale, '默认')
   const short = provider.vendor ? VENDOR_LABELS[provider.vendor.toLowerCase()] : undefined
-  if (short) return short
+  if (short) return translateDisplayText(locale, short)
   const fromCatalog = provider.option.vendorName?.trim()
-  if (fromCatalog) return fromCatalog
-  return provider.vendor || '默认'
+  if (fromCatalog) return translateDisplayText(locale, fromCatalog)
+  return translateDisplayText(locale, provider.vendor || '默认')
 }
 
 export interface DedupedModelSelectView {
@@ -63,6 +66,7 @@ export function useDedupedModelSelect(
   value: string,
   onChange: (value: string) => void,
 ): DedupedModelSelectView {
+  const { locale } = useI18n()
   const deduped = React.useMemo(() => dedupeModelOptions([...modelOptions]), [modelOptions])
 
   const selectedModel = React.useMemo(
@@ -74,11 +78,11 @@ export function useDedupedModelSelect(
     () =>
       deduped.map((m) => ({
         value: m.canonicalId,
-        label: m.label,
+        label: translateDisplayText(locale, m.label),
         // 厂商标注（用户 2026-07-17：模型来自哪家要看得见）：多家=「N 家」，单家=厂商短名。
-        trailing: m.providers.length > 1 ? `${m.providers.length} 家` : providerLabel(m.providers[0]),
+        trailing: m.providers.length > 1 ? providerCountLabel(locale, m.providers.length) : providerLabel(locale, m.providers[0]),
       })),
-    [deduped],
+    [deduped, locale],
   )
 
   const onModelPick = React.useCallback(
@@ -98,10 +102,10 @@ export function useDedupedModelSelect(
     const byVendor = new Map<string, NomiSelectOption>()
     for (const p of selectedModel.providers) {
       const key = p.vendor || p.option.value
-      if (!byVendor.has(key)) byVendor.set(key, { value: p.option.value, label: providerLabel(p) })
+      if (!byVendor.has(key)) byVendor.set(key, { value: p.option.value, label: providerLabel(locale, p) })
     }
     return byVendor.size > 1 ? [...byVendor.values()] : []
-  }, [selectedModel])
+  }, [locale, selectedModel])
 
   return {
     modelOptions: modelOptionsView,

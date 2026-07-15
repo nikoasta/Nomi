@@ -54,6 +54,8 @@ import InlineParameterBar from './InlineParameterBar'
 import { useNodeModelAutoSelect } from './useNodeModelAutoSelect'
 import { resolveArchetypeForOption, resolveRenderedControls } from './nodeModelArchetype'
 import { ASPECT_RATIO_KEYS, collectInputAspectRatios, normalizeAspectRatioToWH, preferredVideoAspect } from './aspectRatio'
+import { useI18n } from '../../../i18n/i18nContext'
+import { translateDisplayText } from '../../../i18n/displayText'
 
 // 模块级常量：比例参数的 key 白名单（与 aspectRatio.ts 的 ASPECT_RATIO_KEYS 保持一致）。
 const ASPECT_RATIO_KEY_SET = new Set<string>(ASPECT_RATIO_KEYS)
@@ -74,6 +76,7 @@ export default function NodeParameterControls({
   onInsertMention,
   onParamPanelOpenChange,
 }: NodeParameterControlsProps): JSX.Element | null {
+  const { locale } = useI18n()
   const nodes = useGenerationCanvasStore((state) => state.nodes)
   const edges = useGenerationCanvasStore((state) => state.edges)
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
@@ -400,9 +403,34 @@ export default function NodeParameterControls({
 
   // ── P1 统一参考槽：声明式 AssetSlot 列表 + 当前值 + 三类回调（单帧连边 / 数组 meta / 源视频 meta，复用上面已验证的写入逻辑）──
   const assetSlots: AssetSlot[] = [
-    ...imageUrlSlots.map((s): AssetSlot => ({ key: s.key, label: s.label, accept: 'image', form: 'single', persistAsEdge: true, numbered: false, max: 1 })),
-    ...arraySlots.map((s): AssetSlot => ({ key: s.metaKey, label: s.label, accept: s.accept, form: 'array', persistAsEdge: false, numbered: s.numbered, max: s.max, caption: s.caption })),
-    ...(sourceVideoSlot ? [{ key: sourceVideoSlot.metaKey, label: sourceVideoSlot.label, accept: 'video', form: 'single', persistAsEdge: false, numbered: false, max: 1 } as AssetSlot] : []),
+    ...imageUrlSlots.map((s): AssetSlot => ({
+      key: s.key,
+      label: translateDisplayText(locale, s.label),
+      accept: 'image',
+      form: 'single',
+      persistAsEdge: true,
+      numbered: false,
+      max: 1,
+    })),
+    ...arraySlots.map((s): AssetSlot => ({
+      key: s.metaKey,
+      label: translateDisplayText(locale, s.label),
+      accept: s.accept,
+      form: 'array',
+      persistAsEdge: false,
+      numbered: s.numbered,
+      max: s.max,
+      caption: s.caption ? translateDisplayText(locale, s.caption) : undefined,
+    })),
+    ...(sourceVideoSlot ? [{
+      key: sourceVideoSlot.metaKey,
+      label: translateDisplayText(locale, sourceVideoSlot.label),
+      accept: 'video',
+      form: 'single',
+      persistAsEdge: false,
+      numbered: false,
+      max: 1,
+    } as AssetSlot] : []),
   ]
   // 档案节点：槽值统一由 resolveReferenceSlots（边 + 上传单一真相源）派生——这样连线参考在槽里
   // 真的看得见（根治「显示读 meta、生成读边」分裂导致的「连线没用」）。按存储键回填到 assetValuesByKey。

@@ -2,6 +2,8 @@ import React from 'react'
 import { Combobox, useCombobox } from '@mantine/core'
 import { IconCheck, IconChevronDown } from '@tabler/icons-react'
 import { cn } from '../utils/cn'
+import { I18nContext } from '../i18n/i18nContext'
+import { translateDisplayText } from '../i18n/displayText'
 
 /**
  * NomiSelect —— 全仓统一的「选择面板」通用组件（规则 1/5：一个来源，别散落原生 <select>）。
@@ -59,7 +61,7 @@ export function NomiSelect({
   onChange,
   ariaLabel,
   leadingLabel,
-  placeholder = '选择',
+  placeholder,
   triggerBadge,
   size = 'sm',
   triggerMaxWidth,
@@ -67,9 +69,11 @@ export function NomiSelect({
   title,
   className,
 }: NomiSelectProps): JSX.Element {
+  const i18n = React.useContext(I18nContext)
+  const locale = i18n?.locale ?? 'zh-CN'
   const combobox = useCombobox({ onDropdownClose: () => combobox.resetSelectedOption() })
   const selected = options.find((option) => option.value === value)
-  const triggerText = selected?.label ?? placeholder
+  const triggerText = selected?.label ?? placeholder ?? translateDisplayText(locale, '选择')
   const heightClass = size === 'xs' ? 'h-6' : 'h-7'
 
   return (
