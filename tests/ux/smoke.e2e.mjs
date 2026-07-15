@@ -189,9 +189,9 @@ try {
 
   // 4) 生成画布 composer：超长提示词必须在编辑区内部滚动、底栏生成钮永远可点
   //（回归 2026-07-15：滚动容器无高度上限 → 长 prompt 溢出盖住底栏，提交钮点不到）。
-  await page.getByRole("button", { name: UI_TEXT.toolbar[1][1] }).first().click();
+  await page.getByRole("button", { name: /生成|Generate|Генерация/ }).first().click();
   await page.waitForTimeout(800);
-  await page.locator('button[aria-label="添加图片节点"], button[aria-label="Add image node"]').first().click();
+  await page.getByRole("button", { name: /添加图片节点|Add Image node|Добавить узел Изображение/ }).first().click();
   const composer = page.locator(".generation-canvas-v2-node__composer-card").first();
   await composer.waitFor({ timeout: 5000 });
   const longPrompt = Array.from({ length: 14 }, (_, i) => `第${i + 1}段：超长提示词溢出回归压测，逐行填满编辑区直到超过卡片高度上限，验证底栏不被盖住。`).join("\n");
@@ -222,7 +222,7 @@ try {
     let scroller = editorEl;
     while (scroller && scroller !== card && !/(auto|scroll)/.test(window.getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
     const scrolls = Boolean(scroller && scroller !== card && scroller.scrollHeight > scroller.clientHeight);
-    const btn = card.querySelector('button[aria-label="生成素材"], button[aria-label="重新生成"]');
+    const btn = card.querySelector('button[aria-label="生成素材"], button[aria-label="Generate asset"], button[aria-label="Создать материал"], button[aria-label="重新生成"], button[aria-label="Regenerate"], button[aria-label="Создать заново"]');
     const r = btn?.getBoundingClientRect();
     const hitEl = r ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null;
     return { scrolls, btnClickable: Boolean(btn && hitEl && (btn === hitEl || btn.contains(hitEl))) };
@@ -230,8 +230,17 @@ try {
   assert(composerCheck.scrolls, "超长提示词在编辑区内部滚动（不撑爆卡片）");
   assert(composerCheck.btnClickable, "超长提示词下生成钮 hit-test 可点（底栏未被溢出文字盖住）");
 
+  const languageSwitcher = page
+    .getByRole("button", { name: /切换界面语言|Switch interface language|Переключить язык интерфейса/ })
+    .first();
+  assert(await languageSwitcher.isVisible(), "工作台语言切换器可见");
+  await languageSwitcher.click();
+  await page.getByRole("option", { name: "Русский" }).click();
+  await page.getByRole("button", { name: "Создать" }).first().waitFor({ timeout: 4000 });
+  assert((await page.evaluate(() => localStorage.getItem("nomi.interface-language"))) === "ru", "语言选择保存为 ru");
+  assert(await page.getByRole("button", { name: "Генерация" }).first().isVisible(), "切换到俄语后工作台立即刷新");
+
   console.log(`\nSMOKE PASS: ${passed} assertions`);
-  await finishAndExit(0);
 } catch (error) {
   console.error(`\n${error?.message || error}`);
   process.exitCode = 1;

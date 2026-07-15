@@ -1,7 +1,7 @@
 import React from 'react'
 import { NomiSelect } from '../design/NomiSelect'
 import { useI18n } from './i18nContext'
-import { SUPPORTED_LOCALES, type SupportedLocale } from './translations'
+import { isSupportedLocale, SUPPORTED_LOCALES } from './translations'
 
 export function LanguageSwitcher({ className }: { className?: string }): JSX.Element {
   const { locale, setLocale, t } = useI18n()
@@ -14,7 +14,9 @@ export function LanguageSwitcher({ className }: { className?: string }): JSX.Ele
     <NomiSelect
       value={locale}
       options={options}
-      onChange={(value) => setLocale(value as SupportedLocale)}
+      onChange={(value) => {
+        if (isSupportedLocale(value)) setLocale(value)
+      }}
       ariaLabel={t('language.switcher.aria')}
       leadingLabel={t('language.switcher.leading')}
       size="xs"
