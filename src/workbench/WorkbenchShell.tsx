@@ -21,6 +21,8 @@ import {
     getGlobalAssetPopoverAnchorRect,
 } from "../ui/browser/overlay/globalAssetPopoverEvents";
 import { useGlobalBrowserAssetCount } from "../ui/browser/assets/useGlobalBrowserAssets";
+import { useI18n } from "../i18n/i18nContext";
+import type { TranslationKey } from "../i18n/translations";
 
 // 工作区懒加载走容错域（审计 A5）：单个工作区 chunk 失败不拖死其余工作区。
 const CreationWorkspace = lazyWithChunkBoundary(
@@ -61,20 +63,22 @@ const MODE_BY_STEP_PARAM: Record<string, WorkspaceMode> = {
 type WorkspaceSlotProps = {
     active: boolean;
     children: React.ReactNode;
-    label: string;
+    labelKey: TranslationKey;
 };
 
-function WorkspaceLoading({ label }: { label: string }): JSX.Element {
+function WorkspaceLoading({ labelKey }: { labelKey: TranslationKey }): JSX.Element {
+    const { t } = useI18n();
+    const label = t(labelKey);
     return (
         <div
             className={cn(
                 "workbench-shell__loading",
                 "w-full h-full bg-workbench-bg grid place-items-center",
             )}
-            aria-label={`${label}加载中`}
+            aria-label={t("studio.workspace.loading", { label })}
         >
             {/* pending 规范 #1:懒加载占位不再是空白色块,给可见品牌 spinner */}
-            <NomiLoadingMark size={28} label={`${label}加载中`} />
+            <NomiLoadingMark size={28} label={t("studio.workspace.loading", { label })} />
         </div>
     );
 }
@@ -82,7 +86,7 @@ function WorkspaceLoading({ label }: { label: string }): JSX.Element {
 function WorkspaceSlot({
     active,
     children,
-    label,
+    labelKey,
 }: WorkspaceSlotProps): JSX.Element {
     return (
         <div
@@ -92,7 +96,7 @@ function WorkspaceSlot({
             )}
             hidden={!active}>
             <React.Suspense
-                fallback={active ? <WorkspaceLoading label={label} /> : null}>
+                fallback={active ? <WorkspaceLoading labelKey={labelKey} /> : null}>
                 {children}
             </React.Suspense>
         </div>
@@ -135,6 +139,7 @@ export default function WorkbenchShell({
     onOpenModelCatalog,
     onRenameProject,
 }: WorkbenchShellProps): JSX.Element {
+    const { t } = useI18n();
     const workspaceMode = useWorkbenchStore((state) => state.workspaceMode);
     const setWorkspaceMode = useWorkbenchStore(
         (state) => state.setWorkspaceMode,
@@ -199,7 +204,7 @@ export default function WorkbenchShell({
                         "relative flex h-8 w-full shrink-0 items-center",
                         "bg-workbench-surface text-workbench-ink",
                     )}
-                    aria-label="窗口标题栏"
+                    aria-label={t("studio.windowbar.aria")}
                     onDoubleClick={handleWindowTitlebarDoubleClick}
                 >
                     <button
@@ -211,7 +216,7 @@ export default function WorkbenchShell({
                             "border-0 bg-transparent cursor-pointer rounded-none text-workbench-ink",
                             "transition-[opacity] duration-[var(--nomi-transition-fast)] hover:opacity-80",
                         )}
-                        aria-label="关于 Nomi · 检查更新"
+                        aria-label={t("studio.appbar.about")}
                         aria-haspopup="dialog"
                         aria-expanded={aboutOpen}
                         onClick={() => setAboutOpen((open) => !open)}
@@ -235,7 +240,7 @@ export default function WorkbenchShell({
                             "text-workbench-muted",
                         )}
                         role="toolbar"
-                        aria-label="项目快捷操作"
+                        aria-label={t("studio.windowbar.quickActions")}
                     >
                         <button
                             type="button"
@@ -244,12 +249,12 @@ export default function WorkbenchShell({
                                 "cursor-pointer font-inherit text-caption text-workbench-muted",
                                 "transition-colors hover:text-workbench-ink",
                             )}
-                            aria-label="打开浏览器"
-                            title="浏览器"
+                            aria-label={t("studio.appbar.openBrowser")}
+                            title={t("studio.appbar.browser")}
                             onClick={openBrowser}
                         >
                             <IconBrowser size={14} stroke={1.8} aria-hidden="true" />
-                            <span>浏览器</span>
+                            <span>{t("studio.appbar.browser")}</span>
                         </button>
                         <button
                             type="button"
@@ -258,8 +263,8 @@ export default function WorkbenchShell({
                                 "cursor-pointer font-inherit text-caption text-workbench-muted",
                                 "transition-colors hover:text-workbench-ink",
                             )}
-                            aria-label="打开素材盒"
-                            title="素材盒"
+                            aria-label={t("studio.appbar.openAssetBox")}
+                            title={t("studio.appbar.assetBox")}
                             onClick={(event) => {
                                 dispatchGlobalAssetPopoverOpen(
                                     true,
@@ -268,11 +273,11 @@ export default function WorkbenchShell({
                             }}
                         >
                             <IconBox size={14} stroke={1.7} aria-hidden="true" />
-                            <span>素材盒</span>
+                            <span>{t("studio.appbar.assetBox")}</span>
                             {assetCount > 0 ? (
                                 <span
                                     className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-pill bg-nomi-accent-soft px-1.5 text-micro font-semibold leading-none text-nomi-accent"
-                                    aria-label={`${assetCount} 个素材`}
+                                    aria-label={t("studio.appbar.assetCount", { count: assetCount })}
                                 >
                                     {assetCount > 99 ? '99+' : assetCount}
                                 </span>
@@ -306,14 +311,14 @@ export default function WorkbenchShell({
                     {mountedWorkspaceModes.includes("creation") ? (
                         <WorkspaceSlot
                             active={workspaceMode === "creation"}
-                            label='创作区'>
+                            labelKey='studio.workspace.creation'>
                             <CreationWorkspace />
                         </WorkspaceSlot>
                     ) : null}
                     {mountedWorkspaceModes.includes("generation") ? (
                         <WorkspaceSlot
                             active={workspaceMode === "generation"}
-                            label='生成区'>
+                            labelKey='studio.workspace.generation'>
                             <GenerationWorkspace
                                 canvas={generation}
                                 aiSidebar={generationAi}
@@ -324,7 +329,7 @@ export default function WorkbenchShell({
                     {mountedWorkspaceModes.includes("preview") ? (
                         <WorkspaceSlot
                             active={workspaceMode === "preview"}
-                            label='预览区'>
+                            labelKey='studio.workspace.preview'>
                             <PreviewWorkspace />
                         </WorkspaceSlot>
                     ) : null}

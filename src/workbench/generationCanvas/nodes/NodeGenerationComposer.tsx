@@ -36,6 +36,7 @@ import {
 import { resolveArchetypeForModel } from '../../../config/modelArchetypes'
 import { currentArchetypeMode } from './controls/archetypeMeta'
 import { getTextGenMode, type TextGenMode } from '../runner/textActions'
+import { useI18n } from '../../../i18n/i18nContext'
 
 // C5 P2：文本节点的三种生成模式。
 const TEXT_GEN_MODES: { value: TextGenMode; label: string }[] = [
@@ -105,6 +106,7 @@ function BrowserPromptPickerPopover({
   onSelect,
   setNodeRef,
 }: BrowserPromptPickerPopoverProps): React.ReactPortal | null {
+  const { t } = useI18n()
   const [hoveredPromptId, setHoveredPromptId] = React.useState<string | null>(null)
   const [previewTop, setPreviewTop] = React.useState(0)
   const [previewAnchorCenter, setPreviewAnchorCenter] = React.useState(0)
@@ -147,7 +149,7 @@ function BrowserPromptPickerPopover({
       exit={{ opacity: 0, y: -4, scale: 0.98 }}
       transition={{ type: 'spring', stiffness: 420, damping: 34, mass: 0.7 }}
       role="menu"
-      aria-label="素材盒提示词"
+      aria-label={t('nodeComposer.promptPicker.aria')}
       onPointerDown={(event) => event.stopPropagation()}
       onMouseLeave={() => setHoveredPromptId(null)}
     >
@@ -155,7 +157,7 @@ function BrowserPromptPickerPopover({
         <div className="min-w-0 overflow-y-auto py-1">
           {items.length === 0 ? (
             <div className="grid min-h-24 place-items-center px-4 text-center text-caption text-nomi-ink-40">
-              素材盒暂无可用提示词
+              {t('nodeComposer.promptPicker.empty')}
             </div>
           ) : (
             items.map((item) => (
@@ -226,6 +228,7 @@ function BrowserPromptPickerPopover({
 }
 
 export default function NodeGenerationComposer({ node, visualSize }: Props): JSX.Element {
+  const { t } = useI18n()
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
   const status = node.status || 'idle'
   const isGenerating = status === 'queued' || status === 'running'
@@ -560,15 +563,15 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
                 promptPickerOpen && 'bg-nomi-ink-05 text-nomi-accent',
                 node.locked && 'cursor-not-allowed opacity-45 hover:translate-y-0 hover:bg-transparent hover:text-nomi-ink-45',
               )}
-              aria-label="打开素材盒提示词"
+              aria-label={t('nodeComposer.promptPicker.open')}
               aria-haspopup="menu"
               aria-expanded={promptPickerOpen}
-              title="素材盒提示词"
+              title={t('nodeComposer.promptPicker.title')}
               disabled={node.locked}
               onClick={togglePromptPicker}
             >
               <IconFileText size={15} stroke={1.8} aria-hidden="true" />
-              <span className="text-caption font-medium leading-none">提示词</span>
+              <span className="text-caption font-medium leading-none">{t('nodeComposer.promptPicker.button')}</span>
             </button>
           ) : null}
         </div>
@@ -592,7 +595,7 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
         <div className={cn('h-px bg-nomi-line-soft')} />
       ) : null}
       {isTextKind ? (
-        <div className={cn('flex items-center gap-1')} role="group" aria-label="生成模式">
+        <div className={cn('flex items-center gap-1')} role="group" aria-label={t('nodeComposer.textMode.aria')}>
           {TEXT_GEN_MODES.map((option) => (
             <button
               key={option.value}

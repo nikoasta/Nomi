@@ -338,7 +338,7 @@ export function BrowserAssetPopoverView(props: BrowserAssetPopoverViewProps): JS
               {canRenameSelectedFolder ? (
                 <button type="button" className={cn('flex h-8 w-full items-center gap-2 rounded-nomi-sm border-0 bg-transparent px-2 text-left', 'cursor-pointer text-caption text-nomi-ink-80 transition-colors duration-[var(--nomi-transition-fast)]', 'hover:bg-nomi-ink-05 hover:text-nomi-ink focus-visible:bg-nomi-ink-05 focus-visible:outline-none')} role="menuitem" onClick={beginRenameSelectedFolder}>
                   <IconPencil size={15} stroke={1.8} aria-hidden="true" className="shrink-0" />
-                  <span className="min-w-0 flex-1 truncate">重命名</span>
+                  <span className="min-w-0 flex-1 truncate">{t('browserDialog.rename')}</span>
                 </button>
               ) : null}
               <button type="button" className={cn('flex h-8 w-full items-center gap-2 rounded-nomi-sm border-0 bg-transparent px-2 text-left', 'cursor-pointer text-caption text-workbench-danger transition-colors duration-[var(--nomi-transition-fast)]', 'hover:bg-workbench-danger-soft focus-visible:bg-workbench-danger-soft focus-visible:outline-none')} role="menuitem" onClick={deleteSelectedAssets}>

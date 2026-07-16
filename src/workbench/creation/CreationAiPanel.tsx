@@ -40,6 +40,7 @@ import { AutoGrowTextarea } from '../ai/composer/AutoGrowTextarea'
 import { COMPOSER_ATTACHMENT_ACCEPT, useComposerAttachments } from '../ai/composer/useComposerAttachments'
 import { useRafCoalesce } from '../ai/useRafCoalesce'
 import StoryboardNudge from './storyboard/StoryboardNudge'
+import { useI18n } from '../../i18n/i18nContext'
 
 
 // The creation agent's write tools map 1:1 to the editor's document mutations.
@@ -66,6 +67,7 @@ function readWorkbenchAiReplyText(response: unknown): string {
 }
 
 export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => void } = {}): JSX.Element {
+  const { t } = useI18n()
   // 流式生命周期(sending/cancel/待批写卡/消息 id)收口到 turn 控制器,组件只读不持有 ——
   // 这样切项目/新对话/卸载能统一中止在途轮次(治串台),按钮态也随之复位。
   const sending = useCreationTurnStore((state) => state.sending)
@@ -175,7 +177,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
     if (chatStory) documentToolsRef.current?.appendToEnd(chatStory)
     const storyText = docStory || chatStory
     if (!isRevision && !storyText) {
-      setError('先在左侧写一段故事，再让 AI 拆镜头。')
+      setError(t('creationAi.error.needStoryForStoryboard'))
       return
     }
     const userId = turn.getState().nextMessageId('user')
@@ -223,13 +225,13 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
         turn.getState().finish(handle.id)
       }
     })()
-  }, [cancelStreamFrame, documentText, pushStreamFrame, selectedText, setDraft, setError, setMessages, turn])
+  }, [cancelStreamFrame, documentText, pushStreamFrame, selectedText, setDraft, setError, setMessages, t, turn])
 
   // Tier2 定妆：把剧本交给 AI，按剧本为主要角色/场景建卡 + 注入身份板提示词（与拆镜头同构）。
   const launchFixationPlanning = React.useCallback((displayPrompt = '🎭 立角色卡') => {
     const storyText = (selectedText || documentText).trim()
     if (!storyText) {
-      setError('先在左侧写一段剧本，再让 AI 按剧本定妆。')
+      setError(t('creationAi.error.needScriptForFixation'))
       return
     }
     setMessages((prev) => [
@@ -243,7 +245,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
     window.setTimeout(() => {
       requestFixationPlanning({ storyText, source: 'creation-ai-panel' })
     }, 60)
-  }, [documentText, selectedText, setDraft, setError, setMessages, setWorkspaceMode, turn])
+  }, [documentText, selectedText, setDraft, setError, setMessages, setWorkspaceMode, t, turn])
 
   const send = React.useCallback(async (textOverride?: string) => {
     if (turn.getState().sending) return
@@ -251,7 +253,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
     // 附件还在上传就发送 = 静默丢弃在途附件（clearAttachments 会连 uploading 一起清）。
     // 拦下并提示用户稍候,等就绪再发,绝不悄悄把用户附的文件吞掉。
     if (attachments.some((item) => item.status === 'uploading')) {
-      setError('附件还在上传，请等上传完成再发送。')
+      setError(t('creationAi.error.attachmentsUploading'))
       return
     }
     const readyAttachments = attachments.filter((item) => item.status === 'ready' && item.url)
@@ -355,7 +357,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
             }
             const res = importWorkbenchSkill(pkg)
             if (!res.ok) {
-              void event.confirm({ ok: false, message: res.error ?? 'skill 保存失败' })
+              void event.confirm({ ok: false, message: res.error ?? t('creationAi.error.skillSaveFailed') })
               return
             }
             const needed = (manifest && typeof manifest === 'object' && Array.isArray((manifest as Record<string, unknown>).requiredProviders))
@@ -426,14 +428,14 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
       cancelStreamFrame() // 终态已落定，丢弃任何挂起的流式合帧，别用过期文本盖掉终态
       turn.getState().finish(handle.id)
     }
-  }, [activeMode, activeSkill, attachments, cancelStreamFrame, clearAttachments, documentText, draft, launchStoryboardPlanning, launchFixationPlanning, pushStreamFrame, selectedText, setDraft, setError, setMessages, turn])
+  }, [activeMode, activeSkill, attachments, cancelStreamFrame, clearAttachments, documentText, draft, launchStoryboardPlanning, launchFixationPlanning, pushStreamFrame, selectedText, setDraft, setError, setMessages, t, turn])
 
   // 通用创作动作，贴 Nomi 视频创作调性、不绑小说题材（旧的「悬疑开场/童话语气」在产品/宣传项目里调性错配）。
   const suggestions = React.useMemo(() => [
-    '给我一个开头',
-    '把这段写得更有画面感',
-    '梳理成分镜脚本',
-  ], [])
+    t('creationAi.suggestion.opening'),
+    t('creationAi.suggestion.visual'),
+    t('creationAi.suggestion.storyboard'),
+  ], [t])
 
   const handleNewConversation = React.useCallback(() => {
     // 新对话 = 抛弃在途轮次:中止流 + 作废 token(迟到回调不再写) + 拒绝清空待批写卡。
@@ -457,7 +459,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
         'min-w-0 min-h-0 overflow-hidden',
         expanded && 'h-[86vh] w-[min(760px,92vw)] rounded-nomi-lg border border-nomi-line bg-nomi-paper shadow-nomi-lg',
       )}
-      aria-label="AI 创作区"
+      aria-label={t('creationAi.panelAria')}
       {...dragHandlers}
     >
       {isDragging ? (
@@ -470,8 +472,8 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
           aria-hidden="true"
         >
           <IconPaperclip size={26} stroke={1.5} />
-          <div>拖到这里添加附件</div>
-          <div className={cn('text-micro font-normal text-nomi-ink-60')}>图片 / PDF / Word / Excel / txt · 单个上限 30MB</div>
+          <div>{t('creationAi.dropAttachments')}</div>
+          <div className={cn('text-micro font-normal text-nomi-ink-60')}>{t('creationAi.attachmentHint')}</div>
         </div>
       ) : null}
       <header
@@ -484,7 +486,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
         <div className={cn('workbench-creation-ai__title', 'inline-flex items-center gap-2 min-w-0')}>
           <NomiLogoMark size={18} />
           {/* 审计 A14：与入口词「创作」一致，不再裸叫「助手」 */}
-          <span className={cn('text-body-sm font-semibold text-nomi-ink')}>创作助手</span>
+          <span className={cn('text-body-sm font-semibold text-nomi-ink')}>{t('creationAi.title')}</span>
         </div>
         <div className={cn('inline-flex items-center gap-2 ml-auto min-w-0')}>
           <ActiveSkillChip activeSkill={activeSkill} autoLabel={activeMode.title} onSelect={setActiveSkill} />
@@ -505,7 +507,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
               'hover:bg-nomi-ink-05 hover:text-nomi-ink',
             )}
             label={expanded ? '缩小' : '放大对话'}
-            aria-label={expanded ? '缩小创作助手' : '放大创作助手'}
+            aria-label={expanded ? t('creationAi.shrinkAria') : t('creationAi.expandAria')}
             onClick={() => setExpanded((value) => !value)}
             icon={expanded ? <IconMinimize size={15} /> : <IconMaximize size={15} />}
           />
@@ -516,8 +518,8 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
                 'p-0 border-0 rounded-nomi-sm bg-transparent text-nomi-ink-60 cursor-pointer',
                 'hover:bg-nomi-ink-05 hover:text-nomi-ink',
               )}
-              label="收起助手"
-              aria-label="收起创作助手"
+              label={t('creationAi.collapse')}
+              aria-label={t('creationAi.collapseAria')}
               onClick={onCollapse}
               icon={<IconX size={15} />}
             />
@@ -546,9 +548,9 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
             'flex h-full flex-col items-center justify-center gap-2',
             'max-w-[240px] mx-auto py-6 px-3 text-center',
           )}>
-            <div className={cn('text-nomi-ink font-nomi-display text-title font-medium')}>需要一点灵感？</div>
+            <div className={cn('text-nomi-ink font-nomi-display text-title font-medium')}>{t('creationAi.emptyTitle')}</div>
             <div className={cn('text-nomi-ink-60 text-body-sm leading-relaxed')}>
-              告诉 AI 你想写什么，它会给你一个开头。
+              {t('creationAi.emptyBody')}
             </div>
             <div className={cn('flex flex-col gap-1.5 w-full mt-2')}>
               {suggestions.map((suggestion) => (
@@ -693,8 +695,8 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
             'placeholder:text-nomi-ink-40',
           )}
           value={draft}
-          placeholder="拆成镜头、做成视频、立张角色卡，或问我任何事…"
-          aria-label="创作 AI 输入"
+          placeholder={t('creationAi.placeholder')}
+          aria-label={t('creationAi.inputAria')}
           // tour 锚点从已删的「拆镜头」chip 迁到输入框——引导改为「教用对话触发」。
           data-tour="storyboard-cta"
           onChange={(event) => setDraft(event.currentTarget.value)}
@@ -710,8 +712,8 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
                 'border-0 rounded-nomi-sm bg-transparent text-nomi-ink-60 cursor-pointer',
                 'hover:bg-nomi-ink-05 hover:text-nomi-ink',
               )}
-              label="添加附件"
-              aria-label="添加附件（也可拖拽 / 粘贴）"
+              label={t('creationAi.addAttachment')}
+              aria-label={t('creationAi.addAttachmentLong')}
               onClick={openFilePicker}
               icon={<IconPaperclip size={16} />}
             />
@@ -736,8 +738,8 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
                 'border-0 rounded-full bg-nomi-ink text-nomi-paper cursor-pointer',
                 'hover:enabled:bg-nomi-accent',
               )}
-              label="停止"
-              aria-label="停止生成"
+              label={t('creationAi.stop')}
+              aria-label={t('creationAi.stopAria')}
               onClick={() => turn.getState().requestUserCancel()}
               icon={<IconPlayerStopFilled size={13} />}
             />
@@ -749,8 +751,8 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
                 'hover:enabled:bg-nomi-accent',
                 'disabled:bg-nomi-ink-20 disabled:text-nomi-ink-40 disabled:cursor-not-allowed',
               )}
-              label="发送"
-              aria-label="创作 AI 发送"
+              label={t('creationAi.send')}
+              aria-label={t('creationAi.sendAria')}
               disabled={!draft.trim()}
               onClick={() => void send()}
               icon={<IconSend2 size={15} />}

@@ -19,6 +19,7 @@ import {
 } from '../popover/NomiBrowserAssetPopover'
 import { subscribeBrowserAssetsImportToCanvas } from './globalAssetPopoverEvents'
 import type { FloatingWindowBoundsRect } from '../window/useResizableFloatingWindow'
+import { runtimeT } from '../../../i18n/runtimeTranslate'
 
 type OverlayCaptureFlyoutRect = {
   left: number
@@ -50,11 +51,11 @@ function browserAssetFromDesktopAsset(asset: DesktopAssetDto, fallbackTitle: str
     id: asset.id,
     type: mediaType,
     source: 'my',
-    title: sidecarTitle || fallbackTitle || asset.name || (mediaType === 'video' ? '网页视频' : '网页图片'),
-    subtitle: '网页素材',
+    title: sidecarTitle || fallbackTitle || asset.name || (mediaType === 'video' ? runtimeT('browserDialog.webVideo') : runtimeT('browserDialog.webImage')),
+    subtitle: runtimeT('browserAsset.source.capture'),
     previewUrl: url,
     previewMediaType: mediaType,
-    tags: ['网页素材'],
+    tags: [runtimeT('browserAsset.source.capture')],
     createdAt: asset.createdAt,
     updatedAt: asset.updatedAt,
   }
@@ -438,11 +439,11 @@ export function BrowserAssetOverlayApp(): JSX.Element {
       const projectId = getDesktopActiveProjectId()
       if (!projectId) throw new Error('projectId is required')
       const viewId = config.viewId
-      const fallbackTitle = input.title || input.fileName || (input.mediaType === 'video' ? '网页视频' : '网页图片')
+      const fallbackTitle = input.title || input.fileName || (input.mediaType === 'video' ? runtimeT('browserDialog.webVideo') : runtimeT('browserDialog.webImage'))
       // 原生素材盒只接受当前内置网页产生的拖拽；没有来源 WebContents 时不准换成另一套
       // 无 Cookie/Referer 的网络栈重抓 URL，否则既破坏防盗链，也会把真实错误掩盖掉。
       if (!viewId || !browserBridge?.importMedia || !canDownloadFromBrowserView(input.url)) {
-        throw new Error('来源页面会话已失效，请回到原网页重新拖入')
+        throw new Error(runtimeT('browserDialog.sourceSessionExpired'))
       }
       const asset = await browserBridge.importMedia({
         viewId,

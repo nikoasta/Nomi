@@ -4,19 +4,22 @@ import React from 'react'
 import { IconX } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
 import { hasSeenCanvasGestureHint, markCanvasGestureHintSeen } from '../../onboarding/onboardingState'
+import { useI18n } from '../../../i18n/i18nContext'
+import type { TranslationKey } from '../../../i18n/translations'
 
-type GestureItem = { keys: string; label: string }
+type GestureItem = { keysKey: TranslationKey; labelKey: TranslationKey }
 
 // 平移放首位、且同时列出鼠标(滚轮/空格拖)与触控板(双指)两套——用户群反复反馈「画布只能缩放不能移动」，
 // 根因是旧图例只写「双指滑」，纯鼠标用户看不到任何平移手势(滚轮/空格拖其实都实现了，只是没告诉他)。
 const GESTURES: GestureItem[] = [
-  { keys: '滚轮 / 空格拖', label: '平移' },
-  { keys: '双指滑', label: '平移' },
-  { keys: '⌘ + 滚轮', label: '缩放' },
-  { keys: '空白拖', label: '框选' },
+  { keysKey: 'canvas.gesture.mousePanKeys', labelKey: 'canvas.gesture.pan' },
+  { keysKey: 'canvas.gesture.panKeys', labelKey: 'canvas.gesture.pan' },
+  { keysKey: 'canvas.gesture.zoomKeys', labelKey: 'canvas.gesture.zoom' },
+  { keysKey: 'canvas.gesture.selectKeys', labelKey: 'canvas.gesture.select' },
 ]
 
 export function CanvasGestureHint(): JSX.Element | null {
+  const { t } = useI18n()
   const [visible, setVisible] = React.useState(() => !hasSeenCanvasGestureHint())
 
   const dismiss = React.useCallback(() => {
@@ -35,15 +38,15 @@ export function CanvasGestureHint(): JSX.Element | null {
         'rounded-full border border-nomi-line bg-nomi-paper/95 shadow-nomi-md',
         'backdrop-blur-[8px] pointer-events-auto',
       )}
-      aria-label="画布手势提示"
+      aria-label={t('canvas.gesture.aria')}
       onPointerDown={(event) => event.stopPropagation()}
     >
       {GESTURES.map((gesture, index) => (
-        <React.Fragment key={gesture.keys}>
+        <React.Fragment key={gesture.keysKey}>
           {index > 0 ? <span className="text-nomi-ink-20" aria-hidden="true">·</span> : null}
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-            <span className="text-caption font-medium text-nomi-ink">{gesture.keys}</span>
-            <span className="text-caption text-nomi-ink-60">{gesture.label}</span>
+            <span className="text-caption font-medium text-nomi-ink">{t(gesture.keysKey)}</span>
+            <span className="text-caption text-nomi-ink-60">{t(gesture.labelKey)}</span>
           </span>
         </React.Fragment>
       ))}
@@ -54,7 +57,7 @@ export function CanvasGestureHint(): JSX.Element | null {
           'text-nomi-ink-40 hover:text-nomi-ink hover:bg-nomi-ink-05',
           'cursor-pointer',
         )}
-        aria-label="知道了，关闭手势提示"
+        aria-label={t('canvas.gesture.dismiss')}
         onClick={dismiss}
       >
         <IconX size={14} stroke={1.8} aria-hidden="true" />

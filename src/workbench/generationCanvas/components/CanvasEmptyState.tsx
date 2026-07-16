@@ -3,13 +3,15 @@
 import React from 'react'
 import { WorkbenchButton } from '../../../design'
 import { cn } from '../../../utils/cn'
+import { useI18n } from '../../../i18n/i18nContext'
+import type { TranslationKey } from '../../../i18n/translations'
 
-const CATEGORY_NAME_BY_ID: Record<string, string> = {
-  shots: '画面',
-  cast: '角色',
-  scene: '场景',
-  prop: '道具',
-  audio: '声音',
+const CATEGORY_NAME_KEY_BY_ID: Record<string, TranslationKey> = {
+  shots: 'canvas.category.shots',
+  cast: 'canvas.category.cast',
+  scene: 'canvas.category.scene',
+  prop: 'canvas.category.prop',
+  audio: 'canvas.category.audio',
 }
 
 type CanvasEmptyStateProps = {
@@ -18,16 +20,17 @@ type CanvasEmptyStateProps = {
 }
 
 export function CanvasEmptyState({ activeCategoryId, onCreate }: CanvasEmptyStateProps): JSX.Element {
-  const activeCategoryName = CATEGORY_NAME_BY_ID[activeCategoryId] || '节点'
+  const { t } = useI18n()
+  const activeCategoryName = t(CATEGORY_NAME_KEY_BY_ID[activeCategoryId] || 'canvas.category.node')
   return (
     <div className={cn(
       'absolute top-[44%] left-1/2 grid gap-3 place-items-center',
       'text-workbench-muted text-body-sm text-center',
       '-translate-x-1/2 -translate-y-1/2',
     )}>
-      <strong className="text-body text-nomi-ink">这里还没有{activeCategoryName}</strong>
+      <strong className="text-body text-nomi-ink">{t('canvas.empty.title', { name: activeCategoryName })}</strong>
       <span className="text-caption text-nomi-ink-60 max-w-[300px]">
-        添加第一个节点开始创作，之后可以拖动、分组、跨分组复制。
+        {t('canvas.empty.description')}
       </span>
       <WorkbenchButton
         className={cn(
@@ -36,10 +39,10 @@ export function CanvasEmptyState({ activeCategoryId, onCreate }: CanvasEmptyStat
           'font-[inherit] text-caption font-medium',
           'hover:enabled:bg-nomi-accent',
         )}
-        aria-label={`新建一个${activeCategoryName}节点`}
+        aria-label={t('canvas.empty.createAria', { name: activeCategoryName })}
         onClick={onCreate}
       >
-        + 新建{activeCategoryName}
+        {t('canvas.empty.create', { name: activeCategoryName })}
       </WorkbenchButton>
     </div>
   )

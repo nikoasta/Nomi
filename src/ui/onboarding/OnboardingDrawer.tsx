@@ -30,6 +30,8 @@ import { KNOWN_VENDORS, isKnownVendor } from '../../config/knownVendors'
 import { getDesktopBridge } from '../../desktop/bridge'
 import { notifyModelOptionsRefresh } from '../../config/useModelOptions'
 import { alertDialog, confirmDialog } from '../../design'
+import { useI18n } from '../../i18n/i18nContext'
+import type { TranslationKey } from '../../i18n/translations'
 
 type VendorMeta = {
   name: string
@@ -39,14 +41,15 @@ type VendorMeta = {
 }
 
 // 能力概览：四类产物 → 图标/文案。covered 由已连通供应商的模型 kind 派生（derive 不 hardcode）。
-const KIND_CAPS = [
-  { kind: 'image', label: '图片', Icon: IconPhoto },
-  { kind: 'video', label: '视频', Icon: IconVideo },
-  { kind: 'text', label: '文本', Icon: IconMessageCircle },
-  { kind: 'audio', label: '配音', Icon: IconMusic },
+const KIND_CAPS: Array<{ kind: string; labelKey: TranslationKey; Icon: typeof IconPhoto }> = [
+  { kind: 'image', labelKey: 'modelSetup.kind.image', Icon: IconPhoto },
+  { kind: 'video', labelKey: 'modelSetup.kind.video', Icon: IconVideo },
+  { kind: 'text', labelKey: 'modelSetup.kind.text', Icon: IconMessageCircle },
+  { kind: 'audio', labelKey: 'modelSetup.kind.audio', Icon: IconMusic },
 ] as const
 
 export function OnboardingDrawer(): JSX.Element {
+  const { t } = useI18n()
   const [wizardOpen, setWizardOpen] = React.useState(false)
   const [wizardPreset, setWizardPreset] = React.useState<string | undefined>(undefined)
   const openWizard = React.useCallback((preset?: string) => { setWizardPreset(preset); setWizardOpen(true) }, [])
@@ -123,11 +126,11 @@ export function OnboardingDrawer(): JSX.Element {
     if (!bridge || rows.length === 0) return
     const single = rows.length === 1
     const ok = await confirmDialog({
-      title: single ? '删除模型' : `删除 ${rows.length} 个模型`,
+      title: t('modelSetup.deleteModel.title'),
       message: single
-        ? `删除「${rows[0].labelZh}」？此操作不可恢复，之后要用需重新拉取。`
-        : `删除选中的 ${rows.length} 个模型？此操作不可恢复，之后要用需重新拉取。`,
-      confirmLabel: '删除',
+        ? t('modelSetup.deleteModel.message', { name: rows[0].labelZh })
+        : t('modelEnable.deleteManyMessage', { count: rows.length }),
+      confirmLabel: t('modelSetup.deleteModel.confirm'),
       danger: true,
     })
     if (!ok) return
@@ -135,9 +138,9 @@ export function OnboardingDrawer(): JSX.Element {
       bridge.modelCatalog.deleteModels(rows.map((r) => ({ vendorKey: r.vendorKey, modelKey: r.modelKey })))
       refresh()
     } catch (e) {
-      void alertDialog({ title: '删除失败', message: e instanceof Error ? e.message : String(e) })
+      void alertDialog({ title: t('modelSetup.deleteModel.error'), message: e instanceof Error ? e.message : String(e) })
     }
-  }, [refresh])
+  }, [refresh, t])
 
   // 启用/停用模型（可逆，保留清单）：逐行只翻 enabled（upsert 保留其余字段），末尾一次 refresh。
   // enabled:false 的模型天然从生成下拉/runtime 消失（selectExecutableModel 只选 enabled）。
@@ -151,9 +154,9 @@ export function OnboardingDrawer(): JSX.Element {
       }
       refresh()
     } catch (e) {
-      void alertDialog({ title: '操作失败', message: e instanceof Error ? e.message : String(e) })
+      void alertDialog({ title: t('modelSetup.actionFailed'), message: e instanceof Error ? e.message : String(e) })
     }
-  }, [refresh])
+  }, [refresh, t])
 
   // 卡头快捷删除整家供应商（与 CustomVendorManage 的删除按钮共用 confirmAndDeleteVendor，P1）。
   const handleDeleteVendor = React.useCallback(async (vendorKey: string, vendorName: string, modelCount: number) => {
@@ -247,14 +250,14 @@ export function OnboardingDrawer(): JSX.Element {
   return (
     <div className="flex flex-col">
       <div className="px-4 pt-4 pb-1">
-        <div className="text-title font-bold text-nomi-ink">模型设置</div>
+        <div className="text-title font-bold text-nomi-ink">{t('modelSetup.title')}</div>
       </div>
 
       {/* 顶部能力概览：先告诉用户「你现在能生成什么」（effect-first），再谈配置。 */}
       <div className="px-4 pt-1 pb-2">
-        <div className="text-micro text-nomi-ink-40 mb-1.5">你现在已经能生成</div>
+        <div className="text-micro text-nomi-ink-40 mb-1.5">{t('modelSetup.capabilityIntro')}</div>
         <div className="flex flex-wrap gap-1.5">
-          {KIND_CAPS.map(({ kind, label, Icon }) => {
+          {KIND_CAPS.map(({ kind, labelKey, Icon }) => {
             const count = coveredKindCounts.get(kind) ?? 0
             const on = count > 0
             return (
@@ -266,9 +269,9 @@ export function OnboardingDrawer(): JSX.Element {
                 )}
               >
                 <Icon size={13} stroke={1.7} />
-                {label}
+                {t(labelKey)}
                 {/* 数量 = 该类型下已启用且厂商已连通的模型数（用户 2026-07-17 要求）。 */}
-                {on ? <span className="font-semibold tabular-nums">{count}</span> : <span className="text-nomi-ink-30">未接</span>}
+                {on ? <span className="font-semibold tabular-nums">{count}</span> : <span className="text-nomi-ink-30">{t('modelSetup.kind.notConnected')}</span>}
               </span>
             )
           })}
@@ -276,13 +279,13 @@ export function OnboardingDrawer(): JSX.Element {
       </div>
 
       {!loaded ? (
-        <div className="px-4 py-6 text-caption text-nomi-ink-40">加载中…</div>
+        <div className="px-4 py-6 text-caption text-nomi-ink-40">{t('modelSetup.loading')}</div>
       ) : (
       <div className="px-3 pb-3 pt-1 flex flex-col gap-2">
         {/* ── 已接入：你接好的家浮顶，一眼可见（无已接入项则整段不显）── */}
         {hasConnected ? (
           <>
-            <div className="text-micro font-semibold text-nomi-ink-40 pt-1 px-0.5">已接入</div>
+            <div className="text-micro font-semibold text-nomi-ink-40 pt-1 px-0.5">{t('modelSetup.connected')}</div>
             {connectedKnown.map(renderVendorCard)}
             {otherVendorGroups.map((group) => {
               const enabledN = group.models.filter((m) => m.enabled).length
@@ -293,9 +296,9 @@ export function OnboardingDrawer(): JSX.Element {
                   glyph={<IconStack2 size={16} stroke={1.6} />}
                   glyphTone="soft"
                   name={group.name}
-                  subtitle={`${enabledN} / ${group.models.length} 个模型已启用`}
+                  subtitle={t('modelSetup.modelsEnabled', { enabled: enabledN, total: group.models.length })}
                   status="ok"
-                  statusLabel="已配置"
+                  statusLabel={t('modelSetup.configured')}
                   defaultExpanded={false}
                   headerAction={
                     <button
@@ -337,9 +340,9 @@ export function OnboardingDrawer(): JSX.Element {
         ) : null}
 
         {/* ── 可接入：保留原分组，每组折叠 + 数量；首组自适应默认展开（无已接入时）── */}
-        <div className="text-micro font-semibold text-nomi-ink-40 pt-2 px-0.5">可接入</div>
+        <div className="text-micro font-semibold text-nomi-ink-40 pt-2 px-0.5">{t('modelSetup.available')}</div>
 
-        <AvailableGroup title="接入生成模型" count={availableKnown.length} defaultExpanded={!hasConnected}>
+        <AvailableGroup title={t('modelSetup.connectGenerationModels')} count={availableKnown.length} defaultExpanded={!hasConnected}>
           {availableKnown.map(renderVendorCard)}
           <button
             type="button"
@@ -351,26 +354,26 @@ export function OnboardingDrawer(): JSX.Element {
             )}
           >
             <IconPlus size={16} stroke={1.9} />
-            <span className="flex-1 min-w-0">添加模型 / 中转站</span>
+            <span className="flex-1 min-w-0">{t('modelSetup.addModelRelay')}</span>
             <IconChevronRight size={15} className="shrink-0 opacity-60" />
           </button>
-          <div className="text-micro text-nomi-ink-40 px-1 -mt-0.5">new-api 一次拉全图·视频·文本 · 也可接官方厂商 / 自定义接口</div>
+          <div className="text-micro text-nomi-ink-40 px-1 -mt-0.5">{t('modelSetup.addModelRelayHint')}</div>
         </AvailableGroup>
 
         {comfyuiAvailable && !comfyuiEnabled ? (
-          <AvailableGroup title="有本地 ComfyUI？" count={1} defaultExpanded={false}>
+          <AvailableGroup title={t('modelSetup.localComfyui')} count={1} defaultExpanded={false}>
             <ComfyuiLocalCard enabled={comfyuiEnabled} baseUrl={comfyuiMeta?.baseUrl ?? ''} models={comfyuiModels} onChanged={refresh} />
           </AvailableGroup>
         ) : null}
 
         {dreaminaAvailable && !dreaminaConnected ? (
-          <AvailableGroup title="有即梦会员？" count={1} defaultExpanded={false}>
+          <AvailableGroup title={t('modelSetup.dreaminaMember')} count={1} defaultExpanded={false}>
             <DreaminaMemberCard status={dreaminaStatus} onChanged={refresh} />
           </AvailableGroup>
         ) : null}
 
         {assistantAvailable && !assistantConnected ? (
-          <AvailableGroup title="接入编程助手 · 可选" count={1} defaultExpanded={false}>
+          <AvailableGroup title={t('modelSetup.connectAssistantOptional')} count={1} defaultExpanded={false}>
             <ConnectAssistantCard info={mcpInfo} onChanged={refresh} />
           </AvailableGroup>
         ) : null}

@@ -328,13 +328,13 @@ export function NomiBrowserDialogView({
                   'hover:bg-nomi-ink-05 hover:text-nomi-ink',
                   browserAssetPopoverOpen && 'bg-nomi-ink-05 text-nomi-ink',
                 )}
-                aria-label={browserAssetPopoverOpen ? '收起素材盒' : '打开素材盒'}
+                aria-label={browserAssetPopoverOpen ? t('browserAsset.minimize') : t('browserAsset.open')}
                 aria-pressed={browserAssetPopoverOpen}
-                title="素材盒：捕捞收件箱，可多选拖上画布"
+                title={t('browserAsset.dialog')}
                 onClick={() => handleBrowserAssetPopoverOpenChange(!browserAssetPopoverOpen)}
               >
                 <IconBox size={16} stroke={1.8} aria-hidden="true" />
-                <span className="whitespace-nowrap">素材盒</span>
+                <span className="whitespace-nowrap">{t('browserAsset.title')}</span>
               </button>
             </div>
           </form>

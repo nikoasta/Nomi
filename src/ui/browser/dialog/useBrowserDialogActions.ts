@@ -7,6 +7,7 @@ import {
   type DesktopBrowserTextPromptSaveEvent,
 } from '../../../desktop/bridge'
 import { toast } from '../../toast'
+import { runtimeT } from '../../../i18n/runtimeTranslate'
 import { browserUrlDisplayTitle, normalizeBrowserInput } from './browserUrl'
 import {
   type BrowserAssetPromptCaptureRequest,
@@ -88,7 +89,7 @@ export function useBrowserDialogActions({
   const createTab = React.useCallback(
     async (input?: string): Promise<void> => {
       if (tabsRef.current.length >= TAB_LIMIT) {
-        setLastError(`最多只能打开 ${TAB_LIMIT} 个标签页`)
+        setLastError(runtimeT('browserDialog.limitTabs', { limit: TAB_LIMIT }))
         return
       }
       const tabId = createTabId()
@@ -105,7 +106,7 @@ export function useBrowserDialogActions({
           }
           setLastError(null)
         } catch (error) {
-          setLastError(error instanceof Error ? error.message : '浏览器视图创建失败')
+          setLastError(error instanceof Error ? error.message : runtimeT('browserDialog.createViewFailed'))
         }
       }
       const tab: BrowserTab = {
@@ -146,7 +147,7 @@ export function useBrowserDialogActions({
         }
         setLastError(null)
       } catch (error) {
-        setLastError(error instanceof Error ? error.message : '浏览器视图创建失败')
+        setLastError(error instanceof Error ? error.message : runtimeT('browserDialog.createViewFailed'))
       }
       setTabs((current) =>
         current.map((item) =>
@@ -248,7 +249,7 @@ export function useBrowserDialogActions({
   }, [])
 
   const renameBookmark = React.useCallback((bookmark: BrowserBookmark): void => {
-    const nextTitle = window.prompt('重命名书签', bookmark.title)?.trim()
+    const nextTitle = window.prompt(runtimeT('browserDialog.renameBookmarkPrompt'), bookmark.title)?.trim()
     if (!nextTitle || nextTitle === bookmark.title) return
     setBookmarks((current) => {
       const next = current.map((item) => (item.id === bookmark.id ? { ...item, title: nextTitle } : item))
@@ -286,14 +287,14 @@ export function useBrowserDialogActions({
     const items: DesktopBrowserChromeMenuItem[] = [
       {
         id: 'bookmark',
-        label: bookmarked ? '已收藏' : '收藏',
+        label: bookmarked ? runtimeT('browserDialog.bookmarked') : runtimeT('browserDialog.bookmark'),
         enabled: Boolean(tab.url && !bookmarked),
       },
-      { id: 'close-tab', label: '关闭标签' },
+      { id: 'close-tab', label: runtimeT('browserDialog.closeTab') },
       ...(tabsRef.current.length > 1
         ? [
             { type: 'separator' as const },
-            { id: 'close-all', label: '关闭全部' },
+            { id: 'close-all', label: runtimeT('browserDialog.closeAll') },
           ]
         : []),
     ]
@@ -334,7 +335,7 @@ export function useBrowserDialogActions({
     return browserBridge.onPromptCapture((event: DesktopBrowserPromptCaptureEvent) => {
       if (event.tabId !== activeTabIdRef.current) return
       if (!event.ok) {
-        setLastError(event.reason === 'empty' ? '没有找到可提取提示词的图片。' : event.message || '图片提示词提取入口失败')
+        setLastError(event.reason === 'empty' ? runtimeT('browserDialog.noPromptImages') : event.message || runtimeT('browserDialog.promptEntryFailed'))
         return
       }
       openPromptCaptureInAssetPopover(promptCaptureRequestFromBrowserEvent(event))
@@ -346,7 +347,7 @@ export function useBrowserDialogActions({
     return browserBridge.onTextPromptSave((event: DesktopBrowserTextPromptSaveEvent) => {
       if (event.tabId !== activeTabIdRef.current) return
       if (!event.ok) {
-        setLastError(event.message || '保存网页选中文字失败')
+        setLastError(event.message || runtimeT('browserDialog.textSelectionSaveFailed'))
         return
       }
       const saved = saveBrowserPromptCard({
@@ -355,7 +356,7 @@ export function useBrowserDialogActions({
         promptType: event.promptType,
         title: event.pageTitle,
       })
-      if (saved) toast('已保存到素材盒提示词库', 'success')
+      if (saved) toast(runtimeT('browserDialog.textPromptSaved'), 'success')
     })
   }, [browserBridge])
 
@@ -363,7 +364,7 @@ export function useBrowserDialogActions({
     (mode: BrowserPromptExtractionMode, tabSnapshot: BrowserTab): void => {
       const viewId = tabSnapshot.viewId
       if (!viewId) {
-        setLastError('打开网页后才能截图提取提示词。')
+        setLastError(runtimeT('browserDialog.screenshotNeedsPage'))
         return
       }
       setPromptModePicker(null)
@@ -377,11 +378,11 @@ export function useBrowserDialogActions({
         await new Promise((resolve) => window.setTimeout(resolve, 80))
         const selection = await browserBridge?.selectPromptScreenshot?.({ viewId })
         if (!selection) {
-          setLastError('当前浏览器不支持选区截图。')
+          setLastError(runtimeT('browserDialog.selectionUnsupported'))
           return
         }
         if (!selection.ok) {
-          if (selection.reason === 'error') setLastError(selection.message || '选区截图失败')
+          if (selection.reason === 'error') setLastError(selection.message || runtimeT('browserDialog.selectionFailed'))
           return
         }
         setLastError(null)
@@ -390,7 +391,7 @@ export function useBrowserDialogActions({
           sourceType: 'screenshot',
           extractionMode: mode,
           viewId,
-          title: tabSnapshot.title || (mode === 'style' ? '网页选区风格' : '网页选区提示词'),
+          title: tabSnapshot.title || (mode === 'style' ? runtimeT('browserDialog.screenshotStyleTitle') : runtimeT('browserDialog.screenshotPromptTitle')),
           fileName: `browser-selection-${Date.now()}.png`,
           pageUrl: tabSnapshot.url || undefined,
           pageTitle: tabSnapshot.title || undefined,
@@ -404,7 +405,7 @@ export function useBrowserDialogActions({
   const openBrowserScreenshotPromptModePicker = React.useCallback(
     (event: React.MouseEvent<HTMLButtonElement>): void => {
       if (!activeTab?.viewId) {
-        setLastError('打开网页后才能截图提取提示词。')
+        setLastError(runtimeT('browserDialog.screenshotNeedsPage'))
         return
       }
       const rect = event.currentTarget.getBoundingClientRect()
@@ -435,12 +436,12 @@ export function useBrowserDialogActions({
               {
                 id: 'replicate',
                 label: BROWSER_PROMPT_EXTRACTION_MODE_LABELS.replicate,
-                description: '还原主体、构图、光影和细节',
+                description: runtimeT('browserDialog.promptMode.replicateDescription'),
               },
               {
                 id: 'style',
                 label: BROWSER_PROMPT_EXTRACTION_MODE_LABELS.style,
-                description: '提取配色、字体、构图、效果 JSON',
+                description: runtimeT('browserDialog.promptMode.styleDescription'),
               },
             ],
           })
@@ -485,7 +486,7 @@ export function useBrowserDialogActions({
 
   const toggleBrowserResourceCapture = React.useCallback((): void => {
     if (!activeTab?.viewId || !browserBridge?.setResourceCapture) {
-      setLastError('打开网页后才能使用资源捕捞。')
+      setLastError(runtimeT('browserDialog.captureNeedsPage'))
       return
     }
     setLastError(null)
@@ -499,9 +500,9 @@ export function useBrowserDialogActions({
       const projectId = getDesktopActiveProjectId()
       if (!projectId) throw new Error('projectId is required')
       const tab = tabsRef.current.find((item) => item.id === activeTabIdRef.current)
-      const fallbackTitle = input.title || input.fileName || (input.mediaType === 'video' ? '网页视频' : '网页图片')
+      const fallbackTitle = input.title || input.fileName || (input.mediaType === 'video' ? runtimeT('browserDialog.webVideo') : runtimeT('browserDialog.webImage'))
       if (!tab?.viewId || !browserBridge?.importMedia || !canDownloadFromBrowserView(input.url)) {
-        throw new Error('来源页面会话已失效，请回到原网页重新拖入')
+        throw new Error(runtimeT('browserDialog.sourceSessionExpired'))
       }
       const asset = await browserBridge.importMedia({
         viewId: tab.viewId,

@@ -21,6 +21,8 @@ import { useGenerationCanvasStore } from '../generationCanvas/store/generationCa
 import { useHasTextModel } from '../library/useHasTextModel'
 import { useJourneyTourActive } from './journeyTourActivity'
 import { DesignProgress } from '../../design'
+import { useI18n } from '../../i18n/i18nContext'
+import type { TranslationKey } from '../../i18n/translations'
 import {
   type ChecklistStep,
   type ChecklistState,
@@ -35,20 +37,21 @@ import {
 
 type StepMeta = {
   key: ChecklistStep
-  label: string
-  hint: string
+  labelKey: TranslationKey
+  hintKey: TranslationKey
 }
 
 const STEPS: StepMeta[] = [
-  { key: 'model', label: '接入模型', hint: '连一个 AI 服务（用你自己的 Key）。' },
-  { key: 'storyboard', label: '拆一个镜头', hint: '在创作区说「拆成镜头」，铺成画布。' },
-  { key: 'generated', label: '生成一张', hint: '在镜头卡里选模型，点「生成」出图。' },
-  { key: 'exported', label: '导出成片', hint: '排进时间轴，右上「导出」输出 MP4。' },
+  { key: 'model', labelKey: 'onboardingChecklist.step.model.label', hintKey: 'onboardingChecklist.step.model.hint' },
+  { key: 'storyboard', labelKey: 'onboardingChecklist.step.storyboard.label', hintKey: 'onboardingChecklist.step.storyboard.hint' },
+  { key: 'generated', labelKey: 'onboardingChecklist.step.generated.label', hintKey: 'onboardingChecklist.step.generated.hint' },
+  { key: 'exported', labelKey: 'onboardingChecklist.step.exported.label', hintKey: 'onboardingChecklist.step.exported.hint' },
 ]
 
 const ALL_KEYS = STEPS.map((s) => s.key)
 
 export function OnboardingChecklist(): JSX.Element | null {
+  const { t } = useI18n()
   const nodes = useGenerationCanvasStore((state) => state.nodes)
   const { hasTextModel: textModelReady } = useHasTextModel()
   // 引导旅途进行时让位：清单是被动进度，tour 在演同一条流程，两者同屏会叠成一团（真机走查抓出）。
@@ -164,7 +167,7 @@ export function OnboardingChecklist(): JSX.Element | null {
         ref={triggerRef}
         onClick={toggleOpen}
         data-onboarding-checklist-trigger="true"
-        aria-label={`上手 4 步，已完成 ${doneCount} / ${ALL_KEYS.length}`}
+        aria-label={t('onboardingChecklist.triggerAria', { done: doneCount, total: ALL_KEYS.length })}
         aria-expanded={open}
         className={cn(
           'inline-flex items-center gap-1.5 h-7 px-2.5 cursor-pointer font-inherit',
@@ -175,7 +178,7 @@ export function OnboardingChecklist(): JSX.Element | null {
         )}
       >
         <IconListCheck size={18} stroke={1.8} aria-hidden="true" />
-        <span className="max-[700px]:hidden">上手</span>
+        <span className="max-[700px]:hidden">{t('onboardingChecklist.shortTitle')}</span>
         <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-nomi-accent-soft text-nomi-accent text-micro font-semibold tabular-nums">
           {doneCount}/{ALL_KEYS.length}
         </span>
@@ -184,7 +187,7 @@ export function OnboardingChecklist(): JSX.Element | null {
       {open && anchor ? (
         <section
           data-onboarding-checklist="panel"
-          aria-label="上手 4 步"
+          aria-label={t('onboardingChecklist.title')}
           style={{ top: anchor.top, right: anchor.right }}
           className={cn(
             'fixed z-[180] w-64 overflow-hidden',
@@ -192,14 +195,14 @@ export function OnboardingChecklist(): JSX.Element | null {
           )}
         >
           <header className="flex items-center gap-2 pl-4 pr-2 pt-3 pb-2">
-            <span className="text-body font-semibold text-nomi-ink">上手 4 步</span>
+            <span className="text-body font-semibold text-nomi-ink">{t('onboardingChecklist.title')}</span>
             <span className="text-caption font-medium text-nomi-ink-40 tabular-nums">
               {doneCount} / {ALL_KEYS.length}
             </span>
             <button
               type="button"
               onClick={() => toggleOpen()}
-              aria-label="收起"
+              aria-label={t('onboardingChecklist.collapse')}
               className={cn(
                 'ml-auto grid place-items-center size-6 rounded-nomi-sm border-0 bg-transparent cursor-pointer',
                 'text-nomi-ink-40 transition-colors hover:bg-nomi-ink-10 hover:text-nomi-ink',
@@ -242,10 +245,10 @@ export function OnboardingChecklist(): JSX.Element | null {
                           done ? 'text-nomi-ink-40' : isNext ? 'text-nomi-accent' : 'text-nomi-ink',
                         )}
                       >
-                        {step.label}
+                        {t(step.labelKey)}
                       </span>
                       {!done ? (
-                        <span className="block text-caption text-nomi-ink-40 leading-snug mt-px">{step.hint}</span>
+                        <span className="block text-caption text-nomi-ink-40 leading-snug mt-px">{t(step.hintKey)}</span>
                       ) : null}
                     </span>
                   </div>
@@ -268,7 +271,7 @@ export function OnboardingChecklist(): JSX.Element | null {
               )}
             >
               <IconMap size={13} stroke={1.8} aria-hidden="true" />
-              看完整手册
+              {t('onboardingChecklist.openHandbook')}
             </button>
             <button
               type="button"
@@ -278,7 +281,7 @@ export function OnboardingChecklist(): JSX.Element | null {
                 'text-caption text-nomi-ink-40 transition-colors hover:text-nomi-ink',
               )}
             >
-              不再提示
+              {t('onboardingChecklist.dismiss')}
             </button>
           </div>
         </section>

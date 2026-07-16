@@ -34,6 +34,7 @@ function TileRenameInput({
   onCommit?: (title: string) => void
   onCancel?: () => void
 }): JSX.Element {
+  const { t } = useI18n()
   const [value, setValue] = React.useState(initialTitle)
   const inputRef = React.useRef<HTMLInputElement | null>(null)
   const doneRef = React.useRef(false)
@@ -51,7 +52,7 @@ function TileRenameInput({
     <input
       ref={inputRef}
       value={value}
-      aria-label="重命名文件夹"
+      aria-label={t('browserAsset.renameFolder')}
       className={cn(
         'w-full min-w-0 rounded-nomi-sm border border-nomi-accent bg-nomi-paper px-1 py-0.5',
         'text-caption font-medium leading-[1.2] text-nomi-ink outline-none',

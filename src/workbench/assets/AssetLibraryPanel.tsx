@@ -25,6 +25,8 @@ import { confirmDialog, DesignEmptyState, DesignSearchInput, TooltipProvider } f
 import AssetFinderPanel from './autoGroup/AssetFinderPanel'
 import { acceptAttrForKinds, mediaKindFromExtension } from '../../../electron/assets/mediaTypes'
 import { toast } from '../../ui/toast'
+import { useI18n } from '../../i18n/i18nContext'
+import { runtimeT } from '../../i18n/runtimeTranslate'
 import {
   AssetGridCell,
   AssetKindFilterMenu,
@@ -71,36 +73,32 @@ export function classifyUploadFiles(files: File[]): UploadClassification {
 
 // 导入结果 → 用户反馈（Gap C：此前计数全被丢弃，超大/重复/失败/超上限零提示）。
 function reportMediaImport(result: GenerationAssetImportResult): void {
-  if (result.created.length) toast(`已导入 ${result.created.length} 个素材`, 'success')
+  if (result.created.length) toast(runtimeT('assetLibrary.mediaImport.success', { count: result.created.length }), 'success')
   const skipped: string[] = []
-  if (result.skippedTooLargeCount) skipped.push(`${result.skippedTooLargeCount} 个过大`)
-  if (result.skippedOverLimitCount) skipped.push(`${result.skippedOverLimitCount} 个超单次上限`)
-  if (result.skippedDuplicateCount) skipped.push(`${result.skippedDuplicateCount} 个重复`)
-  if (result.failedCount) skipped.push(`${result.failedCount} 个失败`)
-  if (skipped.length) toast(`已跳过：${skipped.join('、')}`, result.failedCount ? 'error' : 'warning')
+  if (result.skippedTooLargeCount) skipped.push(runtimeT('assetLibrary.importSkipped.tooLarge', { count: result.skippedTooLargeCount }))
+  if (result.skippedOverLimitCount) skipped.push(runtimeT('assetLibrary.importSkipped.overLimit', { count: result.skippedOverLimitCount }))
+  if (result.skippedDuplicateCount) skipped.push(runtimeT('assetLibrary.importSkipped.duplicate', { count: result.skippedDuplicateCount }))
+  if (result.failedCount) skipped.push(runtimeT('assetLibrary.importSkipped.failed', { count: result.failedCount }))
+  if (skipped.length) toast(runtimeT('assetLibrary.importSkipped.summary', { items: skipped.join(runtimeT('common.listSeparator')) }), result.failedCount ? 'error' : 'warning')
 }
 
 function reportAudioImport(result: AudioImportResult): void {
-  if (result.uploadedCount) toast(`已导入 ${result.uploadedCount} 个音频`, 'success')
+  if (result.uploadedCount) toast(runtimeT('assetLibrary.audioImport.success', { count: result.uploadedCount }), 'success')
   const skipped: string[] = []
-  if (result.skippedTooLargeCount) skipped.push(`${result.skippedTooLargeCount} 个过大`)
-  if (result.skippedDuplicateCount) skipped.push(`${result.skippedDuplicateCount} 个重复`)
-  if (result.failedCount) skipped.push(`${result.failedCount} 个失败`)
-  if (skipped.length) toast(`已跳过：${skipped.join('、')}`, result.failedCount ? 'error' : 'warning')
+  if (result.skippedTooLargeCount) skipped.push(runtimeT('assetLibrary.importSkipped.tooLarge', { count: result.skippedTooLargeCount }))
+  if (result.skippedDuplicateCount) skipped.push(runtimeT('assetLibrary.importSkipped.duplicate', { count: result.skippedDuplicateCount }))
+  if (result.failedCount) skipped.push(runtimeT('assetLibrary.importSkipped.failed', { count: result.failedCount }))
+  if (skipped.length) toast(runtimeT('assetLibrary.importSkipped.summary', { items: skipped.join(runtimeT('common.listSeparator')) }), result.failedCount ? 'error' : 'warning')
 }
 
 type SourceFilterValue = 'all' | 'project' | 'smart'
 
-const SOURCE_OPTIONS: { value: SourceFilterValue; label: string }[] = [
-  { value: 'all', label: '全部素材' },
-  { value: 'project', label: '项目素材' },
+const SOURCE_OPTIONS: { value: SourceFilterValue; labelKey: 'assetLibrary.source.all' | 'assetLibrary.source.project' | 'assetLibrary.source.smart' }[] = [
+  { value: 'all', labelKey: 'assetLibrary.source.all' },
+  { value: 'project', labelKey: 'assetLibrary.source.project' },
   // 找素材并入素材库（2026-07-13 ③）：AI 自动分组是素材库的一个视图，不再独占左栏一格。
-  { value: 'smart', label: '智能分组' },
+  { value: 'smart', labelKey: 'assetLibrary.source.smart' },
 ]
-
-const FILTER_LABEL_BY_VALUE = new Map<FilterValue, string>(
-  FILTER_OPTIONS.map((option) => [option.value, option.value]),
-)
 
 function assetToDragPayload(asset: AssetRef, dragAnchor?: AssetLibraryDragPayload['dragAnchor']): AssetLibraryDragPayload {
   return {
@@ -145,6 +143,7 @@ export function AssetLibraryContent({
   onClose,
   className,
 }: AssetLibraryContentProps): JSX.Element {
+  const { t } = useI18n()
   const uploadInputRef = React.useRef<HTMLInputElement>(null)
   const filterButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const filterMenuRef = React.useRef<HTMLDivElement | null>(null)
@@ -254,7 +253,7 @@ export function AssetLibraryContent({
         })
         .catch((error) => {
           console.error('asset library upload failed', error)
-          toast('素材导入失败，请重试', 'error')
+          toast(runtimeT('assetLibrary.import.mediaFailed'), 'error')
         })
     }
     if (audioFiles.length) {
@@ -266,21 +265,21 @@ export function AssetLibraryContent({
         })
         .catch((error) => {
           console.error('asset library audio upload failed', error)
-          toast('音频导入失败，请重试', 'error')
+          toast(runtimeT('assetLibrary.import.audioFailed'), 'error')
         })
     }
     if (unsupported.length) {
-      toast(`已跳过 ${unsupported.length} 个不支持的文件`, 'warning')
+      toast(runtimeT('assetLibrary.import.unsupportedSkipped', { count: unsupported.length }), 'warning')
     }
   }, [projectId, refreshAllProjectAssets, refreshProjectAssets])
 
   const isEmpty = visible.length === 0
   const sourceEmpty = sourceFilteredAssets.length === 0
   const activeFilterLabel = allKindsSelected
-    ? '全部'
+    ? t('asset.kind.all')
     : selectedKindValues.length > 0
-      ? selectedKindValues.map((kind) => FILTER_LABEL_BY_VALUE.get(kind) ?? kind).join('、')
-      : '无分类'
+      ? selectedKindValues.map((kind) => t(kind === 'image' ? 'asset.kind.image' : kind === 'video' ? 'asset.kind.video' : 'asset.kind.audio')).join(t('common.listSeparator'))
+      : t('assetLibrary.categoryNone')
 
   React.useEffect(() => {
     if (!filterOpen) return
@@ -373,11 +372,11 @@ export function AssetLibraryContent({
 
   const deleteSelectedProjectAssets = React.useCallback(async (): Promise<void> => {
     if (!projectId) {
-      toast('删除失败：当前没有打开的项目', 'warning')
+      toast(t('assetLibrary.delete.noProject'), 'warning')
       return
     }
     if (selectedProjectAssets.length === 0) {
-      toast('请先选中要删除的项目素材', 'warning')
+      toast(t('assetLibrary.delete.selectFirst'), 'warning')
       return
     }
     const canvasStore = useGenerationCanvasStore.getState()
@@ -388,20 +387,20 @@ export function AssetLibraryContent({
       currentProjectId: projectId,
     })
     if (deletePlan.nodeIds.length === 0) {
-      toast('选中的素材暂时无法删除', 'warning')
+      toast(t('assetLibrary.delete.notDeletable'), 'warning')
       return
     }
     const confirmed = await confirmDialog({
-      title: `删除 ${deletePlan.nodeIds.length} 个项目素材？`,
-      message: '对应画布节点与「全部素材」中的落盘文件会同步删除。项目文件会移到系统回收站。',
-      confirmLabel: '删除',
+      title: t('assetLibrary.delete.confirmTitle', { count: deletePlan.nodeIds.length }),
+      message: t('assetLibrary.delete.confirmMessage'),
+      confirmLabel: t('assetLibrary.delete.confirm'),
       danger: true,
     })
     if (!confirmed) return
     const bridge = getDesktopBridge()
     const deleteFiles = bridge?.workspace?.deleteFiles
     if (deletePlan.fileTargets.length > 0 && !deleteFiles) {
-      toast('当前运行环境不支持删除项目素材', 'error')
+      toast(t('assetLibrary.delete.unsupported'), 'error')
       return
     }
     try {
@@ -430,14 +429,14 @@ export function AssetLibraryContent({
       refreshProjectAssets()
       refreshAllProjectAssets()
       setSelectedIds(new Set())
-      if (deletableCanvasNodeIds.length > 0) toast(`已删除 ${deletableCanvasNodeIds.length} 个项目素材`, 'success')
-      if (deletedFileCount > 0 && deletableCanvasNodeIds.length === 0) toast(`已删除 ${deletedFileCount} 个落盘素材`, 'success')
-      if (failedFileCount > 0) toast(`${failedFileCount} 个落盘素材删除失败`, 'warning')
+      if (deletableCanvasNodeIds.length > 0) toast(t('assetLibrary.delete.projectSuccess', { count: deletableCanvasNodeIds.length }), 'success')
+      if (deletedFileCount > 0 && deletableCanvasNodeIds.length === 0) toast(t('assetLibrary.delete.fileSuccess', { count: deletedFileCount }), 'success')
+      if (failedFileCount > 0) toast(t('assetLibrary.delete.fileFailed', { count: failedFileCount }), 'warning')
     } catch (error) {
       console.error('delete project assets failed', error)
-      toast('删除项目素材失败，请检查文件权限', 'error')
+      toast(t('assetLibrary.delete.failed'), 'error')
     }
-  }, [allProjectAssets, projectId, refreshAllProjectAssets, refreshProjectAssets, selectedProjectAssets])
+  }, [allProjectAssets, projectId, refreshAllProjectAssets, refreshProjectAssets, selectedProjectAssets, t])
 
   const uploadButton = (
     <button
@@ -448,7 +447,7 @@ export function AssetLibraryContent({
         'transition-[background] duration-[var(--nomi-transition-fast)] hover:bg-nomi-ink-80',
         compact ? 'h-[30px] px-2.5 shrink-0' : 'h-7 px-3',
       )}
-      aria-label="上传素材"
+      aria-label={t('assetLibrary.uploadAria')}
       onClick={() => uploadInputRef.current?.click()}
     >
       <IconPlus size={compact ? 12 : 13} stroke={2} />
@@ -468,8 +467,8 @@ export function AssetLibraryContent({
       )}
       disabled={selectedProjectAssets.length === 0}
       aria-disabled={selectedProjectAssets.length === 0}
-      aria-label={selectedProjectAssets.length > 0 ? `删除 ${selectedProjectAssets.length} 个项目素材` : '删除项目素材'}
-      title={selectedProjectAssets.length > 0 ? `删除 ${selectedProjectAssets.length} 个项目素材` : '请先选择项目素材'}
+      aria-label={selectedProjectAssets.length > 0 ? t('assetLibrary.deleteSelectedAria', { count: selectedProjectAssets.length }) : t('assetLibrary.deleteSelectedAria', { count: 0 })}
+      title={selectedProjectAssets.length > 0 ? t('assetLibrary.deleteSelectedTitle', { count: selectedProjectAssets.length }) : t('assetLibrary.deleteDisabledTitle')}
       onMouseDown={(event) => event.stopPropagation()}
       onClick={() => {
         void deleteSelectedProjectAssets()
@@ -487,7 +486,7 @@ export function AssetLibraryContent({
         compact ? 'min-w-0 flex-1' : 'shrink-0',
       )}
       role="tablist"
-      aria-label="素材来源筛选"
+      aria-label={t('assetLibrary.source.aria')}
     >
       {SOURCE_OPTIONS.map((option) => {
         const active = sourceFilter === option.value
@@ -513,7 +512,7 @@ export function AssetLibraryContent({
               setFilterOpen(false)
             }}
           >
-            {option.label}
+            {t(option.labelKey)}
           </button>
         )
       })}
@@ -532,11 +531,11 @@ export function AssetLibraryContent({
           compact ? 'h-8 px-2.5' : 'h-8 px-3',
           (filterOpen || filterActive) && 'border-nomi-ink-20 bg-nomi-ink-05 text-nomi-ink',
         )}
-        aria-label="筛选素材分类"
+        aria-label={t('assetLibrary.categoryFilter')}
         aria-haspopup="dialog"
         aria-expanded={filterOpen}
         aria-pressed={filterActive}
-        title={`分类：${activeFilterLabel}`}
+        title={t('assetLibrary.categoryTitle', { label: activeFilterLabel })}
         onClick={() => setFilterOpen((open) => !open)}
       >
         <IconFilter size={15} stroke={1.8} aria-hidden="true" />
@@ -562,7 +561,7 @@ export function AssetLibraryContent({
         {/* 头部 */}
         {showHeader ? (
           <div className={cn('flex items-center gap-2 px-4 pt-3.5 pb-3 border-b border-nomi-line')}>
-            <b className={cn('text-title font-bold text-nomi-ink')}>素材库</b>
+            <b className={cn('text-title font-bold text-nomi-ink')}>{t('assetLibrary.title')}</b>
             <span className={cn('text-caption text-nomi-ink-40')}>· {sourceFilteredAssets.length}</span>
             {/* 「网页捕捞」入口已删（方案一 2026-07-12）：顶栏「浏览器」是唯一上网门，
                 双门牌被用户体感为重复。 */}
@@ -575,7 +574,7 @@ export function AssetLibraryContent({
                   'text-nomi-ink-40 hover:text-nomi-ink hover:bg-nomi-ink-05',
                   'transition-[background,color] duration-[var(--nomi-transition-fast)]',
                 )}
-                aria-label="关闭素材库"
+                aria-label={t('assetLibrary.close')}
                 onClick={onClose}
               >
                 <IconX size={16} stroke={2} />
@@ -589,7 +588,7 @@ export function AssetLibraryContent({
           type="file"
           accept={UPLOAD_ACCEPT}
           multiple
-          aria-label="素材文件选择器"
+          aria-label={t('assetLibrary.filePicker')}
           onChange={handleUploadFiles}
         />
 
@@ -601,7 +600,7 @@ export function AssetLibraryContent({
           </div>
           {sourceFilter !== 'smart' ? (
             <div className="flex min-w-0 items-center gap-2">
-              <DesignSearchInput className="min-w-0 flex-1" placeholder="搜索素材…" ariaLabel="搜索素材" value={query} onChange={setQuery} />
+              <DesignSearchInput className="min-w-0 flex-1" placeholder={t('assetLibrary.search')} ariaLabel={t('assetLibrary.search')} value={query} onChange={setQuery} />
               {deleteSelectedButton}
               {categoryFilterButton}
             </div>
@@ -684,6 +683,7 @@ export function AssetLibraryContent({
 }
 
 export function AssetLibraryPanel({ opened, onClose, projectId }: Props): JSX.Element | null {
+  const { t } = useI18n()
   const panelRef = React.useRef<HTMLDivElement>(null)
 
   // ESC 关闭
@@ -728,7 +728,7 @@ export function AssetLibraryPanel({ opened, onClose, projectId }: Props): JSX.El
       <div
         ref={panelRef}
         role="dialog"
-        aria-label="素材库"
+        aria-label={t('assetLibrary.dialog.aria')}
         className={cn(
           'fixed flex flex-col overflow-hidden',
           'bg-nomi-paper border border-nomi-line rounded-nomi-lg shadow-nomi-lg',

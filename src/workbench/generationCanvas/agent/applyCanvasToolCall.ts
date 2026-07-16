@@ -384,7 +384,7 @@ export async function applyCanvasToolCall(toolName: string, args: unknown, gestu
       throw new Error(canvasRuntimeTranslate('agentTool.cameraMoveNeedsMove'))
     }
     if (parsed.move && parsed.customMove) {
-      throw new Error('create_camera_move 的 move 与 customMove 互斥：词表内用 move，词表外只用 customMove')
+      throw new Error(canvasRuntimeTranslate('agentTool.cameraMoveMutuallyExclusive'))
     }
 
     // 词表外逃生口：只有 customMove → 不渲运镜小片，把运镜意图当电影术语指令追加进

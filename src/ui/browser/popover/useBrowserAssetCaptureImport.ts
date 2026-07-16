@@ -29,6 +29,7 @@ import {
   upsertBrowserAsset,
 } from './browserAssetPopoverUtils'
 import { browserPromptExtractionPromptFromSettings } from '../prompt/browserPromptExtractionSettings'
+import { runtimeT } from '../../../i18n/runtimeTranslate'
 
 type UseBrowserAssetCaptureImportOptions = {
   activeFolderId: string | null
@@ -69,7 +70,7 @@ export function useBrowserAssetCaptureImport({
   const importRemoteAssetToLibrary = React.useCallback(
     async (input: BrowserAssetRemoteImportInput): Promise<void> => {
       const mediaType = input.mediaType === 'video' ? 'video' : 'image'
-      const sourceLabel = 'requestId' in input ? '网页捕捞' : '网页拖拽'
+      const sourceLabel = 'requestId' in input ? runtimeT('browserAsset.source.capture') : runtimeT('browserAsset.source.drag')
       const now = new Date().toISOString()
       const pendingId = `browser-${mediaType}-import-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
       const title = input.title || input.fileName || fileNameFromRemoteAssetUrl(input.url)
@@ -78,7 +79,7 @@ export function useBrowserAssetCaptureImport({
         type: mediaType,
         source: 'my',
         title,
-        subtitle: '下载中...',
+        subtitle: runtimeT('browserAsset.status.downloading'),
         tags: [sourceLabel],
         parentFolderId: activeFolderId,
         status: 'loading',
@@ -91,7 +92,7 @@ export function useBrowserAssetCaptureImport({
       setSelectedIds(new Set([pendingId]))
       if (!onImportRemoteAsset) {
         setLocalAssets((current) =>
-          current.map((asset) => asset.id === pendingId ? { ...asset, subtitle: '无法导入网页素材', status: 'error' } : asset),
+          current.map((asset) => asset.id === pendingId ? { ...asset, subtitle: runtimeT('browserAsset.status.importUnavailable'), status: 'error' } : asset),
         )
         return
       }
@@ -178,9 +179,9 @@ export function useBrowserAssetCaptureImport({
 
   const runPromptExtraction = React.useCallback(
     async (modelImageUrl: string, mode: BrowserPromptExtractionMode): Promise<{ title: string; prompt: string }> => {
-      if (!modelImageUrl) throw new Error('没有可分析的参考图')
+      if (!modelImageUrl) throw new Error(runtimeT('browserAsset.prompt.noReferenceImage'))
       const brain = await getTextBrain()
-      if (!brain) throw new Error('请先在「模型接入」里启用一个支持图片输入的文本模型')
+      if (!brain) throw new Error(runtimeT('browserAsset.prompt.noVisionModel'))
       const result = await runWorkbenchTaskByVendor(brain.vendor, {
         kind: 'image_to_prompt',
         prompt: browserPromptExtractionPromptFromSettings(promptExtractionSettings, mode),
@@ -192,9 +193,9 @@ export function useBrowserAssetCaptureImport({
         },
       })
       const text = extractTextFromTaskResult(result)
-      if (!text) throw new Error('模型没有返回提示词')
+      if (!text) throw new Error(runtimeT('browserAsset.prompt.emptyResponse'))
       const parsed = parseBrowserPromptExtraction(text, mode)
-      if (!parsed.prompt) throw new Error('模型没有返回可用提示词')
+      if (!parsed.prompt) throw new Error(runtimeT('browserAsset.prompt.noUsablePrompt'))
       return parsed
     },
     [promptExtractionSettings],
@@ -225,7 +226,7 @@ export function useBrowserAssetCaptureImport({
           id: cardId,
           request,
           references: latestReferences,
-          prompt: error instanceof Error ? error.message : '提示词提取失败',
+          prompt: error instanceof Error ? error.message : runtimeT('browserAsset.status.extractFailed'),
           status: 'error',
           savedAt: pendingAsset.promptCard?.savedAt,
         }))

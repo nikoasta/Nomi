@@ -8,6 +8,7 @@ import { useCommittedProposal } from '../generationCanvas/agent/proposalUndo'
 import CategoryItem from './CategoryItem'
 import GroupItem from './GroupItem'
 import NodeItem from './NodeItem'
+import { useI18n } from '../../i18n/i18nContext'
 
 type Props = {
   categories?: ProjectCategory[]
@@ -33,6 +34,7 @@ const DEFAULT_GROUP_COLOR = '#d8c3a5'
  * 仅在面板展开 + 「分类」tab 激活时挂载，故始终按展开态渲染。
  */
 export default function CategoryTree({ categories, createCategoryNonce = 0 }: Props): JSX.Element {
+  const { t } = useI18n()
   const activeCategoryId = useWorkbenchStore((s) => s.activeCategoryId)
   const setActiveCategoryId = useWorkbenchStore((s) => s.setActiveCategoryId)
   const addCategory = useWorkbenchStore((s) => s.addCategory)
@@ -363,12 +365,12 @@ export default function CategoryTree({ categories, createCategoryNonce = 0 }: Pr
           const isCustom = category ? !category.isBuiltin : false
           return (
             <>
-              <button type="button" role="menuitem" className={buttonClass} onClick={() => handleCreateGroup(menu.categoryId)}>新建子组</button>
+              <button type="button" role="menuitem" className={buttonClass} onClick={() => handleCreateGroup(menu.categoryId)}>{t('categoryTree.menu.newGroup')}</button>
               {isCustom ? (
                 <>
-                  <button type="button" role="menuitem" className={buttonClass} onClick={() => handleRenameCategory(menu.categoryId)}>重命名</button>
+                  <button type="button" role="menuitem" className={buttonClass} onClick={() => handleRenameCategory(menu.categoryId)}>{t('categoryTree.menu.rename')}</button>
                   <div className="my-0.5 h-px bg-nomi-line" />
-                  <button type="button" role="menuitem" className={dangerClass} onClick={() => handleDeleteCategory(menu.categoryId)}>删除分类</button>
+                  <button type="button" role="menuitem" className={dangerClass} onClick={() => handleDeleteCategory(menu.categoryId)}>{t('categoryTree.menu.deleteCategory')}</button>
                 </>
               ) : null}
             </>
@@ -376,20 +378,20 @@ export default function CategoryTree({ categories, createCategoryNonce = 0 }: Pr
         })() : null}
         {menu.type === 'node' ? (
           <>
-            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleCopyNode(menu.nodeId)}>复制</button>
-            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleRenameNode(menu.nodeId)}>重命名</button>
-            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleRegenerateDerivedNode(menu.nodeId)}>派生重新生成</button>
+            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleCopyNode(menu.nodeId)}>{t('categoryTree.menu.copy')}</button>
+            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleRenameNode(menu.nodeId)}>{t('categoryTree.menu.rename')}</button>
+            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleRegenerateDerivedNode(menu.nodeId)}>{t('categoryTree.menu.regenerateDerived')}</button>
             <div className="my-0.5 h-px bg-nomi-line" />
-            <button type="button" role="menuitem" className={dangerClass} onClick={() => handleDeleteNode(menu.nodeId)}>删除</button>
+            <button type="button" role="menuitem" className={dangerClass} onClick={() => handleDeleteNode(menu.nodeId)}>{t('categoryTree.menu.delete')}</button>
           </>
         ) : null}
         {menu.type === 'group' ? (
           <>
-            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleRenameGroup(menu.groupId)}>重命名</button>
-            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleSetGroupColor(menu.groupId)}>改颜色</button>
-            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleUngroup(menu.groupId)}>解组（保留节点）</button>
+            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleRenameGroup(menu.groupId)}>{t('categoryTree.menu.rename')}</button>
+            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleSetGroupColor(menu.groupId)}>{t('categoryTree.menu.changeColor')}</button>
+            <button type="button" role="menuitem" className={buttonClass} onClick={() => handleUngroup(menu.groupId)}>{t('categoryTree.menu.ungroup')}</button>
             <div className="my-0.5 h-px bg-nomi-line" />
-            <button type="button" role="menuitem" className={dangerClass} onClick={() => handleDeleteGroup(menu.groupId)}>删除（连节点）</button>
+            <button type="button" role="menuitem" className={dangerClass} onClick={() => handleDeleteGroup(menu.groupId)}>{t('categoryTree.menu.deleteWithNodes')}</button>
           </>
         ) : null}
       </div>
@@ -454,7 +456,7 @@ export default function CategoryTree({ categories, createCategoryNonce = 0 }: Pr
                     )
                   })}
                   {!looseNodes.length && !categoryGroups.length ? (
-                    <div className="px-2 py-1.5 text-micro text-nomi-ink-30">暂无节点</div>
+                    <div className="px-2 py-1.5 text-micro text-nomi-ink-30">{t('categoryTree.emptyNodes')}</div>
                   ) : null}
                 </div>
               ) : null}
