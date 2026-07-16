@@ -99,7 +99,7 @@ const SOURCE_OPTIONS: { value: SourceFilterValue; label: string }[] = [
 ]
 
 const FILTER_LABEL_BY_VALUE = new Map<FilterValue, string>(
-  FILTER_OPTIONS.map((option) => [option.value, option.label]),
+  FILTER_OPTIONS.map((option) => [option.value, option.value]),
 )
 
 function assetToDragPayload(asset: AssetRef, dragAnchor?: AssetLibraryDragPayload['dragAnchor']): AssetLibraryDragPayload {

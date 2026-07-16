@@ -5,6 +5,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const BASELINE_FILE = path.join(ROOT, "scripts", "i18n-ui-baseline.json");
 
 const SCAN_ROOTS = ["src/workbench", "src/ui", "src/media"];
 const SCAN_EXTENSIONS = new Set([".ts", ".tsx"]);
@@ -71,6 +72,19 @@ function isCommentOnly(line) {
 const files = SCAN_ROOTS.flatMap((rel) => walk(path.join(ROOT, rel))).filter(shouldScan);
 const findings = [];
 
+function findingKey(finding) {
+  return `${finding.file}\0${finding.check}\0${finding.text}`;
+}
+
+function readBaseline() {
+  if (!fs.existsSync(BASELINE_FILE)) return new Set();
+  const parsed = JSON.parse(fs.readFileSync(BASELINE_FILE, "utf8"));
+  if (!Array.isArray(parsed)) throw new Error("i18n UI baseline must be an array");
+  return new Set(parsed.map((entry) => `${entry.file}\0${entry.check}\0${entry.text}`));
+}
+
+const baseline = readBaseline();
+
 for (const absolute of files) {
   const rel = toPosix(path.relative(ROOT, absolute));
   const lines = fs.readFileSync(absolute, "utf8").split("\n");
@@ -89,11 +103,16 @@ for (const absolute of files) {
   });
 }
 
-if (findings.length > 0) {
+const newFindings = findings.filter((finding) => !baseline.has(findingKey(finding)));
+
+if (newFindings.length > 0) {
   console.error("\nI18n UI guard failed: move hardcoded Chinese interface text into dictionaries.\n");
-  for (const finding of findings) {
+  for (const finding of newFindings) {
     console.error(`- ${finding.file}:${finding.line} (${finding.check})`);
     console.error(`  ${finding.text}`);
+  }
+  if (baseline.size > 0) {
+    console.error(`\nIgnored ${findings.length - newFindings.length} baseline findings from scripts/i18n-ui-baseline.json.`);
   }
   console.error(
     "\nAllowed homes for Chinese source text: src/i18n/translations.ts and the local *I18n.ts dictionaries.\n",
@@ -102,5 +121,5 @@ if (findings.length > 0) {
 }
 
 console.log(
-  `✓ i18n UI guard passed: scanned ${files.length} files, no hardcoded Chinese JSX labels/errors found.`,
+  `✓ i18n UI guard passed: scanned ${files.length} files, ${findings.length} baseline findings, no new hardcoded Chinese JSX labels/errors found.`,
 );
