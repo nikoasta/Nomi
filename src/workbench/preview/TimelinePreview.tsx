@@ -61,7 +61,6 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
   const [textMenuOpen, setTextMenuOpen] = React.useState(false)
   const textMenuRef = React.useRef<HTMLDivElement | null>(null)
   const [textSnapGuides, setTextSnapGuides] = React.useState<{ x: number | null; y: number | null }>({ x: null, y: null })
-  // P2 播放器手感：音量/静音（clip 本就带音频，之前播放器读不到）+ 全屏（看成片整体）。
   const [volume, setVolume] = React.useState(1)
   const [muted, setMuted] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
