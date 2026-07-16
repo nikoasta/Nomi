@@ -28,4 +28,11 @@ describe('translateDisplayText', () => {
     expect(translateDisplayText('ru', '视频轨')).toBe('Видеодорожка')
     expect(translateDisplayText('en', '音频轨')).toBe('Audio track')
   })
+
+  it('translates persisted text overlay defaults and font labels', () => {
+    expect(translateDisplayText('en', '标题')).toBe('Title')
+    expect(translateDisplayText('ru', '字幕文字')).toBe('Текст субтитров')
+    expect(translateDisplayText('en', '默认黑体')).toBe('Default sans')
+    expect(translateDisplayText('ru', '英文衬线')).toBe('Английский с засечками')
+  })
 })

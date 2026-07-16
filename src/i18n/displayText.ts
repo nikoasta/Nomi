@@ -40,6 +40,13 @@ const EXACT: Record<string, Record<SupportedLocale, string>> = {
   '图片轨': { 'zh-CN': '图片轨', en: 'Image track', ru: 'Дорожка изображений' },
   '视频轨': { 'zh-CN': '视频轨', en: 'Video track', ru: 'Видеодорожка' },
   '音频轨': { 'zh-CN': '音频轨', en: 'Audio track', ru: 'Аудиодорожка' },
+  '默认黑体': { 'zh-CN': '默认黑体', en: 'Default sans', ru: 'Стандартный гротеск' },
+  '宋体': { 'zh-CN': '宋体', en: 'Songti serif', ru: 'Songti с засечками' },
+  '楷体': { 'zh-CN': '楷体', en: 'Kaiti script', ru: 'Kaiti рукописный' },
+  '圆体': { 'zh-CN': '圆体', en: 'Rounded sans', ru: 'Скругленный гротеск' },
+  '英文衬线': { 'zh-CN': '英文衬线', en: 'English serif', ru: 'Английский с засечками' },
+  '标题': { 'zh-CN': '标题', en: 'Title', ru: 'Заголовок' },
+  '字幕文字': { 'zh-CN': '字幕文字', en: 'Caption text', ru: 'Текст субтитров' },
   '按放入顺序编号 ①②③': {
     'zh-CN': '按放入顺序编号 ①②③',
     en: 'Numbered by insertion order: ①②③',

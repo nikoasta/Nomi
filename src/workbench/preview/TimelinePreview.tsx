@@ -25,6 +25,7 @@ import { computeTimelineDuration } from '../timeline/timelineMath'
 import { getDesktopBridge } from '../../desktop/bridge'
 import { getDesktopActiveProjectId } from '../../desktop/activeProject'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 
 type TimelinePreviewProps = {
   activeClips: TimelineClip[]
@@ -37,7 +38,7 @@ type TimelinePreviewProps = {
 type PreviewExportStatus = 'idle' | 'preparing' | 'recording' | 'converting' | 'done' | 'error'
 
 export default function TimelinePreview({ activeClips, aspectRatio, fps, playheadFrame, timeline }: TimelinePreviewProps): JSX.Element {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const playerRef = React.useRef<HTMLDivElement | null>(null)
   const stageRef = React.useRef<HTMLDivElement | null>(null)
   const videoRef = React.useRef<HTMLVideoElement | null>(null)
@@ -210,11 +211,11 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
   }, [framingClipId, setTimelineClipFraming])
 
   const addText = React.useCallback((style: 'caption' | 'title') => {
-    const id = addTimelineTextClip(style, playheadFrame)
+    const id = addTimelineTextClip(style, playheadFrame, style === 'title' ? translateDisplayText(locale, '标题') : translateDisplayText(locale, '字幕文字'))
     setEditingTextId(id)
     setEditingDraft('')
     setTextMenuOpen(false)
-  }, [addTimelineTextClip, playheadFrame])
+  }, [addTimelineTextClip, locale, playheadFrame])
 
   // 文字预设菜单：点外部关闭
   React.useEffect(() => {
@@ -478,6 +479,7 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
               <div className="absolute left-0 right-0 h-px bg-[var(--nomi-accent)] opacity-70 pointer-events-none" style={{ top: `${textSnapGuides.y * stageSize.height}px` }} aria-hidden="true" />
             ) : null}
             {activeTextClips.map((clip) => {
+              const displayText = translateDisplayText(locale, clip.text)
               const box = resolveTextBox(clip, stageSize.width, stageSize.height)
               const transform = resolveOverlayTransform(clip)
               const editing = editingTextId === clip.id
@@ -512,7 +514,7 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
                     className="workbench-preview-player__text-edit absolute pointer-events-auto resize-none outline-none overflow-hidden"
                     style={{ ...centerStyle, ...contentStyle, boxShadow: '0 0 0 2px var(--nomi-accent)' }}
                     value={editingDraft}
-                    placeholder={clip.text}
+                    placeholder={displayText}
                     autoFocus
                     rows={1}
                     onFocus={(event) => event.currentTarget.select()}
@@ -542,8 +544,8 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
                     onTransform={(patch, commit) => updateTimelineTextClipTransform(clip.id, patch, { commit })}
                     onSnapGuides={setTextSnapGuides}
                   >
-                    <div style={contentStyle} onDoubleClick={(event) => { event.stopPropagation(); beginEditText(clip.id, clip.text) }} title={t('preview.textDragTitle')}>
-                      {clip.text}
+                    <div style={contentStyle} onDoubleClick={(event) => { event.stopPropagation(); beginEditText(clip.id, displayText) }} title={t('preview.textDragTitle')}>
+                      {displayText}
                     </div>
                   </OverlaySelectionBox>
                 )
@@ -554,10 +556,10 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
                   className="workbench-preview-player__text-box absolute pointer-events-auto cursor-pointer select-none"
                   style={{ ...centerStyle, ...contentStyle }}
                   onPointerDown={(event) => { event.stopPropagation(); selectTimelineTextClip(clip.id) }}
-                  onDoubleClick={(event) => { event.stopPropagation(); beginEditText(clip.id, clip.text) }}
+                  onDoubleClick={(event) => { event.stopPropagation(); beginEditText(clip.id, displayText) }}
                   title={t('preview.textSelectTitle')}
                 >
-                  {clip.text}
+                  {displayText}
                 </div>
               )
             })}

@@ -9,6 +9,7 @@ import { TEXT_FONTS, DEFAULT_TEXT_FONT_ID } from '../timeline/textFonts'
 import { SCALE_MIN, SCALE_MAX } from '../timeline/overlayTransform'
 import { CONTROL_ICON_BUTTON_CLASS } from './previewControlTokens'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 
 type Props = {
   timeline: TimelineState
@@ -19,7 +20,7 @@ type Props = {
 // 停留时长改在时间轴文字轨上拖 clip 左右边缘调整（TimelineTextTrack），不在此控制条。
 // 从 TimelinePreview 抽出，保持壳瘦身（R9）；无选中 clip 时渲染 null。
 export function TextClipStyleControls({ timeline, selectedTextClipId }: Props): JSX.Element | null {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const updateTimelineTextClipTransform = useWorkbenchStore((state) => state.updateTimelineTextClipTransform)
   const updateTimelineTextClipFont = useWorkbenchStore((state) => state.updateTimelineTextClipFont)
 
@@ -69,7 +70,7 @@ export function TextClipStyleControls({ timeline, selectedTextClipId }: Props): 
           leadingLabel={t('preview.textStyle.font')}
           size="xs"
           value={selectedTextFontId}
-          options={TEXT_FONTS.map((font) => ({ value: font.id, label: font.label }))}
+          options={TEXT_FONTS.map((font) => ({ value: font.id, label: translateDisplayText(locale, font.label) }))}
           onChange={(value) => { if (selectedTextClipId) updateTimelineTextClipFont(selectedTextClipId, value) }}
         />
       </div>

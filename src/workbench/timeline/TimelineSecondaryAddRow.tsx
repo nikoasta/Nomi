@@ -24,7 +24,7 @@ export function TimelineSecondaryAddRow({ showAudio, showText }: { showAudio: bo
 
   const addText = () => {
     const playhead = useWorkbenchStore.getState().timeline.playheadFrame
-    selectTimelineTextClip(addTimelineTextClip('caption', playhead))
+    selectTimelineTextClip(addTimelineTextClip('caption', playhead, t('preview.caption')))
   }
   // 收起态音频轨没有 lane → 让虚线 lane 本身收音频拖放(落到播放头)。
   const onDrop = (event: React.DragEvent<HTMLDivElement>) => {

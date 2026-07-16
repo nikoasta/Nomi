@@ -24,13 +24,14 @@ export function addTextClip(
   timeline: TimelineState,
   style: TimelineTextStyle,
   startFrame: number,
+  initialText?: string,
 ): { timeline: TimelineState; id: string } {
   const id = createTextClipId()
   const start = clampInteger(startFrame, 0)
   const duration = Math.max(1, Math.round(DEFAULT_TEXT_CLIP_SECONDS * timeline.fps))
   const clip: TimelineTextClip = {
     id,
-    text: defaultTextForStyle(style),
+    text: initialText?.trim() || defaultTextForStyle(style),
     style,
     startFrame: start,
     endFrame: start + duration,

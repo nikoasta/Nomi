@@ -209,7 +209,7 @@ type WorkbenchState = {
   setTimelineZoom: (scale: number) => void
   restoreTimeline: (timeline: unknown) => void
   /** 文字轨（字幕/标题卡）。在 playhead 处加一条，选中并返回 id。 */
-  addTimelineTextClip: (style: TimelineTextStyle, startFrame: number) => string
+  addTimelineTextClip: (style: TimelineTextStyle, startFrame: number, initialText?: string) => string
   updateTimelineTextClip: (id: string, text: string) => void
   /** 拖动中传 commit:false 不落盘，松手 commit:true 落盘一次。 */
   moveTimelineTextClip: (id: string, startFrame: number, options?: { commit?: boolean }) => void
@@ -668,9 +668,9 @@ export const useWorkbenchStore = create<WorkbenchState>()(subscribeWithSelector(
       persistRevision: state.persistRevision + 1,
     }))
   },
-  addTimelineTextClip: (style, startFrame) => {
+  addTimelineTextClip: (style, startFrame, initialText) => {
     const previous = get().timeline
-    const { timeline, id } = addTextClip(previous, style, startFrame)
+    const { timeline, id } = addTextClip(previous, style, startFrame, initialText)
     set((state) => ({
       timeline,
       timelineUndoStack: pushTimelineUndo(state.timelineUndoStack, previous),

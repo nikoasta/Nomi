@@ -4,13 +4,14 @@ import { useWorkbenchStore } from '../workbenchStore'
 import { cn } from '../../utils/cn'
 import { clientXToFrame, frameToPixel, pixelToFrame } from './timelineEdit'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 
 /**
  * 文字轨：字幕/标题卡的时间轴行。只在预览标签出现（生成画布底部那条不传 showTextTrack）。
  * clip 显示文本内容；点选→选中并把 playhead 移到其起点（让预览叠加层显出来供编辑）；拖动改时间。
  */
 export default function TimelineTextTrack(): JSX.Element {
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
   const textClips = useWorkbenchStore((state) => state.timeline.textClips)
   const scale = useWorkbenchStore((state) => state.timeline.scale)
   const selectedTextClipId = useWorkbenchStore((state) => state.selectedTextClipId)
@@ -130,6 +131,7 @@ export default function TimelineTextTrack(): JSX.Element {
           )}>{t('timeline.textEmpty')}</div>
         ) : null}
         {textClips.map((clip) => {
+          const displayText = translateDisplayText(locale, clip.text)
           const left = frameToPixel(clip.startFrame, scale)
           const width = Math.max(24, frameToPixel(clip.endFrame - clip.startFrame, scale))
           const selected = selectedTextClipId === clip.id
@@ -152,7 +154,7 @@ export default function TimelineTextTrack(): JSX.Element {
               onClick={() => setTimelinePlayhead(clip.startFrame)}
             >
               <IconLetterCase size={12} className="flex-none opacity-70" />
-              <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{clip.text || t('timeline.emptyText')}</span>
+              <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">{displayText || t('timeline.emptyText')}</span>
               <span
                 role="separator"
                 aria-label={t('timeline.resizeLeft')}
