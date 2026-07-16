@@ -26,6 +26,11 @@ function buildOptimizePrompt(original: string, idea: string, isVideo: boolean): 
   ].filter(Boolean).join('\n')
 }
 
+function isMissingTextApiKeyError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return /buildAiSdkModel:\s*apiKey is required|API key missing|needs an API key/i.test(message)
+}
+
 export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasNode; isVideo: boolean }): JSX.Element {
   const { t } = useI18n()
   const [open, setOpen] = React.useState(false)
@@ -75,7 +80,7 @@ export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasN
       else setError(t('tool.promptOptimizer.emptyResult'))
     } catch (e) {
       if (e instanceof DOMException && e.name === 'AbortError') return
-      setError(e instanceof Error ? e.message : t('tool.promptOptimizer.failed'))
+      setError(isMissingTextApiKeyError(e) ? t('tool.promptOptimizer.missingApiKey') : e instanceof Error ? e.message : t('tool.promptOptimizer.failed'))
     } finally {
       setRunning(false)
       abortRef.current = null

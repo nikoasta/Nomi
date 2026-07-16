@@ -121,7 +121,10 @@ function chooseTextModel(prefModelKey?: string, preferImageInput = false): { ven
   for (const model of ordered) {
     const vendor = state.vendors.find((item) => item.key === model.vendorKey && item.enabled);
     const apiKey = decryptApiKeyRecord(state.apiKeysByVendor[model.vendorKey]);
-    if (vendor && (vendor.authType === "none" || apiKey)) return { vendor, model, apiKey };
+    // Text generation is routed through the AI SDK HTTP adapters. CLI/no-key
+    // vendors may be executable for media generation, but they cannot power the
+    // prompt optimizer or chat brain through this path.
+    if (vendor && apiKey) return { vendor, model, apiKey };
   }
   throw new Error("No local text model is configured. Open model settings and add an API key.");
 }

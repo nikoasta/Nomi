@@ -1102,6 +1102,7 @@
   "tool.promptOptimizer.title": "Optimize prompt with Nomi",
   "tool.promptOptimizer.buttonIdle": "Optimize",
   "tool.promptOptimizer.noTextModel": "Enable a text model in Model setup first",
+  "tool.promptOptimizer.missingApiKey": "Prompt optimization needs a text model API key. Open Model setup and save a key for DeepSeek, Claude, OpenAI, or another text provider.",
   "tool.promptOptimizer.emptyResult": "No optimized result was returned. Try again.",
   "tool.promptOptimizer.failed": "Optimization failed",
   "tool.convertShot.badge": "Shot {{index}}",

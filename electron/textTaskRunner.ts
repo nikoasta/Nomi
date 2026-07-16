@@ -59,6 +59,9 @@ export async function runTextTaskStream(
   if (wantedKind !== "text") throw new Error(`runTextTaskStream 只处理文本任务，收到 kind=${kind}`);
   const modelKey = firstString(request.extras?.modelKey, request.extras?.modelAlias);
   const { vendor, model, apiKey } = findExecutableModelForTask(vendorKey, modelKey, wantedKind);
+  if (!apiKey) {
+    throw new Error(`Text provider "${vendor.name || vendor.key}" needs an API key. Open Model setup and save an API key for this provider.`);
+  }
   const taskId = `task-${crypto.randomUUID()}`;
   return executeTextTask({
     vendor,

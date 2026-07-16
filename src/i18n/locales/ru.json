@@ -1102,6 +1102,7 @@
   "tool.promptOptimizer.title": "Оптимизировать prompt с Nomi",
   "tool.promptOptimizer.buttonIdle": "Оптимизировать",
   "tool.promptOptimizer.noTextModel": "Сначала включите текстовую модель в настройке моделей",
+  "tool.promptOptimizer.missingApiKey": "Для оптимизации prompt нужен API key текстовой модели. Откройте настройку моделей и сохраните ключ для DeepSeek, Claude, OpenAI или другого текстового провайдера.",
   "tool.promptOptimizer.emptyResult": "Оптимизированный результат не пришел. Попробуйте снова.",
   "tool.promptOptimizer.failed": "Оптимизация не удалась",
   "tool.convertShot.badge": "Кадр {{index}}",

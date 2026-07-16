@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { mintSpendGrant } from '../../api/taskApi'
+import { canvasRuntimeTranslate } from '../canvasI18n'
 
 // 付费生成确认 + 铸令牌（渲染层单一收口）。
 // 方案：docs/plan/2026-06-21-spend-confirmation-gate.md（务实纵深 A1：用户直发轻确认、agent 强确认）。
@@ -75,6 +76,10 @@ export async function confirmAndMintGrant(opts: {
 export function describeGenerationCost(count: number, kind: 'image' | 'video' | 'audio' | 'mixed' = 'image'): string {
   const perItemSec = kind === 'video' ? 40 : kind === 'audio' ? 20 : 12
   const mins = Math.max(1, Math.round((count * perItemSec) / 60))
-  const unit = kind === 'video' ? '段视频' : kind === 'audio' ? '段配音' : kind === 'mixed' ? '个素材' : '张画面'
-  return `将生成 ${count} ${unit} · 预计约 ${mins} 分钟 · 会消耗模型额度`
+  const unitKey = kind === 'video' ? 'spend.unit.video' : kind === 'audio' ? 'spend.unit.audio' : kind === 'mixed' ? 'spend.unit.mixed' : 'spend.unit.image'
+  return canvasRuntimeTranslate('spend.costSummary', {
+    count,
+    minutes: mins,
+    unit: canvasRuntimeTranslate(unitKey),
+  })
 }

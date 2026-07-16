@@ -1102,6 +1102,7 @@
   "tool.promptOptimizer.title": "用 Nomi 优化提示词",
   "tool.promptOptimizer.buttonIdle": "优化",
   "tool.promptOptimizer.noTextModel": "请先在「模型接入」里启用一个文本模型",
+  "tool.promptOptimizer.missingApiKey": "提示词优化需要文本模型 API Key。请在「模型接入」里为 DeepSeek、Claude、OpenAI 或其他文本供应商保存 Key。",
   "tool.promptOptimizer.emptyResult": "没拿到优化结果，请重试",
   "tool.promptOptimizer.failed": "优化失败",
   "tool.convertShot.badge": "镜头 {{index}}",
