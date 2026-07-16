@@ -15,6 +15,7 @@ import type { TimelineTrack as TimelineTrackData } from './timelineTypes'
 import { getTrackTypeForClipType } from './timelineTypes'
 import { toast } from '../../ui/toast'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 import { canvasTranslate } from '../generationCanvas/canvasI18n'
 
 type TimelineTrackProps = {
@@ -27,6 +28,7 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
   const { t, locale } = useI18n()
   const tCanvas = React.useCallback((key: Parameters<typeof canvasTranslate>[1], params?: Record<string, string | number>) => canvasTranslate(locale, key, params), [locale])
   const secondary = variant === 'secondary'
+  const trackLabel = translateDisplayText(locale, track.label)
   // 只订阅渲染真正用到的 scale/fps，**不订阅整条 timeline**：播放推进每帧换 timeline 引用，
   // 订阅整条会让本轨道（连同所有 clip）每帧重渲；playhead 由独立 overlay 订阅 playheadFrame。
   const scale = useWorkbenchStore((state) => state.timeline.scale)
@@ -120,7 +122,7 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
         <span className={cn(
           'workbench-timeline-track__name',
           'min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap',
-        )}>{track.label}</span>
+        )}>{trackLabel}</span>
         <span className={cn(
           'workbench-timeline-track__count',
           'flex-none min-w-0 h-auto ml-auto px-1.5 py-px',

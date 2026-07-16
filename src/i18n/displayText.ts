@@ -37,6 +37,9 @@ const EXACT: Record<string, Record<SupportedLocale, string>> = {
   '默认': { 'zh-CN': '默认', en: 'Default', ru: 'По умолчанию' },
   '选择': { 'zh-CN': '选择', en: 'Select', ru: 'Выбрать' },
   '声音': { 'zh-CN': '声音', en: 'Audio', ru: 'Аудио' },
+  '图片轨': { 'zh-CN': '图片轨', en: 'Image track', ru: 'Дорожка изображений' },
+  '视频轨': { 'zh-CN': '视频轨', en: 'Video track', ru: 'Видеодорожка' },
+  '音频轨': { 'zh-CN': '音频轨', en: 'Audio track', ru: 'Аудиодорожка' },
   '按放入顺序编号 ①②③': {
     'zh-CN': '按放入顺序编号 ①②③',
     en: 'Numbered by insertion order: ①②③',

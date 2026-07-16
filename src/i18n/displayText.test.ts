@@ -22,4 +22,10 @@ describe('translateDisplayText', () => {
     expect(providerCountLabel('en', 3)).toBe('3 providers')
     expect(providerCountLabel('ru', 3)).toBe('3 пров.')
   })
+
+  it('translates persisted timeline track labels', () => {
+    expect(translateDisplayText('en', '图片轨')).toBe('Image track')
+    expect(translateDisplayText('ru', '视频轨')).toBe('Видеодорожка')
+    expect(translateDisplayText('en', '音频轨')).toBe('Audio track')
+  })
 })
