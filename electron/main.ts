@@ -529,6 +529,10 @@ function registerIpc(): void {
     const { dreaminaInstall } = await import("./catalog/dreaminaLoginIpc");
     return dreaminaInstall();
   });
+  ipcMain.handle("nomi:higgsfield:status", async () => (await import("./catalog/higgsfieldIpc")).higgsfieldStatus());
+  ipcMain.handle("nomi:higgsfield:install", async () => (await import("./catalog/higgsfieldIpc")).higgsfieldInstall());
+  ipcMain.handle("nomi:higgsfield:login", async () => (await import("./catalog/higgsfieldIpc")).higgsfieldLogin());
+  ipcMain.handle("nomi:higgsfield:sync-catalog", async () => (await import("./catalog/higgsfieldIpc")).higgsfieldSyncCatalog());
   ipcMain.handle("nomi:workspace:select-folder", async () => {
     const selection = await selectWorkspaceFolder({ showOpenDialog: (options) => dialog.showOpenDialog(options) });
     if (!selection.canceled) selectedWorkspaceRoots.add(selection.rootPath);

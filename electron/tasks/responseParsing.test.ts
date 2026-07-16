@@ -66,8 +66,9 @@ describe("collectAssetUrls", () => {
       "https://x/1",
       "https://x/2",
     ]);
-    expect(collectAssetUrls({ image_url: "https://x/i", output_url: "https://x/o" })).toEqual([
+    expect(collectAssetUrls({ image_url: "https://x/i", audio_url: "https://x/a.wav", output_url: "https://x/o" })).toEqual([
       "https://x/i",
+      "https://x/a.wav",
       "https://x/o",
     ]);
   });

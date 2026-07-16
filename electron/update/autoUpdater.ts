@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { app, BrowserWindow, ipcMain, shell } from "electron";
 
 // 版本号 + 检查更新 + 一键更新（功能需求 1/2/3）。
@@ -23,6 +25,7 @@ const MANUAL_UPDATE_REASON = "manual-update-only";
 
 // 未签名 mac 无法就地自动安装；其余平台（Windows NSIS）可以。
 const CAN_AUTO_INSTALL = process.platform !== "darwin";
+const UPDATE_CONFIG_FILE = "app-update.yml";
 
 function broadcast(payload: Record<string, unknown>): void {
   for (const win of BrowserWindow.getAllWindows()) {
@@ -33,6 +36,14 @@ function broadcast(payload: Record<string, unknown>): void {
 function manualUpdateOnlyResponse(): { ok: false; reason: typeof MANUAL_UPDATE_REASON } {
   broadcast({ type: "manual-update-only" });
   return { ok: false, reason: MANUAL_UPDATE_REASON };
+}
+
+function hasBundledUpdateConfig(): boolean {
+  return app.isPackaged && existsSync(join(process.resourcesPath, UPDATE_CONFIG_FILE));
+}
+
+function shouldUseManualUpdate(): boolean {
+  return !CAN_AUTO_INSTALL || !hasBundledUpdateConfig();
 }
 
 function describeError(error: unknown): string {
@@ -109,7 +120,7 @@ export function registerUpdaterIpc(): void {
       broadcast({ type: "error", message: "开发模式下不可用，请在安装版中检查更新" });
       return { ok: false, reason: "not-packaged" };
     }
-    if (!CAN_AUTO_INSTALL) {
+    if (shouldUseManualUpdate()) {
       return manualUpdateOnlyResponse();
     }
     try {
@@ -123,7 +134,7 @@ export function registerUpdaterIpc(): void {
   });
 
   ipcMain.handle("nomi:update:download", async () => {
-    if (!CAN_AUTO_INSTALL) {
+    if (shouldUseManualUpdate()) {
       return manualUpdateOnlyResponse();
     }
     try {
@@ -137,7 +148,7 @@ export function registerUpdaterIpc(): void {
   });
 
   ipcMain.handle("nomi:update:install", () => {
-    if (!CAN_AUTO_INSTALL) {
+    if (shouldUseManualUpdate()) {
       return manualUpdateOnlyResponse();
     }
     // 立即重启并安装（非静默）。mac 未签名会被 Gatekeeper 拦——降级实况以真机为准。

@@ -11,6 +11,9 @@ import path from "node:path";
 import type { HttpOperation } from "./types";
 import { runDreaminaCli, resolveDreaminaBin } from "./dreaminaCli";
 import { normalizeDreaminaOutput, buildMultiframeArgs, splitTransitionLines, describeDreaminaFailure } from "./dreaminaCodec";
+import { runHiggsfieldCli, resolveHiggsfieldBin } from "./higgsfieldCli";
+import { describeHiggsfieldFailure, normalizeHiggsfieldOutput } from "./higgsfieldCodec";
+import { buildHiggsfieldGenerateArgs } from "./higgsfieldTransport";
 import { renderTemplateValue } from "../ai/requestPipeline";
 import { contentTypeFromPath } from "../assets/assetPaths";
 import { materializeInputFiles } from "./dreaminaInputFiles";
@@ -42,6 +45,8 @@ export type ProcessResponse = {
 };
 
 export async function executeProcessOperation(input: ProcessOperationInput): Promise<{ response: unknown; request: unknown }> {
+  if (input.process.parser === "higgsfield-cli") return executeHiggsfieldProcessOperation(input);
+
   const bin = resolveDreaminaBin();
   if (!bin) {
     throw new Error("未找到即梦 CLI（dreamina）。请在「模型设置 · 即梦会员」卡里一键安装，或终端运行 curl -fsSL https://jimeng.jianying.com/cli | bash。");
@@ -138,5 +143,67 @@ export async function executeProcessOperation(input: ProcessOperationInput): Pro
       try { rmSync(inputDir, { recursive: true, force: true }); } catch { /* best-effort */ }
     }
     void tempInputs; // temp 输入随 inputDir 整体清理（列表留作未来按文件粒度清理/排错）
+  }
+}
+
+async function executeHiggsfieldProcessOperation(input: ProcessOperationInput): Promise<{ response: unknown; request: unknown }> {
+  const bin = resolveHiggsfieldBin();
+  if (!bin) {
+    throw new Error("Higgsfield CLI is not installed. Open Model setup and install Higgsfield CLI first.");
+  }
+
+  const tempInputs: string[] = [];
+  let inputDir = "";
+  if (input.process.fileParams?.length) {
+    inputDir = mkdtempSync(path.join(os.tmpdir(), "nomi-higgsfield-in-"));
+    const reqParams = (((input.context.request as JsonRecord)?.params) ?? {}) as Record<string, unknown>;
+    tempInputs.push(...(await materializeInputFiles(reqParams, input.process.fileParams, input.projectId, inputDir)));
+  }
+
+  let args: string[] = [];
+  if (input.process.build === "higgsfield-generate") {
+    const request = ((input.context.request as JsonRecord) || {}) as JsonRecord;
+    const model = ((input.context.model as JsonRecord) || {}) as JsonRecord;
+    const params = (request.params && typeof request.params === "object" && !Array.isArray(request.params)
+      ? request.params
+      : {}) as Record<string, unknown>;
+    args = buildHiggsfieldGenerateArgs({
+      modelKey: String(model.modelKey || model.model_key || model.model_alias || ""),
+      prompt: String(request.prompt || ""),
+      params,
+    });
+  } else {
+    for (const tpl of input.process.args) {
+      const rendered = renderTemplateValue(tpl, input.context);
+      const items = Array.isArray(rendered) ? rendered : [rendered];
+      for (const item of items) {
+        const s = String(item ?? "");
+        if (s && !/=$/.test(s)) args.push(s);
+      }
+    }
+  }
+
+  try {
+    const ran = await runHiggsfieldCli(args, { timeoutMs: input.timeoutMs ?? 20 * 60_000, bin });
+    const normalized = normalizeHiggsfieldOutput(ran.stdout, ran.stderr, ran.code);
+    const hasAnySignal = Boolean(normalized.submitId || normalized.genStatus || normalized.remoteUrls.length);
+    if (!hasAnySignal || (ran.code !== 0 && normalized.remoteUrls.length === 0)) {
+      throw new Error(describeHiggsfieldFailure(ran.code, ran.stdout, ran.stderr));
+    }
+    const response: ProcessResponse = {
+      submit_id: normalized.submitId,
+      gen_status: normalized.genStatus,
+      fail_reason: normalized.failReason,
+      queue_info: normalized.queueInfo,
+      video_url: normalized.remoteUrls,
+      _stdout: ran.stdout,
+      _stderr: ran.stderr,
+    };
+    return { response, request: { bin: path.basename(bin), args } };
+  } finally {
+    if (inputDir) {
+      try { rmSync(inputDir, { recursive: true, force: true }); } catch { /* best-effort */ }
+    }
+    void tempInputs;
   }
 }

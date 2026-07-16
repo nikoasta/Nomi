@@ -1334,6 +1334,7 @@
   "modelSetup.addModelRelayHint": "new-api can import image, video, and text models at once · official vendors and custom APIs also work",
   "modelSetup.localComfyui": "Using local ComfyUI?",
   "modelSetup.dreaminaMember": "Have a Dreamina membership?",
+  "modelSetup.higgsfieldCli": "Connect Higgsfield CLI",
   "modelSetup.connectAssistantOptional": "Connect coding assistant · optional",
   "modelSetup.deleteModel.title": "Delete model",
   "modelSetup.deleteModel.message": "Delete \"{{name}}\"? This cannot be undone. You will need to fetch it again to use it later.",

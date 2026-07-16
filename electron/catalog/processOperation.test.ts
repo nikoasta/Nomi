@@ -3,9 +3,15 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // 把 dreaminaCli（spawn IO）整体 mock 掉，喂合成 stdout，验进程路径端到端不需真二进制。
 const runDreaminaCli = vi.fn();
 const resolveDreaminaBin = vi.fn(() => "/fake/bin/dreamina");
+const runHiggsfieldCli = vi.fn();
+const resolveHiggsfieldBin = vi.fn(() => "/fake/bin/higgsfield");
 vi.mock("./dreaminaCli", () => ({
   runDreaminaCli: (...args: unknown[]) => runDreaminaCli(...args),
   resolveDreaminaBin: () => resolveDreaminaBin(),
+}));
+vi.mock("./higgsfieldCli", () => ({
+  runHiggsfieldCli: (...args: unknown[]) => runHiggsfieldCli(...args),
+  resolveHiggsfieldBin: () => resolveHiggsfieldBin(),
 }));
 
 import { executeProcessOperation } from "./processOperation";
@@ -24,8 +30,10 @@ const call = (args: string[], opts: { projectId?: string; appendDownloadDir?: bo
 
 beforeEach(() => {
   runDreaminaCli.mockReset();
+  runHiggsfieldCli.mockReset();
   writeAsset.mockClear();
   resolveDreaminaBin.mockReturnValue("/fake/bin/dreamina");
+  resolveHiggsfieldBin.mockReturnValue("/fake/bin/higgsfield");
 });
 
 describe("executeProcessOperation", () => {
@@ -94,6 +102,50 @@ describe("executeProcessOperation", () => {
   it("未装 CLI → 抛安装引导错误", async () => {
     resolveDreaminaBin.mockReturnValue("");
     await expect(call(["text2video"])).rejects.toThrow(/未找到即梦 CLI|一键安装/);
+  });
+
+  it("Higgsfield build：用选中 modelKey + params 组装 generate create", async () => {
+    runHiggsfieldCli.mockResolvedValue({
+      code: 0,
+      stdout: '[{"id":"h-1","status":"completed","output_url":"https://cdn.example.com/out.mp4"}]',
+      stderr: "",
+    });
+    const { response, request } = await executeProcessOperation({
+      process: { bin: "higgsfield", parser: "higgsfield-cli", build: "higgsfield-generate", args: [] },
+      context: {
+        model: { modelKey: "seedance_2_0" },
+        request: { prompt: "camera push in", params: { duration: 5, start_image: "/tmp/frame.png", projectId: "p", grantId: "g", n: 1 } },
+      },
+      projectId: "proj",
+      writeAsset,
+    });
+    expect(runHiggsfieldCli).toHaveBeenCalledWith(
+      ["generate", "create", "seedance_2_0", "--prompt", "camera push in", "--duration", "5", "--start-image", "/tmp/frame.png", "--wait", "--wait-timeout", "20m", "--wait-interval", "5s", "--json"],
+      expect.anything(),
+    );
+    expect((response as JsonRecord).video_url).toEqual(["https://cdn.example.com/out.mp4"]);
+    expect(request).toMatchObject({ bin: "higgsfield" });
+  });
+
+  it("Higgsfield workflow：workflow: 前缀走 generate workflow", async () => {
+    runHiggsfieldCli.mockResolvedValue({
+      code: 0,
+      stdout: '[{"id":"h-wf-1","status":"completed","output_url":"https://cdn.example.com/out.mp4"}]',
+      stderr: "",
+    });
+    await executeProcessOperation({
+      process: { bin: "higgsfield", parser: "higgsfield-cli", build: "higgsfield-generate", args: [] },
+      context: {
+        model: { modelKey: "workflow:reframe" },
+        request: { prompt: "make it vertical", params: { video_references: ["/tmp/in.mp4"], aspect_ratio: "9:16" } },
+      },
+      projectId: "proj",
+      writeAsset,
+    });
+    expect(runHiggsfieldCli).toHaveBeenCalledWith(
+      ["generate", "workflow", "reframe", "--prompt", "make it vertical", "--video", "/tmp/in.mp4", "--aspect-ratio", "9:16", "--wait", "--wait-timeout", "20m", "--wait-interval", "5s", "--json"],
+      expect.anything(),
+    );
   });
 });
 

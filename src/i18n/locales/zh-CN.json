@@ -1334,6 +1334,7 @@
   "modelSetup.addModelRelayHint": "new-api 一次拉全图·视频·文本 · 也可接官方厂商 / 自定义接口",
   "modelSetup.localComfyui": "有本地 ComfyUI？",
   "modelSetup.dreaminaMember": "有即梦会员？",
+  "modelSetup.higgsfieldCli": "接入 Higgsfield CLI",
   "modelSetup.connectAssistantOptional": "接入编程助手 · 可选",
   "modelSetup.deleteModel.title": "删除模型",
   "modelSetup.deleteModel.message": "删除「{{name}}」？此操作不可恢复，之后要用需重新拉取。",

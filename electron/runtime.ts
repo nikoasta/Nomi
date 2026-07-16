@@ -404,14 +404,15 @@ export async function buildProfileTaskResult(input: {
     ...valuesFromMapping(response, responseMapping, "assets"),
     ...valuesFromMapping(response, responseMapping, "image_url"),
     ...valuesFromMapping(response, responseMapping, "video_url"),
+    ...valuesFromMapping(response, responseMapping, "audio_url"),
     ...valuesFromMapping(response, responseMapping, "model_url"),
   ];
   const assetUrls = Array.from(
     new Set([...mappedAssetValues.flatMap(collectAssetUrls), ...collectAssetUrls(extractAssetUrl(response))]),
   );
   const status = taskStatusFromResponse(response, responseMapping, input.mapping.statusMapping, assetUrls);
-  const type: "image" | "video" | "model3d" =
-    input.wantedKind === "video" ? "video" : input.wantedKind === "model3d" ? "model3d" : "image";
+  const type: "image" | "video" | "audio" | "model3d" =
+    input.wantedKind === "video" ? "video" : input.wantedKind === "audio" ? "audio" : input.wantedKind === "model3d" ? "model3d" : "image";
   const assets = input.projectId
     ? await Promise.all(assetUrls.map((url) => localizeTaskAsset(input.projectId || "", url, type, input.nodeId, input.vendor)))
     : assetUrls.map((url) => ({ type, url, thumbnailUrl: type === "image" ? url : null }));
@@ -462,8 +463,7 @@ export async function runTask(payload: unknown): Promise<TaskResult> {
   // L3 诚实护栏：图生图/图生视频缺参考或缺 mapping → 付费守卫之前拒发人话，绝不静默退化纯文生（判定在 taskParams.imageEditGuardError）。
   const guardError = imageEditGuardError(kind, request, Boolean(mapping), model.labelZh || model.modelKey);
   if (guardError) throw new Error(guardError);
-  // 第四路 audio：TTS/Whisper 同步收口（二进制/multipart）。付费守卫：必发 vendor，进来即校验消费令牌。
-  if (wantedKind === "audio") {
+  if (wantedKind === "audio" && !mapping?.create?.process) {
     assertAndConsumeSpendGrant(grantId, nodeId);
     return runAudioTask({ vendor, model, apiKey, request, kind, taskId, projectId, nodeId, mapping });
   }

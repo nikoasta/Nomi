@@ -766,7 +766,6 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
                 'workbench-preview-player__export-cancel',
                 'w-6 h-6 inline-grid place-items-center p-0 rounded-full border-0 bg-transparent text-[var(--workbench-muted)]',
                 'enabled:cursor-pointer enabled:hover:bg-[var(--workbench-hover)] enabled:hover:text-[var(--workbench-danger)]',
-                // 同 CONTROL_ICON_BUTTON_CLASS：钉死基类无条件 hover，禁用态（准备中）不假高亮。
                 'disabled:hover:bg-transparent disabled:hover:text-[var(--workbench-muted)]',
               )}
               label={t('preview.export.cancel')}

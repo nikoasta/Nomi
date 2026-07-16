@@ -12,6 +12,7 @@ export function extractAssetUrl(raw: unknown): string {
     record.url,
     record.video_url,
     record.image_url,
+    record.audio_url,
     record.model_url,
     record.output,
     (record.data as JsonRecord[] | undefined)?.[0]?.url,

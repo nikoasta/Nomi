@@ -1334,6 +1334,7 @@
   "modelSetup.addModelRelayHint": "new-api может подтянуть изображения, видео и текст сразу · также подходят официальные провайдеры и свои API",
   "modelSetup.localComfyui": "Есть локальный ComfyUI?",
   "modelSetup.dreaminaMember": "Есть подписка Dreamina?",
+  "modelSetup.higgsfieldCli": "Подключить Higgsfield CLI",
   "modelSetup.connectAssistantOptional": "Подключить coding assistant · опционально",
   "modelSetup.deleteModel.title": "Удалить модель",
   "modelSetup.deleteModel.message": "Удалить \"{{name}}\"? Это нельзя отменить. Чтобы снова использовать модель, ее придется подтянуть заново.",

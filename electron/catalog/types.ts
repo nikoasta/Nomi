@@ -249,7 +249,7 @@ export type HttpOperation = {
    * 把 stdout 归一成「类 HTTP 响应」对象，喂回现有 buildProfileTaskResult/statusMapping，状态机零改。
    *  - bin            ：可执行名（运行时经 PATH / env 解析真实路径）。
    *  - args           ：参数模板数组（如 ["text2video","--prompt={{prompt}}","--duration={{params.duration}}"]）。
-   *  - parser         ：stdout 解码器选择子（目前仅 "dreamina-cli"）。未来同形状 vendor 声明各自 parser 即复用。
+   *  - parser         ：stdout 解码器选择子（"dreamina-cli" / "higgsfield-cli"）。未来同形状 vendor 声明各自 parser 即复用。
    *  - appendDownloadDir：true 时追加 `--download_dir=<项目素材临时目录>`，让 CLI 把结果下到本地（取本地文件）。
    *  - fileParams     ：**输入文件吞入声明**。即梦带图/视频/音频的命令收**本地文件路径**（`--image=./x.png`），
    *                     而 Nomi 槽给的是资产 URL（nomi-local://http/data）。spawn 前据此把每个输入 URL 物化成
@@ -259,14 +259,14 @@ export type HttpOperation = {
   process?: {
     bin: string;
     args: string[];
-    parser: "dreamina-cli";
+    parser: "dreamina-cli" | "higgsfield-cli";
     appendDownloadDir?: boolean;
     /**
      * 特殊 arg 构建器（声明驱动分派）。缺省=用 `args` 模板渲染。"multiframe"=多帧按图数变形（2 图 shorthand /
      * 3+ 图 N-1 个 --transition-prompt），逻辑在 dreaminaCodec.buildMultiframeArgs（纯函数可测），processOperation
      * 据此忽略 args、改调构建器。其余 6 个模式都走通用 args 模板，唯独多帧条数随输入变、模板表达不了。
      */
-    build?: "multiframe";
+    build?: "multiframe" | "higgsfield-generate";
     fileParams?: Array<{
       /** request.params 里持有输入资产 URL（string 或 string[]）的键（= 槽 inputKey）。 */
       param: string;

@@ -184,6 +184,12 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
     logout: () => ipcRenderer.invoke("nomi:dreamina:logout"),
     install: () => ipcRenderer.invoke("nomi:dreamina:install"),
   },
+  higgsfield: {
+    status: () => ipcRenderer.invoke("nomi:higgsfield:status"),
+    install: () => ipcRenderer.invoke("nomi:higgsfield:install"),
+    login: () => ipcRenderer.invoke("nomi:higgsfield:login"),
+    syncCatalog: () => ipcRenderer.invoke("nomi:higgsfield:sync-catalog"),
+  },
   scene3d: {
     framesToVideo: (payload: unknown) =>
       ipcRenderer.invoke("nomi:scene3d:frames-to-video", payload) as Promise<{ url: string; assetId?: string }>,
