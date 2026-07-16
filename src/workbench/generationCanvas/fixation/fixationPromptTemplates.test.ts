@@ -3,6 +3,7 @@ import {
   buildBasicCharacterFixation,
   buildBasicSceneFixation,
   buildFixationPrompt,
+  localizeLegacyFixationPrompt,
 } from './fixationPromptTemplates'
 
 describe('buildFixationPrompt · 角色（§5.7 十条规律锁回归）', () => {
@@ -107,6 +108,26 @@ describe('Locale-aware fixation prompts', () => {
     expect(p).toContain('Роль: ночной рынок')
     expect(p).not.toContain('强制中文标注')
     expect(p).not.toContain('白天 / 黑夜')
+  })
+
+  it('upgrades saved legacy Chinese Look lock prompts when the interface is English', () => {
+    const legacy = [
+      '你是顶尖游戏/动漫概念美术大师，擅长详尽的角色身份板（character identity board）。',
+      '【主体】Image',
+      '【任务】基于参考图，制作一张 16:9 角色身份板。柔和米白色纸质背景，电影感艺术书式**不对称**布局，**绝不用网格**——英雄全身立绘略偏中心作视觉锚点，周围以干净间距环绕排列各区块，细灰引导线连接，每块独立清晰、有呼吸空间、不堆叠、不裁切、不合并。',
+      '【强制中文标注 — 缺任何一项视为失败】每个分组写中文章节大标题；每个子图下方写中文小标签，逐字如下：',
+      '· 「三视图」：正面 / 侧面 / 背面',
+      '· 「表情研究」：平静 / 微笑 / 愤怒 / 惊讶',
+      '· 「剪影研究」：3 个黑色侧影',
+      '· 「ID 信息」（左上角，简洁无衬线，每行短句）：名称：Image',
+    ].join('\n')
+    const upgraded = localizeLegacyFixationPrompt(legacy, 'en')
+    expect(upgraded).toContain('[Subject] Image')
+    expect(upgraded).toContain('[Required English labels')
+    expect(upgraded).toContain('Front / Side / Back')
+    expect(upgraded).toContain('Calm / Smile / Angry / Surprised')
+    expect(upgraded).not.toContain('强制中文标注')
+    expect(upgraded).not.toContain('正面 / 侧面 / 背面')
   })
 })
 

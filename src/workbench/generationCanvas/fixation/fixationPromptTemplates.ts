@@ -353,6 +353,77 @@ const BASIC_ANGLES: Record<SupportedLocale, string[]> = {
   ru: ['Широкий план', 'Вид сверху'],
 }
 
+function extractLegacySection(prompt: string, label: string): string[] {
+  const match = prompt.match(new RegExp(`(?:·\\s*)?[「"]${label}[」"]\\s*[：:]\\s*([^\\n（(]+)`))
+  if (!match?.[1]) return []
+  return match[1].split('/').map((part) => part.trim()).filter(Boolean)
+}
+
+function extractLegacyName(prompt: string): string {
+  const subject = prompt.match(/【主体】([^\n]+)/)?.[1]?.trim()
+  if (subject) return subject.split(/[｜|]/)[0]?.trim() || 'Image'
+  const idName = prompt.match(/名称[:：]([^；;\n]+)/)?.[1]?.trim()
+  return idName || 'Image'
+}
+
+function extractLegacyRole(prompt: string): string | undefined {
+  return prompt.match(/身份[:：]([^；;\n]+)/)?.[1]?.trim()
+}
+
+function extractLegacyAspect(prompt: string): string | undefined {
+  return prompt.match(/制作一张\s+([0-9]+:[0-9]+)/)?.[1]
+}
+
+function sameItems(items: readonly string[], expected: readonly string[]): boolean {
+  return items.length === expected.length && items.every((item, index) => item === expected[index])
+}
+
+/**
+ * Upgrade prompts created by the pre-i18n Look lock template. This deliberately
+ * only touches prompts with exact legacy markers, so regular user-written
+ * Chinese prompts remain user content.
+ */
+export function localizeLegacyFixationPrompt(prompt: string | undefined, locale: SupportedLocale): string | null {
+  if (!prompt || locale === 'zh-CN') return null
+  if (!prompt.includes('【强制中文标注') || (!prompt.includes('身份板') && !prompt.includes('设定板'))) return null
+
+  const subject: FixationSubject = prompt.includes('场景设定板') ? 'scene' : 'character'
+  const name = extractLegacyName(prompt)
+  const role = extractLegacyRole(prompt)
+  const aspectRatio = extractLegacyAspect(prompt)
+
+  if (subject === 'scene') {
+    const legacyTimes = extractLegacySection(prompt, '时段')
+    const legacyAngles = extractLegacySection(prompt, '机位')
+    return buildFixationPrompt({
+      subject,
+      name,
+      style: 'cinematic',
+      aspectRatio,
+      times: sameItems(legacyTimes, BASIC_TIMES['zh-CN']) ? BASIC_TIMES[locale] : (legacyTimes.length ? legacyTimes : BASIC_TIMES[locale]),
+      angles: sameItems(legacyAngles, BASIC_ANGLES['zh-CN']) ? BASIC_ANGLES[locale] : (legacyAngles.length ? legacyAngles : BASIC_ANGLES[locale]),
+      idBlock: role ? { role } : undefined,
+      locale,
+    })
+  }
+
+  const legacyExpressions = extractLegacySection(prompt, '表情研究')
+  const silhouettes = Number(prompt.match(/剪影研究[」"]\s*[：:]\s*(\d+)/)?.[1] || 3)
+  return buildFixationPrompt({
+    subject,
+    name,
+    style: 'cinematic',
+    aspectRatio,
+    turnaround: prompt.includes('三视图'),
+    expressions: sameItems(legacyExpressions, BASIC_EXPRESSIONS['zh-CN'])
+      ? BASIC_EXPRESSIONS[locale]
+      : (legacyExpressions.length ? legacyExpressions : BASIC_EXPRESSIONS[locale]),
+    silhouettes: Number.isFinite(silhouettes) ? silhouettes : 3,
+    idBlock: role ? { role } : undefined,
+    locale,
+  })
+}
+
 /** Tier1 角色基础定妆：三视图 + 4 基础表情 + 剪影 + ID 块。只需名字（+ 可选一句设定）。 */
 export function buildBasicCharacterFixation(name: string, opts: { tagline?: string; style?: FixationStyle; locale?: SupportedLocale } = {}): string {
   const locale = opts.locale || getRuntimeLocale()

@@ -37,6 +37,7 @@ import { resolveArchetypeForModel } from '../../../config/modelArchetypes'
 import { currentArchetypeMode } from './controls/archetypeMeta'
 import { getTextGenMode, type TextGenMode } from '../runner/textActions'
 import { useI18n } from '../../../i18n/i18nContext'
+import { localizeLegacyFixationPrompt } from '../fixation/fixationPromptTemplates'
 
 // C5 P2：文本节点的三种生成模式。
 const TEXT_GEN_MODES: { value: TextGenMode; label: string }[] = [
@@ -228,7 +229,7 @@ function BrowserPromptPickerPopover({
 }
 
 export default function NodeGenerationComposer({ node, visualSize }: Props): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
   const status = node.status || 'idle'
   const isGenerating = status === 'queued' || status === 'running'
@@ -272,6 +273,13 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
   const [promptPickerPosition, setPromptPickerPosition] = React.useState<PromptPickerPosition | null>(null)
   const promptPickerButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const promptPickerPopoverRef = React.useRef<HTMLDivElement | null>(null)
+  React.useEffect(() => {
+    if (node.locked) return
+    const localizedPrompt = localizeLegacyFixationPrompt(node.prompt, locale)
+    if (!localizedPrompt || localizedPrompt === node.prompt) return
+    updateNode(node.id, { prompt: localizedPrompt })
+    void persistActiveWorkbenchProjectNow().catch(() => {})
+  }, [locale, node.id, node.locked, node.prompt, updateNode])
   // 拖文件到卡 → 加为参考（捷径 A）。仅当当前模式有数组参考槽时接管拖拽。
   const { acceptsDrop, isDragOver, isUploading, dropHandlers } = useNodeAssetDrop(node)
   // @ 候选 = 当前模式 image_ref 槽的有序填充（连线在前+上传，option 2 单源），与面板编号①②③、
