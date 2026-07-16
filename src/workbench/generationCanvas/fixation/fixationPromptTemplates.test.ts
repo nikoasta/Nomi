@@ -86,6 +86,30 @@ describe('Tier1 基础默认', () => {
   })
 })
 
+describe('Locale-aware fixation prompts', () => {
+  it('builds English Look lock prompts without Chinese required-label scaffolding', () => {
+    const p = buildBasicCharacterFixation('Hero', { tagline: 'lead character', locale: 'en' })
+    expect(p).toContain('[Subject] Hero')
+    expect(p).toContain('[Required English labels')
+    expect(p).toContain('Front / Side / Back')
+    expect(p).toContain('Calm / Smile / Angry / Surprised')
+    expect(p).toContain('Role: lead character')
+    expect(p).not.toContain('强制中文标注')
+    expect(p).not.toContain('平静 / 微笑')
+  })
+
+  it('builds Russian scene prompts with Russian default sections', () => {
+    const p = buildBasicSceneFixation('Локация', { tagline: 'ночной рынок', locale: 'ru' })
+    expect(p).toContain('[Объект] Локация')
+    expect(p).toContain('[Обязательные русские подписи')
+    expect(p).toContain('День / Ночь / Сумерки')
+    expect(p).toContain('Широкий план / Вид сверху')
+    expect(p).toContain('Роль: ночной рынок')
+    expect(p).not.toContain('强制中文标注')
+    expect(p).not.toContain('白天 / 黑夜')
+  })
+})
+
 describe('区块未勾选则不出现（卡随内容长）', () => {
   it('没给 outfits/props/palette → prompt 里无对应章节', () => {
     const p = buildFixationPrompt({ subject: 'character', name: 'x', style: 'anime', turnaround: true })
