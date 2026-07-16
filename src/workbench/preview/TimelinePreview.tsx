@@ -5,13 +5,12 @@ import { cn } from '../../utils/cn'
 import { useWorkbenchStore } from '../workbenchStore'
 import type { TimelineClip, TimelineState } from '../timeline/timelineTypes'
 import { resolveActiveTextClipsAtFrame } from '../timeline/timelineMath'
-import { resolveTextBox, resolveOverlayTransform } from '../timeline/textLayout'
 import { resolveClipFraming, clampFramingScale, type ClipFit } from '../timeline/clipFraming'
 import { TextClipStyleControls } from './TextClipStyleControls'
 import { CONTROL_ICON_BUTTON_CLASS } from './previewControlTokens'
 import { framingToMediaStyle, mediaFitClass, framingOffsetFromDrag } from './previewMediaFraming'
 import { fitPreviewStageSize } from './previewStageLayout'
-import OverlaySelectionBox from './OverlaySelectionBox'
+import { TimelineTextOverlayLayer } from './TimelineTextOverlayLayer'
 import type { PreviewAspectRatio } from '../workbenchTypes'
 import { resolveVideoClipMediaTimeSeconds, findClipByType as findClip } from '../player/timelinePlayback'
 import { usePreviewBgmPlayback } from './usePreviewBgmPlayback'
@@ -60,13 +59,11 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
   const [editingDraft, setEditingDraft] = React.useState('')
   const [textMenuOpen, setTextMenuOpen] = React.useState(false)
   const textMenuRef = React.useRef<HTMLDivElement | null>(null)
-  const [textSnapGuides, setTextSnapGuides] = React.useState<{ x: number | null; y: number | null }>({ x: null, y: null })
   const [volume, setVolume] = React.useState(1)
   const [muted, setMuted] = React.useState(false)
   const [isFullscreen, setIsFullscreen] = React.useState(false)
   const addTimelineTextClip = useWorkbenchStore((state) => state.addTimelineTextClip)
   const updateTimelineTextClip = useWorkbenchStore((state) => state.updateTimelineTextClip)
-  const updateTimelineTextClipTransform = useWorkbenchStore((state) => state.updateTimelineTextClipTransform)
   const selectTimelineTextClip = useWorkbenchStore((state) => state.selectTimelineTextClip)
   const selectedTextClipId = useWorkbenchStore((state) => state.selectedTextClipId)
   const setPreviewAspectRatio = useWorkbenchStore((state) => state.setPreviewAspectRatio)
@@ -210,9 +207,10 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
   }, [framingClipId, setTimelineClipFraming])
 
   const addText = React.useCallback((style: 'caption' | 'title') => {
-    const id = addTimelineTextClip(style, playheadFrame, style === 'title' ? translateDisplayText(locale, '标题') : translateDisplayText(locale, '字幕文字'))
+    const initialText = style === 'title' ? translateDisplayText(locale, '标题') : translateDisplayText(locale, '字幕文字')
+    const id = addTimelineTextClip(style, playheadFrame, initialText)
     setEditingTextId(id)
-    setEditingDraft('')
+    setEditingDraft(initialText)
     setTextMenuOpen(false)
   }, [addTimelineTextClip, locale, playheadFrame])
 
@@ -467,102 +465,17 @@ export default function TimelinePreview({ activeClips, aspectRatio, fps, playhea
             aria-hidden="true"
           />
         ) : null}
-        {/* 文字叠加层（字幕/标题卡）：z 在媒体之上；容器不拦事件，仅文本框可点选/编辑。 */}
-        {stageSize && activeTextClips.length > 0 ? (
-          <div className="workbench-preview-player__text-layer absolute inset-0 z-[3] pointer-events-none" aria-hidden="false">
-            {/* 中线吸附引导线（拖动中临时） */}
-            {textSnapGuides.x !== null ? (
-              <div className="absolute top-0 bottom-0 w-px bg-[var(--nomi-accent)] opacity-70 pointer-events-none" style={{ left: `${textSnapGuides.x * stageSize.width}px` }} aria-hidden="true" />
-            ) : null}
-            {textSnapGuides.y !== null ? (
-              <div className="absolute left-0 right-0 h-px bg-[var(--nomi-accent)] opacity-70 pointer-events-none" style={{ top: `${textSnapGuides.y * stageSize.height}px` }} aria-hidden="true" />
-            ) : null}
-            {activeTextClips.map((clip) => {
-              const displayText = translateDisplayText(locale, clip.text)
-              const box = resolveTextBox(clip, stageSize.width, stageSize.height)
-              const transform = resolveOverlayTransform(clip)
-              const editing = editingTextId === clip.id
-              const selected = selectedTextClipId === clip.id
-              const contentStyle: React.CSSProperties = {
-                maxWidth: `${box.maxWidthPx}px`,
-                fontSize: `${box.fontSizePx}px`,
-                fontFamily: box.fontFamily,
-                fontWeight: box.fontWeight,
-                lineHeight: String(box.lineHeight),
-                textAlign: 'center',
-                color: 'var(--nomi-ink)',
-                padding: box.hasBackdrop ? '0.32em 0.7em' : 0,
-                background: box.hasBackdrop ? 'color-mix(in oklch, var(--nomi-paper) 86%, transparent)' : 'transparent',
-                border: box.hasBackdrop ? '1px solid var(--nomi-line-soft)' : 'none',
-                borderRadius: 'var(--nomi-radius)',
-                // 折行契约：预览用 CSS 原生折行，导出 canvas 用 textLayout.wrapTextToWidth 复刻同一语义
-                // （white-space:pre-wrap + word-break:break-word ⇔ 显式换行 + 优先整词断 + 超长词逐字断）。
-                // 两端共用 box 几何（resolveTextBox）与内边距（0.32em/0.7em ↔ 导出 fontSize*1.4 budget），断行一致。
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-word',
-              }
-              const centerStyle: React.CSSProperties = {
-                left: `${box.centerX}px`,
-                top: `${box.centerY}px`,
-                transform: 'translate(-50%, -50%)',
-              }
-              if (editing) {
-                return (
-                  <textarea
-                    key={clip.id}
-                    className="workbench-preview-player__text-edit absolute pointer-events-auto resize-none outline-none overflow-hidden"
-                    style={{ ...centerStyle, ...contentStyle, boxShadow: '0 0 0 2px var(--nomi-accent)' }}
-                    value={editingDraft}
-                    placeholder={displayText}
-                    autoFocus
-                    rows={1}
-                    onFocus={(event) => event.currentTarget.select()}
-                    onChange={(event) => setEditingDraft(event.target.value)}
-                    onBlur={() => commitEditText(clip.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === 'Enter' && !event.shiftKey) {
-                        event.preventDefault()
-                        event.currentTarget.blur()
-                      }
-                      if (event.key === 'Escape') {
-                        event.preventDefault()
-                        setEditingTextId('')
-                      }
-                    }}
-                  />
-                )
-              }
-              if (selected) {
-                return (
-                  <OverlaySelectionBox
-                    key={clip.id}
-                    centerNorm={transform.position}
-                    scale={transform.scale}
-                    stageWidth={stageSize.width}
-                    stageHeight={stageSize.height}
-                    onTransform={(patch, commit) => updateTimelineTextClipTransform(clip.id, patch, { commit })}
-                    onSnapGuides={setTextSnapGuides}
-                  >
-                    <div style={contentStyle} onDoubleClick={(event) => { event.stopPropagation(); beginEditText(clip.id, displayText) }} title={t('preview.textDragTitle')}>
-                      {displayText}
-                    </div>
-                  </OverlaySelectionBox>
-                )
-              }
-              return (
-                <div
-                  key={clip.id}
-                  className="workbench-preview-player__text-box absolute pointer-events-auto cursor-pointer select-none"
-                  style={{ ...centerStyle, ...contentStyle }}
-                  onPointerDown={(event) => { event.stopPropagation(); selectTimelineTextClip(clip.id) }}
-                  onDoubleClick={(event) => { event.stopPropagation(); beginEditText(clip.id, displayText) }}
-                  title={t('preview.textSelectTitle')}
-                >
-                  {displayText}
-                </div>
-              )
-            })}
-          </div>
+        {stageSize ? (
+          <TimelineTextOverlayLayer
+            clips={activeTextClips}
+            stageSize={stageSize}
+            editingTextId={editingTextId}
+            editingDraft={editingDraft}
+            setEditingTextId={setEditingTextId}
+            setEditingDraft={setEditingDraft}
+            commitEditText={commitEditText}
+            beginEditText={beginEditText}
+          />
         ) : null}
       </div>
       </div>
