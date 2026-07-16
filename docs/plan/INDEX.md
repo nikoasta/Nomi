@@ -100,6 +100,12 @@
 | [2026-06-08-巨壳拆分-任务派发.md](2026-06-08-巨壳拆分-任务派发.md) | 巨壳拆分多窗口任务派发 | 📎 |
 | [nomi-select-unify.md](nomi-select-unify.md) | 统一选择面板 NomiSelect 通用组件 | 🚧 |
 
+## Everville Media Platform
+
+| 文件 | 一句话 | 状态 |
+|---|---|---|
+| [2026-07-16-everville-media-platform-orchestration-bootstrap.md](2026-07-16-everville-media-platform-orchestration-bootstrap.md) | 独立 product 分支 + Beads/Babysitter orchestration baseline | ✅ |
+
 ## 落地页 / 营销
 
 | 文件 | 一句话 | 状态 |

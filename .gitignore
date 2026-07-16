@@ -29,7 +29,11 @@ project-data/
 .claude/
 .tapcanvas/
 artifacts/
-orchestration/
+/orchestration/
+.a5c/runs/
+.a5c/logs/
+.a5c/creds.env
+.a5c/creds.env.tmp.*
 
 # OS / editor
 .DS_Store
