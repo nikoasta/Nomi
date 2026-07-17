@@ -330,7 +330,7 @@ const focusedGateTask = defineTask('run-higgsfield-provider-focused-gates', (arg
       `pnpm exec vitest run ${testPaths.map(quote).join(' ')} electron/catalog/higgsfieldCodec.test.ts electron/catalog/processOperation.test.ts electron/runtime.higgsfield-process.test.ts`,
       'pnpm run typecheck',
       `if rg -n "child_process\\.(exec|execSync)|shell\\s*:\\s*true" ${implementationPaths.map(quote).join(' ')}; then echo 'Unsafe shell execution primitive found'; exit 1; fi`,
-      `if rg -n "from ['"](@supabase|@vercel|firebase|aws-sdk)|process\\.env\\.(SUPABASE|VERCEL|AWS)" ${implementationPaths.map(quote).join(' ')}; then echo 'Unapproved cloud coupling found'; exit 1; fi`,
+      `if rg -n "@supabase|@vercel|firebase|aws-sdk|process\\.env\\.(SUPABASE|VERCEL|AWS)" ${implementationPaths.map(quote).join(' ')}; then echo 'Unapproved cloud coupling found'; exit 1; fi`,
     ].join(' && '),
     expectedExitCode: 0,
     timeoutMs: 600000,
