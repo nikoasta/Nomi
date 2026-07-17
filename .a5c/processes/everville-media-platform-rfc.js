@@ -307,6 +307,8 @@ const reviewRfcTask = defineTask('review-rfc', (args, taskCtx) => ({
       instructions: [
         'Compare SPEC to ARTIFACTS directly. Ignore any narrative in your context about how ARTIFACTS were built.',
         'Fail on missing evidence, hidden scope reduction, unapproved decisions, unsafe secret handling, unverifiable migration/rollback, or broken upstream pullability.',
+        'Apply the frozen matrix semantics exactly: the RFC milestone may pass when every row is PASS or BLOCKED, every BLOCKED row names its owner/dependency, the architecture choice is explicitly approved, the artifacts are versioned, and downstream Beads criteria/dependencies are reconciled.',
+        'Do not require future implementation, rollout, recovery-rehearsal, secret-migration, deployment, or pilot evidence from this architecture milestone when the RFC correctly assigns that evidence to a later mandatory breakpoint and downstream Beads gate.',
         'Return blockers with exact RFC sections and acceptance rows.',
       ],
       outputFormat: 'JSON with passed, score, blockers, gaps, summary',
@@ -328,6 +330,164 @@ const reviewRfcTask = defineTask('review-rfc', (args, taskCtx) => ({
     outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
   },
   labels: ['agent', 'independent-review', 'quality-gate'],
+}));
+
+const reconcileDecisionArtifactsTask = defineTask('reconcile-decision-artifacts', (args, taskCtx) => ({
+  kind: 'agent',
+  title: 'Reconcile architecture decision artifacts',
+  agent: {
+    name: 'architecture-records-editor',
+    prompt: {
+      role: 'architecture governance editor',
+      task: 'Reconcile the RFC, decision brief, and frozen acceptance review record to the explicit owner decision.',
+      context: {
+        ownerDecisionVerbatim: args.ownerDecision,
+        specVerbatim: args.spec,
+        artifactsVerbatim: args.artifacts,
+      },
+      instructions: [
+        'Edit only docs/architecture/everville-media-platform-rfc.md, docs/architecture/everville-media-platform-decision-brief.md, and the Milestone Review Record in docs/architecture/everville-media-platform-acceptance-matrix.md.',
+        'Use one canonical decision-ID namespace and add an explicit crosswalk for superseded IDs instead of silently renumbering evidence.',
+        'Record the owner decision verbatim, selected Option A components, date, alternatives, rationale, evidence references, and remaining mandatory downstream breakpoints.',
+        'Do not invent a Git commit SHA, Beads reconciliation, private remote, CI, implementation evidence, or later owner decision.',
+        'Preserve the frozen acceptance rows; only the review record beneath them may be updated.',
+      ],
+      outputFormat: 'JSON with filesModified, canonicalDecisionIds, unresolvedItems, summary',
+    },
+    outputSchema: {
+      type: 'object',
+      required: ['filesModified', 'canonicalDecisionIds', 'unresolvedItems', 'summary'],
+      properties: {
+        filesModified: { type: 'array', items: { type: 'string' } },
+        canonicalDecisionIds: { type: 'array', items: { type: 'string' } },
+        unresolvedItems: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+      },
+    },
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['agent', 'architecture', 'governance', 'reconciliation'],
+}));
+
+const reconcileBeadsTask = defineTask('reconcile-downstream-beads', (args, taskCtx) => ({
+  kind: 'agent',
+  title: 'Apply RFC reconciliation to downstream Beads issues',
+  agent: {
+    name: 'beads-reconciliation-owner',
+    prompt: {
+      role: 'technical program owner maintaining the durable Beads ledger',
+      task: 'Apply the approved RFC traceability dispositions to the evmedia-r20 child issues.',
+      context: {
+        projectRoot: args.projectRoot,
+        beadId: args.beadId,
+        ownerDecisionVerbatim: args.ownerDecision,
+        rfcVerbatim: args.rfc,
+      },
+      instructions: [
+        'Read every evmedia-r20 child before changing it.',
+        'Update acceptance criteria and notes for evmedia-r20.2, .9, .5, .8, .7, .3, .1, .10, and .11 from RFC section 20 and the RFC-01 through RFC-24 verification map.',
+        'Preserve the full Alpha scope, existing ownership, status, and valid dependencies. Add only missing dependencies required by the approved RFC; never remove a dependency without explicit evidence.',
+        'Record selected architecture IDs, mandatory breakpoint IDs, test-first gates, and evidence required for each child. Do not mark implementation issues complete.',
+        'Append a reconciliation note to evmedia-r20.4 listing updated issue IDs and unresolved later breakpoints.',
+        'Use bd update/bd dep commands directly and return the issues actually updated.',
+      ],
+      outputFormat: 'JSON with updatedIssues, dependencyChanges, verification, summary',
+    },
+    outputSchema: {
+      type: 'object',
+      required: ['updatedIssues', 'dependencyChanges', 'verification', 'summary'],
+      properties: {
+        updatedIssues: { type: 'array', items: { type: 'string' } },
+        dependencyChanges: { type: 'array', items: { type: 'string' } },
+        verification: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+      },
+    },
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['agent', 'beads', 'reconciliation', 'durable-ledger'],
+}));
+
+const verifyBeadsTask = defineTask('verify-downstream-beads', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Verify downstream Beads reconciliation',
+  shell: {
+    command: `cd '${args.projectRoot}' && for id in evmedia-r20.2 evmedia-r20.9 evmedia-r20.5 evmedia-r20.8 evmedia-r20.7 evmedia-r20.3 evmedia-r20.1 evmedia-r20.10 evmedia-r20.11; do bd show "$id" | rg -q 'RFC-|BP-' || { echo "Missing RFC/BP reconciliation in $id"; exit 1; }; done && bd show '${args.beadId}' | rg -q 'reconcil'`,
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['beads', 'gate', 'shell'],
+}));
+
+const versionArchitectureTask = defineTask('version-architecture-artifacts', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Version reviewed architecture artifacts locally',
+  shell: {
+    command: [
+      `cd '${args.projectRoot}'`,
+      'git add docs/architecture/everville-media-platform-acceptance-matrix.md docs/architecture/everville-media-platform-cloud-options.md docs/architecture/everville-media-platform-decision-brief.md docs/architecture/everville-media-platform-rfc.md docs/architecture/everville-media-platform-runtime-audit.md docs/architecture/everville-media-platform-security-data.md',
+      'git diff --cached --check',
+      `if git diff --cached --quiet; then echo 'architecture artifacts already versioned'; else git commit -m 'docs: define Everville media platform architecture'; fi`,
+      'git rev-parse HEAD',
+    ].join(' && '),
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['architecture', 'git', 'versioning', 'shell'],
+}));
+
+const recordVersionTask = defineTask('record-architecture-version', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Record immutable RFC version in Beads',
+  shell: {
+    command: `cd '${args.projectRoot}' && sha=$(git rev-parse HEAD) && bd update '${args.beadId}' --append-notes "Architecture artifacts and downstream reconciliation versioned at local commit $sha. Public origin was not pushed." && bd show '${args.beadId}' | rg -q "$sha"`,
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['beads', 'git', 'evidence', 'shell'],
+}));
+
+const readReviewEvidenceTask = defineTask('read-rfc-review-evidence', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Read RFC, Git, and Beads evidence verbatim',
+  shell: {
+    command: `cd '${args.projectRoot}' && for file in docs/architecture/everville-media-platform-acceptance-matrix.md docs/architecture/everville-media-platform-runtime-audit.md docs/architecture/everville-media-platform-cloud-options.md docs/architecture/everville-media-platform-security-data.md docs/architecture/everville-media-platform-decision-brief.md '${args.rfcPath}'; do printf '\\n--- %s ---\\n' "$file"; cat "$file"; done && printf '\\n--- GIT EVIDENCE ---\\n' && git status --short && git log -3 --oneline && git remote -v && printf '\\n--- BEADS EVIDENCE ---\\n' && for id in '${args.beadId}' evmedia-r20.2 evmedia-r20.9 evmedia-r20.5 evmedia-r20.8 evmedia-r20.7 evmedia-r20.3 evmedia-r20.1 evmedia-r20.10 evmedia-r20.11; do bd show "$id"; done`,
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['artifacts', 'beads', 'git', 'runtime-read'],
+}));
+
+const finalizeRfcTask = defineTask('finalize-rfc-milestone', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Record final RFC acceptance in Beads',
+  shell: {
+    command: `cd '${args.projectRoot}' && sha=$(git rev-parse HEAD) && bd update '${args.beadId}' --append-notes "Final RFC owner approval recorded after independent review score ${args.score}. Reviewed local commit: $sha. Downstream implementation remains governed by named BP gates." --status closed && bd show '${args.beadId}'`,
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['beads', 'milestone', 'acceptance', 'shell'],
 }));
 
 const readArtifactsTask = defineTask('read-rfc-artifacts', (args, taskCtx) => ({
@@ -399,13 +559,51 @@ export async function process(inputs, ctx) {
     return { success: false, beadId, rfcPath, reason: 'Architecture was not approved', feedback: architectureApproval.response };
   }
 
-  let currentRfc = '';
+  const originalApprovalText = `${architectureApproval.option || ''} ${architectureApproval.response || ''}`.toLowerCase();
+  let explicitArchitectureApproval = architectureApproval;
+  if (!originalApprovalText.includes('option a')) {
+    explicitArchitectureApproval = await ctx.breakpoint({
+      title: 'Explicit Everville Alpha architecture selection',
+      question: 'Select the architecture explicitly. Continuing the goal is not itself approval of a topology.',
+      options: [
+        'Approve Option A: Vercel + Supabase Singapore + Cloud Run FFmpeg + first-class Electron with local Higgsfield CLI',
+        'Request architecture changes',
+        'Reject Option A',
+      ],
+      context: {
+        runId: ctx.runId,
+        priorOwnerResponse: architectureApproval.response,
+        recommendation: decision.recommendation,
+        requiredDecisionIds: ['P-01', 'P-02', 'P-03', 'P-04', 'P-05', 'P-06', 'P-07', 'P-08', 'P-09'],
+        files: [
+          { path: 'docs/architecture/everville-media-platform-decision-brief.md', format: 'markdown' },
+          { path: rfcPath, format: 'markdown' },
+        ],
+      },
+      expert: 'owner',
+      tags: ['architecture', 'approval-gate', 'explicit-selection'],
+    });
+  }
+
+  const explicitApprovalText = `${explicitArchitectureApproval.option || ''} ${explicitArchitectureApproval.response || ''}`.toLowerCase();
+  if (!explicitArchitectureApproval.approved || !explicitApprovalText.includes('option a')) {
+    return {
+      success: false,
+      beadId,
+      rfcPath,
+      reason: 'Option A was not explicitly approved',
+      feedback: explicitArchitectureApproval.response || explicitArchitectureApproval.option,
+    };
+  }
+
+  const initialRfc = await ctx.task(readArtifactsTask, { projectRoot, rfcPath });
+  let currentRfc = initialRfc.stdout;
   let review = null;
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const artifactsBeforeAuthor = await ctx.task(readArtifactsTask, { projectRoot, rfcPath: currentRfc ? rfcPath : '/dev/null' });
+    const artifactsBeforeAuthor = await ctx.task(readArtifactsTask, { projectRoot, rfcPath });
     await ctx.task(authorRfcTask, {
       rfcPath,
-      ownerDecision: architectureApproval.response || decision.recommendation,
+      ownerDecision: explicitArchitectureApproval.option || explicitArchitectureApproval.response,
       spec: spec.stdout,
       acceptanceMatrix: artifactsBeforeAuthor.stdout,
       researchArtifacts: artifactsBeforeAuthor.stdout,
@@ -413,8 +611,25 @@ export async function process(inputs, ctx) {
       reviewFeedback: review ? JSON.stringify(review) : '',
     });
 
+    const decisionArtifacts = await ctx.task(readArtifactsTask, { projectRoot, rfcPath });
+    await ctx.task(reconcileDecisionArtifactsTask, {
+      ownerDecision: explicitArchitectureApproval.option || explicitArchitectureApproval.response,
+      spec: spec.stdout,
+      artifacts: decisionArtifacts.stdout,
+    });
+
+    const reconciledArtifacts = await ctx.task(readArtifactsTask, { projectRoot, rfcPath });
+    await ctx.task(reconcileBeadsTask, {
+      projectRoot,
+      beadId,
+      ownerDecision: explicitArchitectureApproval.option || explicitArchitectureApproval.response,
+      rfc: reconciledArtifacts.stdout,
+    });
+    await ctx.task(verifyBeadsTask, { projectRoot, beadId });
     await ctx.task(verifyRfcTask, { projectRoot, rfcPath });
-    const reviewArtifacts = await ctx.task(readArtifactsTask, { projectRoot, rfcPath });
+    await ctx.task(versionArchitectureTask, { projectRoot });
+    await ctx.task(recordVersionTask, { projectRoot, beadId });
+    const reviewArtifacts = await ctx.task(readReviewEvidenceTask, { projectRoot, beadId, rfcPath });
     currentRfc = reviewArtifacts.stdout;
     review = await ctx.task(reviewRfcTask, {
       spec: spec.stdout,
@@ -442,6 +657,10 @@ export async function process(inputs, ctx) {
     expert: 'owner',
     tags: ['architecture', 'final-approval'],
   });
+
+  if (finalApproval.approved === true) {
+    await ctx.task(finalizeRfcTask, { projectRoot, beadId, score: review.score });
+  }
 
   return {
     success: finalApproval.approved === true,
