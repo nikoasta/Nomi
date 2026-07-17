@@ -1,8 +1,48 @@
 import type { BillingModelKind, HttpOperation, ProfileKind } from "./types";
 import type { JsonRecord } from "../jsonUtils";
+import {
+  higgsfieldAssetFlagForCatalogParameter,
+  higgsfieldFlagForCatalogParameter,
+  isTrustedHiggsfieldCatalogSnapshot,
+  type CatalogSchemaSnapshot,
+  type HiggsfieldCatalogSnapshots,
+} from "./higgsfieldProviderAdapter";
 
 export const HIGGSFIELD_PROCESS_METHOD = "PROCESS";
 export const HIGGSFIELD_WORKFLOW_MODEL_PREFIX = "workflow:";
+
+const catalogSnapshots: {
+  models: Record<string, CatalogSchemaSnapshot>;
+  workflows: Record<string, CatalogSchemaSnapshot>;
+} = { models: {}, workflows: {} };
+
+const BUILTIN_COMPATIBILITY_SNAPSHOTS: Readonly<Record<string, CatalogSchemaSnapshot>> = {
+  seed_audio: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      prompt: { type: "string", maxLength: 65_536, cliFlag: "--prompt" },
+    },
+  },
+  seedance_2_0: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      prompt: { type: "string", maxLength: 65_536, cliFlag: "--prompt" },
+      duration: { type: "integer", cliFlag: "--duration" },
+      start_image: { type: "string", maxLength: 65_536, cliFlag: "--start-image" },
+    },
+  },
+  "workflow:reframe": {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      prompt: { type: "string", maxLength: 65_536, cliFlag: "--prompt" },
+      video_references: { type: "array", maxItems: 100, items: { type: "string", maxLength: 65_536 }, cliFlag: "--video" },
+      aspect_ratio: { type: "string", maxLength: 64, cliFlag: "--aspect-ratio" },
+    },
+  },
+};
 
 export const HIGGSFIELD_STATUS_MAPPING: Record<string, string[]> = {
   succeeded: ["completed", "success", "succeeded", "done", "finished"],
@@ -20,12 +60,22 @@ export const HIGGSFIELD_RESPONSE_MAPPING = {
   model_url: "video_url",
 };
 
-const MEDIA_FILE_PARAMS: NonNullable<HttpOperation["process"]>["fileParams"] = [
+export const HIGGSFIELD_MEDIA_FILE_PARAMS: NonNullable<NonNullable<HttpOperation["process"]>["fileParams"]> = [
+  { param: "image", expose: "image", mode: "single" },
+  { param: "image_url", expose: "image_url", mode: "single" },
   { param: "image_references", expose: "image_references", mode: "array" },
+  { param: "input_audio", expose: "input_audio", mode: "single" },
+  { param: "input_images", expose: "input_images", mode: "array" },
+  { param: "input_video", expose: "input_video", mode: "single" },
   { param: "start_image", expose: "start_image", mode: "single" },
   { param: "end_image", expose: "end_image", mode: "single" },
+  { param: "model_url", expose: "model_url", mode: "single" },
+  { param: "ref_image", expose: "ref_image", mode: "single" },
   { param: "texture_image_url", expose: "texture_image_url", mode: "single" },
+  { param: "urls", expose: "urls", mode: "array" },
+  { param: "video", expose: "video", mode: "single" },
   { param: "video_references", expose: "video_references", mode: "array" },
+  { param: "audio", expose: "audio", mode: "single" },
   { param: "audio_references", expose: "audio_references", mode: "array" },
   { param: "medias", expose: "medias", mode: "array" },
 ];
@@ -37,7 +87,7 @@ export const HIGGSFIELD_GENERATE_OP: HttpOperation = {
     bin: "higgsfield",
     parser: "higgsfield-cli",
     build: "higgsfield-generate",
-    fileParams: MEDIA_FILE_PARAMS,
+    fileParams: HIGGSFIELD_MEDIA_FILE_PARAMS,
     args: [],
   },
   response_mapping: HIGGSFIELD_RESPONSE_MAPPING,
@@ -131,7 +181,12 @@ export function defaultHiggsfieldControls(kind: BillingModelKind, modelKey: stri
   return [];
 }
 
-export function buildHiggsfieldGenerateArgs(input: { modelKey: string; prompt: string; params: Record<string, unknown> }): string[] {
+export function buildHiggsfieldGenerateArgs(input: {
+  modelKey: string;
+  prompt: string;
+  params: Record<string, unknown>;
+  parameterSchema: CatalogSchemaSnapshot;
+}): string[] {
   const isWorkflow = input.modelKey.startsWith(HIGGSFIELD_WORKFLOW_MODEL_PREFIX);
   const jobType = isWorkflow ? input.modelKey.slice(HIGGSFIELD_WORKFLOW_MODEL_PREFIX.length) : input.modelKey;
   const args = isWorkflow ? ["generate", "workflow", jobType] : ["generate", "create", jobType];
@@ -139,7 +194,8 @@ export function buildHiggsfieldGenerateArgs(input: { modelKey: string; prompt: s
   if (prompt) args.push("--prompt", prompt);
   for (const [key, value] of Object.entries(input.params)) {
     if (shouldSkipParam(key, value)) continue;
-    const flag = flagForParam(key);
+    const flag = flagForParam(key, input.parameterSchema);
+    if (!flag) throw new Error("Higgsfield rejected one or more generation parameters.");
     if (Array.isArray(value)) {
       for (const item of value) pushFlagValue(args, flag, item);
     } else {
@@ -161,14 +217,236 @@ function shouldSkipParam(key: string, value: unknown): boolean {
   return false;
 }
 
-function flagForParam(key: string): string {
-  if (key === "image_references") return "--image";
-  if (key === "video_references") return "--video";
-  if (key === "audio_references") return "--audio";
-  if (key === "medias") return "--video";
-  if (key === "start_image") return "--start-image";
-  if (key === "end_image") return "--end-image";
-  return `--${key.replace(/_/g, "-")}`;
+function flagForParam(key: string, schema: CatalogSchemaSnapshot): string | null {
+  const properties = schema.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+  const property = (properties as Record<string, unknown>)[key];
+  if (!property || typeof property !== "object" || Array.isArray(property)) return null;
+  return higgsfieldFlagForCatalogParameter(key);
+}
+
+function schemaPropertyForParam(param: JsonRecord): JsonRecord | null {
+  const name = String(param.name || "").trim();
+  if (!higgsfieldFlagForCatalogParameter(name)) return null;
+  const rawType = String(param.type || "string").toLowerCase();
+  const isArray = /array|\[\]|strings/.test(rawType);
+  const scalarType = /bool/.test(rawType) ? "boolean" : /int/.test(rawType) ? "integer" : /number|float/.test(rawType) ? "number" : "string";
+  const property: JsonRecord = {
+    ...(isArray
+      ? { type: "array", maxItems: 100, items: { type: scalarType, ...(scalarType === "string" ? { maxLength: 65_536 } : {}) } }
+      : { type: rawType.includes("null") ? [scalarType, "null"] : scalarType }),
+  };
+  if (property.type === "string" || (Array.isArray(property.type) && property.type.includes("string"))) property.maxLength = 65_536;
+  if (Array.isArray(param.enum) && param.enum.length > 0) {
+    const enumValues = Array.from(new Set(
+      param.enum
+        .slice(0, 1_000)
+        .map((value) => normalizeCatalogScalar(value, scalarType))
+        .filter((value): value is string | number | boolean => value !== undefined),
+    ));
+    if (enumValues.length === 0) return null;
+    if (isArray && property.items && typeof property.items === "object" && !Array.isArray(property.items)) {
+      (property.items as JsonRecord).enum = enumValues;
+    } else {
+      property.enum = enumValues;
+    }
+  }
+  if (typeof param.minimum === "number") property.minimum = param.minimum;
+  if (typeof param.maximum === "number") property.maximum = param.maximum;
+  return property;
+}
+
+function normalizeCatalogScalar(value: unknown, type: string): string | number | boolean | undefined {
+  if (type === "string") {
+    return typeof value === "string" || typeof value === "number" || typeof value === "boolean"
+      ? String(value)
+      : undefined;
+  }
+  if (type === "integer") {
+    if (typeof value === "number" && Number.isInteger(value)) return value;
+    if (typeof value !== "string" || !/^[+-]?\d+$/.test(value.trim())) return undefined;
+    const parsed = Number(value);
+    return Number.isSafeInteger(parsed) ? parsed : undefined;
+  }
+  if (type === "number") {
+    if (typeof value === "number" && Number.isFinite(value)) return value;
+    if (typeof value !== "string" || value.trim() === "") return undefined;
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  if (type === "boolean") {
+    if (typeof value === "boolean") return value;
+    if (typeof value !== "string") return undefined;
+    if (value.trim().toLowerCase() === "true") return true;
+    if (value.trim().toLowerCase() === "false") return false;
+  }
+  return undefined;
+}
+
+function normalizeCatalogInputValue(value: unknown, propertyValue: unknown): unknown | undefined {
+  const property = propertyValue && typeof propertyValue === "object" && !Array.isArray(propertyValue)
+    ? propertyValue as JsonRecord
+    : null;
+  if (!property) return undefined;
+  const types = Array.isArray(property.type) ? property.type.map(String) : [String(property.type || "")];
+  if (value === null) return types.includes("null") ? null : undefined;
+  if (types.includes("array")) {
+    if (!Array.isArray(value)) return undefined;
+    const normalized: unknown[] = [];
+    for (const entry of value) {
+      const item = normalizeCatalogInputValue(entry, property.items);
+      if (item === undefined) return undefined;
+      normalized.push(item);
+    }
+    return normalized;
+  }
+  const scalarType = types.find((type) => type !== "null");
+  const normalized = scalarType ? normalizeCatalogScalar(value, scalarType) : undefined;
+  if (normalized === undefined) return undefined;
+  if (Array.isArray(property.enum) && !property.enum.some((candidate) => Object.is(candidate, normalized))) return undefined;
+  return normalized;
+}
+
+export function registerHiggsfieldCatalogSnapshot(
+  source: "model" | "workflow",
+  modelKey: string,
+  params: unknown,
+): CatalogSchemaSnapshot {
+  const properties: Record<string, JsonRecord> = {
+    prompt: { type: "string", maxLength: 65_536, cliFlag: "--prompt" },
+  };
+  const required: string[] = [];
+  if (Array.isArray(params)) {
+    for (const value of params) {
+      if (!value || typeof value !== "object" || Array.isArray(value)) continue;
+      const param = value as JsonRecord;
+      const name = String(param.name || "").trim();
+      const property = schemaPropertyForParam(param);
+      if (!property) continue;
+      properties[name] = property;
+      if (param.required === true) required.push(name);
+    }
+  }
+  const schema: CatalogSchemaSnapshot = {
+    type: "object",
+    additionalProperties: false,
+    ...(required.length ? { required } : {}),
+    properties,
+  };
+  const key = source === "workflow" && !modelKey.startsWith(HIGGSFIELD_WORKFLOW_MODEL_PREFIX)
+    ? `${HIGGSFIELD_WORKFLOW_MODEL_PREFIX}${modelKey}`
+    : modelKey;
+  catalogSnapshots[source === "workflow" ? "workflows" : "models"][key] = schema;
+  return schema;
+}
+
+export function getHiggsfieldCatalogSnapshots(): HiggsfieldCatalogSnapshots {
+  return catalogSnapshots;
+}
+
+export function cacheResolvedHiggsfieldCatalogSnapshot(
+  modelKey: string,
+  snapshot: CatalogSchemaSnapshot,
+): void {
+  if (!isHiggsfieldCatalogSnapshot(snapshot)) return;
+  const target = modelKey.startsWith(HIGGSFIELD_WORKFLOW_MODEL_PREFIX)
+    ? catalogSnapshots.workflows
+    : catalogSnapshots.models;
+  target[modelKey] = snapshot;
+}
+
+export function isHiggsfieldCatalogSnapshot(value: unknown): value is CatalogSchemaSnapshot {
+  return isTrustedHiggsfieldCatalogSnapshot(value);
+}
+
+type LegacyCatalogContext = {
+  parameterControls?: unknown;
+  fileParams?: NonNullable<NonNullable<HttpOperation["process"]>["fileParams"]>;
+};
+
+function legacyControlProperty(value: unknown): { key: string; property: JsonRecord } | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const control = value as JsonRecord;
+  const key = String(control.key || "").trim();
+  if (!higgsfieldFlagForCatalogParameter(key) || higgsfieldAssetFlagForCatalogParameter(key)) return null;
+  const controlType = String(control.type || "text").toLowerCase();
+  const scalarType = controlType === "boolean" ? "boolean" : controlType === "number" ? "number" : "string";
+  const property: JsonRecord = scalarType === "string"
+    ? { type: "string", maxLength: 65_536 }
+    : { type: scalarType };
+  if (Array.isArray(control.options) && control.options.length > 0) {
+    const enumValues = Array.from(new Set(control.options.slice(0, 1_000).flatMap((option) => {
+      const record = option && typeof option === "object" && !Array.isArray(option) ? option as JsonRecord : null;
+      const candidate = record ? record.value : option;
+      const normalized = normalizeCatalogScalar(candidate, scalarType);
+      return normalized === undefined ? [] : [normalized];
+    })));
+    if (enumValues.length > 0) property.enum = enumValues;
+  }
+  return { key, property };
+}
+
+function buildLegacyCatalogSnapshot(context: LegacyCatalogContext): CatalogSchemaSnapshot | undefined {
+  const properties: Record<string, JsonRecord> = {
+    prompt: { type: "string", maxLength: 65_536 },
+  };
+  if (Array.isArray(context.parameterControls)) {
+    for (const value of context.parameterControls) {
+      const control = legacyControlProperty(value);
+      if (control) properties[control.key] = control.property;
+    }
+  }
+  for (const fileParam of context.fileParams ?? []) {
+    if (!higgsfieldAssetFlagForCatalogParameter(fileParam.param)) continue;
+    properties[fileParam.param] = fileParam.mode === "single"
+      ? { type: "string", maxLength: 65_536 }
+      : { type: "array", maxItems: 100, items: { type: "string", maxLength: 65_536 } };
+  }
+  const snapshot: CatalogSchemaSnapshot = {
+    type: "object",
+    additionalProperties: false,
+    properties,
+  };
+  return isHiggsfieldCatalogSnapshot(snapshot) ? snapshot : undefined;
+}
+
+export function resolveHiggsfieldCatalogSnapshot(
+  modelKey: string,
+  persistedSnapshot: unknown,
+  legacyContext?: LegacyCatalogContext,
+): CatalogSchemaSnapshot | undefined {
+  const snapshots = getHiggsfieldCatalogSnapshots();
+  const registered = modelKey.startsWith(HIGGSFIELD_WORKFLOW_MODEL_PREFIX)
+    ? snapshots.workflows[modelKey]
+    : snapshots.models[modelKey];
+  if (isHiggsfieldCatalogSnapshot(registered)) return registered;
+  if (isHiggsfieldCatalogSnapshot(persistedSnapshot)) return persistedSnapshot;
+  const builtin = BUILTIN_COMPATIBILITY_SNAPSHOTS[modelKey];
+  if (isHiggsfieldCatalogSnapshot(builtin)) return builtin;
+  return legacyContext ? buildLegacyCatalogSnapshot(legacyContext) : undefined;
+}
+
+export function selectHiggsfieldGenerationParameters(
+  prompt: string,
+  params: Record<string, unknown>,
+  schema: CatalogSchemaSnapshot,
+): Record<string, unknown> | undefined {
+  const properties = schema.properties;
+  if (!properties || typeof properties !== "object" || Array.isArray(properties)) return undefined;
+  const allowed = properties as Record<string, unknown>;
+  const selected: Record<string, unknown> = {};
+  if (prompt.trim()) {
+    if (!("prompt" in allowed)) return undefined;
+    selected.prompt = prompt.trim();
+  }
+  for (const [key, value] of Object.entries(params)) {
+    if (shouldSkipParam(key, value)) continue;
+    if (!(key in allowed)) return undefined;
+    const normalized = normalizeCatalogInputValue(value, allowed[key]);
+    if (normalized === undefined) return undefined;
+    selected[key] = normalized;
+  }
+  return selected;
 }
 
 function pushFlagValue(args: string[], flag: string, value: unknown): void {

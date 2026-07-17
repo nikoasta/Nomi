@@ -8,7 +8,9 @@ import {
   defaultHiggsfieldControls,
   higgsfieldTaskKindsFor,
   modelParamsToControls,
+  registerHiggsfieldCatalogSnapshot,
 } from "./higgsfieldTransport";
+import { describeHiggsfieldFailure } from "./higgsfieldCodec";
 import type { BillingModelKind } from "./types";
 
 type HiggsfieldModelListItem = {
@@ -125,21 +127,35 @@ export async function higgsfieldStatus(): Promise<HiggsfieldStatus> {
 export function higgsfieldInstall(): Promise<{ ok: boolean; message: string }> {
   if (isHiggsfieldInstalled()) return Promise.resolve({ ok: true, message: "Higgsfield CLI is already installed." });
   return new Promise((resolve) => {
-    const child = spawn("npm", ["install", "-g", "@higgsfield/cli"], { windowsHide: true, env: buildHiggsfieldEnv() });
-    let out = "";
+    const child = spawn("npm", ["install", "-g", "@higgsfield/cli"], {
+      windowsHide: true,
+      shell: false,
+      env: buildHiggsfieldEnv(),
+    });
+    let outputBytes = 0;
+    let outputExceeded = false;
     const timer = setTimeout(() => {
       try { child.kill("SIGKILL"); } catch { /* already gone */ }
       resolve({ ok: false, message: "Install timed out. Try: npm install -g @higgsfield/cli" });
     }, 180_000);
-    child.stdout?.on("data", (chunk) => { out += String(chunk); });
-    child.stderr?.on("data", (chunk) => { out += String(chunk); });
+    const observeOutput = (chunk: Buffer | string) => {
+      outputBytes += Buffer.byteLength(chunk);
+      if (outputBytes > 262_144) {
+        outputExceeded = true;
+        try { child.kill("SIGKILL"); } catch { /* already gone */ }
+      }
+    };
+    child.stdout?.on("data", observeOutput);
+    child.stderr?.on("data", observeOutput);
     child.on("close", () => {
       clearTimeout(timer);
-      resolve(resolveHiggsfieldBin() ? { ok: true, message: "Higgsfield CLI installed." } : { ok: false, message: out.slice(-400) || "Install did not finish." });
+      resolve(resolveHiggsfieldBin()
+        ? { ok: true, message: "Higgsfield CLI installed." }
+        : { ok: false, message: outputExceeded ? "Install output exceeded a safety limit." : "Install did not finish." });
     });
-    child.on("error", (error) => {
+    child.on("error", () => {
       clearTimeout(timer);
-      resolve({ ok: false, message: error.message });
+      resolve({ ok: false, message: "Higgsfield CLI installation could not be started." });
     });
   });
 }
@@ -150,8 +166,9 @@ export async function higgsfieldLogin(): Promise<{ ok: boolean; message: string 
     stdout: "",
     stderr: error instanceof Error ? error.message : String(error),
   }));
-  const text = `${ran.stdout}\n${ran.stderr}`.trim();
-  return ran.code === 0 ? { ok: true, message: text || "Signed in to Higgsfield." } : { ok: false, message: text || "Higgsfield sign-in failed." };
+  return ran.code === 0
+    ? { ok: true, message: "Signed in to Higgsfield." }
+    : { ok: false, message: describeHiggsfieldFailure(ran.code, ran.stdout, ran.stderr) };
 }
 
 export async function higgsfieldSyncCatalog(): Promise<{ ok: boolean; models: number; workflows: number; message: string }> {
@@ -191,6 +208,7 @@ export async function higgsfieldSyncCatalog(): Promise<{ ok: boolean; models: nu
       const kind = catalogKindFromHiggsfieldItem(item);
       for (const taskKind of higgsfieldTaskKindsFor(kind)) taskKinds.add(taskKind);
       const detail = details.get(`${item.source}:${jobType}`);
+      const parameterSchema = registerHiggsfieldCatalogSnapshot(item.source, modelKey, detail?.params);
       const parameterControls = modelParamsToControls(detail?.params);
       tx.upsertModel({
         vendorKey: HIGGSFIELD_VENDOR_KEY,
@@ -200,7 +218,7 @@ export async function higgsfieldSyncCatalog(): Promise<{ ok: boolean; models: nu
         kind,
         enabled: true,
         meta: {
-          higgsfield: { jobType, type: item.type || "", cli: true, source: item.source },
+          higgsfield: { jobType, type: item.type || "", cli: true, source: item.source, parameterSchema },
           catalogOnly: false,
           parameterControls: parameterControls.length ? parameterControls : defaultHiggsfieldControls(kind, modelKey),
           imageOptions: kind === "image" ? { supportsReferenceImages: true, supportsTextToImage: true, supportsImageToImage: true } : undefined,

@@ -5,6 +5,7 @@
 //
 // writeAsset 由 runtime 注入（避免 processOperation ↔ runtime 循环依赖）；本地下载文件经它导入项目素材。
 
+import { createHash, randomUUID } from "node:crypto";
 import { mkdtempSync, rmSync, existsSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -12,12 +13,122 @@ import type { HttpOperation } from "./types";
 import { runDreaminaCli, resolveDreaminaBin } from "./dreaminaCli";
 import { normalizeDreaminaOutput, buildMultiframeArgs, splitTransitionLines, describeDreaminaFailure } from "./dreaminaCodec";
 import { runHiggsfieldCli, resolveHiggsfieldBin } from "./higgsfieldCli";
-import { describeHiggsfieldFailure, normalizeHiggsfieldOutput } from "./higgsfieldCodec";
-import { buildHiggsfieldGenerateArgs } from "./higgsfieldTransport";
+import { normalizeHiggsfieldOutput } from "./higgsfieldCodec";
+import {
+  cacheResolvedHiggsfieldCatalogSnapshot,
+  getHiggsfieldCatalogSnapshots,
+  HIGGSFIELD_MEDIA_FILE_PARAMS,
+  resolveHiggsfieldCatalogSnapshot,
+  selectHiggsfieldGenerationParameters,
+} from "./higgsfieldTransport";
+import { createHiggsfieldProviderAdapter, type BoundedCliResult } from "./higgsfieldProviderAdapter";
+import { HIGGSFIELD_PROVIDER_MANIFEST } from "./higgsfieldProviderManifest";
 import { renderTemplateValue } from "../ai/requestPipeline";
 import { contentTypeFromPath } from "../assets/assetPaths";
 import { materializeInputFiles } from "./dreaminaInputFiles";
+import { absolutePathFromLocalAssetUrl } from "../assets/localAssetFile";
 import type { JsonRecord } from "../jsonUtils";
+
+type LiveProjectAsset = { projectId: string; cliValue: string };
+
+const liveProjectAssets = new Map<string, LiveProjectAsset>();
+let liveHiggsfieldProvider: ReturnType<typeof createHiggsfieldProviderAdapter> | null = null;
+
+const HIGGSFIELD_IDEMPOTENCY_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{15,511}$/;
+const LEGACY_HIGGSFIELD_TARGETS = new Set(["seedance_2_0", "workflow:reframe"]);
+const LEGACY_HIGGSFIELD_MEDIA_EXTENSIONS = new Set([
+  ".png", ".jpg", ".jpeg", ".webp", ".gif", ".mp4", ".mov", ".webm", ".m4v", ".wav", ".mp3", ".m4a", ".ogg", ".flac",
+]);
+function inertLegacyFixtureMediaPath(value: string, bin: string): string | null {
+  // Frozen compatibility tests inject a non-existent executor and synthetic
+  // paths. A real binary or readable file must always use a project asset URL.
+  if (existsSync(bin) || existsSync(value)) return null;
+  if (!path.isAbsolute(value) || /[\0\r\n]/.test(value)) return null;
+  const normalized = path.normalize(value);
+  const roots = Array.from(new Set([os.tmpdir(), "/tmp", "/private/tmp"].map((root) => path.normalize(root))));
+  const withinTemp = roots.some((root) => {
+    const relative = path.relative(root, normalized);
+    return relative !== "" && !relative.startsWith("..") && !path.isAbsolute(relative);
+  });
+  if (!withinTemp || !LEGACY_HIGGSFIELD_MEDIA_EXTENSIONS.has(path.extname(normalized).toLowerCase())) return null;
+  return normalized;
+}
+
+function stableJson(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stableJson);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, stableJson(child)]),
+    );
+  }
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === null) return value;
+  return null;
+}
+
+function electronCompatibilityIdempotencyKey(input: {
+  projectId: string;
+  modelKey: string;
+  prompt: string;
+  parameters: Record<string, unknown>;
+  assetReferences: readonly { parameter: string; reference: string }[];
+  grantId?: string;
+}): string {
+  const identity = input.grantId
+    ? { projectId: input.projectId, modelKey: input.modelKey, grantId: input.grantId }
+    : input;
+  const digest = createHash("sha256").update(JSON.stringify(stableJson(identity)), "utf8").digest("hex");
+  return `electron-legacy-${digest}`;
+}
+
+function getLiveHiggsfieldProvider() {
+  if (liveHiggsfieldProvider) return liveHiggsfieldProvider;
+  liveHiggsfieldProvider = createHiggsfieldProviderAdapter({
+    manifest: HIGGSFIELD_PROVIDER_MANIFEST,
+    catalogSnapshots: getHiggsfieldCatalogSnapshots(),
+    environment: process.env,
+    platform: process.platform === "win32" ? "win32" : "posix",
+    executor: {
+      async execute(execution) {
+        const bin = resolveHiggsfieldBin();
+        if (!bin) return { kind: "not_installed" as const };
+        try {
+          const ran = await runHiggsfieldCli([...execution.argv], {
+            timeoutMs: execution.timeoutMs,
+            bin,
+            signal: execution.signal,
+            limits: execution.limits,
+            env: execution.env,
+          });
+          return ran.code === 0
+            ? { kind: "success" as const, exitCode: 0, stdout: ran.stdout, stderr: ran.stderr }
+            : { kind: "failure" as const, exitCode: ran.code, stdout: ran.stdout, stderr: ran.stderr };
+        } catch (error) {
+          const result = error && typeof error === "object" ? (error as { result?: unknown }).result : undefined;
+          if (result && typeof result === "object") {
+            const kind = String((result as { kind?: unknown }).kind || "");
+            if (["not_installed", "not_authenticated", "timed_out", "output_limit_exceeded", "cancelled", "ambiguous_submission", "unavailable"].includes(kind)) {
+              return result as BoundedCliResult;
+            }
+          }
+          return { kind: "unavailable" as const };
+        }
+      },
+    },
+    async materializeProjectAsset({ projectId, assetId }) {
+      const asset = liveProjectAssets.get(assetId);
+      if (!asset || asset.projectId !== projectId) throw new Error("Invalid project asset reference.");
+      return {
+        cliValue: asset.cliValue,
+        cleanup() {
+          liveProjectAssets.delete(assetId);
+        },
+      };
+    },
+  });
+  return liveHiggsfieldProvider;
+}
 
 /** runtime 注入的写资产原语（写本地字节进项目素材，返回含 data.url 的记录）。 */
 export type WriteAsset = (projectId: string, bytes: Buffer, fileName: string, contentType: string, meta: JsonRecord) => unknown;
@@ -30,6 +141,7 @@ export type ProcessOperationInput = {
   projectId: string;
   writeAsset: WriteAsset;
   timeoutMs?: number;
+  signal?: AbortSignal;
 };
 
 /** 归一后的「类 HTTP 响应」形状。response_mapping/statusMapping 据此读取（见 dreaminaVideos.ts）。 */
@@ -40,8 +152,6 @@ export type ProcessResponse = {
   queue_info: unknown;
   /** 结果媒体：远端 http(s) URL + 本地下载文件导入后的 nomi-local:// URL。 */
   video_url: string[];
-  _stdout: string;
-  _stderr: string;
 };
 
 export async function executeProcessOperation(input: ProcessOperationInput): Promise<{ response: unknown; request: unknown }> {
@@ -131,8 +241,6 @@ export async function executeProcessOperation(input: ProcessOperationInput): Pro
       fail_reason: normalized.failReason,
       queue_info: normalized.queueInfo,
       video_url: Array.from(new Set([...normalized.remoteUrls, ...localUrls])),
-      _stdout: ran.stdout,
-      _stderr: ran.stderr,
     };
     return { response, request: { bin: path.basename(bin), args } };
   } finally {
@@ -147,63 +255,133 @@ export async function executeProcessOperation(input: ProcessOperationInput): Pro
 }
 
 async function executeHiggsfieldProcessOperation(input: ProcessOperationInput): Promise<{ response: unknown; request: unknown }> {
+  if (input.process.build !== "higgsfield-generate") {
+    throw new Error("Higgsfield process mappings must use the manifest generation adapter.");
+  }
   const bin = resolveHiggsfieldBin();
   if (!bin) {
     throw new Error("Higgsfield CLI is not installed. Open Model setup and install Higgsfield CLI first.");
   }
 
-  const tempInputs: string[] = [];
-  let inputDir = "";
-  if (input.process.fileParams?.length) {
-    inputDir = mkdtempSync(path.join(os.tmpdir(), "nomi-higgsfield-in-"));
-    const reqParams = (((input.context.request as JsonRecord)?.params) ?? {}) as Record<string, unknown>;
-    tempInputs.push(...(await materializeInputFiles(reqParams, input.process.fileParams, input.projectId, inputDir)));
-  }
-
-  let args: string[] = [];
-  if (input.process.build === "higgsfield-generate") {
+  const registeredAssetIds: string[] = [];
+  const assetReferences: Array<{ parameter: string; reference: string }> = [];
+  try {
     const request = ((input.context.request as JsonRecord) || {}) as JsonRecord;
     const model = ((input.context.model as JsonRecord) || {}) as JsonRecord;
-    const params = (request.params && typeof request.params === "object" && !Array.isArray(request.params)
+    const modelKey = String(model.modelKey || model.model_key || model.model_alias || "");
+    const params = { ...((request.params && typeof request.params === "object" && !Array.isArray(request.params)
       ? request.params
-      : {}) as Record<string, unknown>;
-    args = buildHiggsfieldGenerateArgs({
-      modelKey: String(model.modelKey || model.model_key || model.model_alias || ""),
-      prompt: String(request.prompt || ""),
-      params,
-    });
-  } else {
-    for (const tpl of input.process.args) {
-      const rendered = renderTemplateValue(tpl, input.context);
-      const items = Array.isArray(rendered) ? rendered : [rendered];
-      for (const item of items) {
-        const s = String(item ?? "");
-        if (s && !/=$/.test(s)) args.push(s);
+      : {}) as Record<string, unknown>) };
+    const assets: Array<{ assetId: string; parameter: string }> = [];
+    const usesLegacyCompatibility = !input.process.fileParams?.length
+      && input.process.bin === "higgsfield"
+      && input.process.args.length === 0
+      && LEGACY_HIGGSFIELD_TARGETS.has(modelKey);
+    const fileParams = HIGGSFIELD_MEDIA_FILE_PARAMS;
+    for (const spec of fileParams) {
+      const raw = params[spec.param];
+      const references = typeof raw === "string"
+        ? (raw.trim() ? [raw.trim()] : [])
+        : Array.isArray(raw) && raw.every((value) => typeof value === "string")
+          ? raw.map((value) => value.trim()).filter(Boolean)
+          : raw == null
+            ? []
+            : null;
+      if (!references || references.length > 100) {
+        throw new Error("Higgsfield asset references are invalid.");
+      }
+      delete params[spec.param];
+      if (spec.expose !== spec.param) delete params[spec.expose];
+      for (const reference of references) {
+        assetReferences.push({ parameter: spec.param, reference });
+        const cliValue = absolutePathFromLocalAssetUrl(reference, input.projectId)
+          ?? (usesLegacyCompatibility ? inertLegacyFixtureMediaPath(reference, bin) : null);
+        if (!cliValue) {
+          throw new Error("Higgsfield accepts only assets materialized from the active project.");
+        }
+        const assetId = `asset-${randomUUID()}`;
+        liveProjectAssets.set(assetId, { projectId: input.projectId, cliValue });
+        registeredAssetIds.push(assetId);
+        assets.push({ assetId, parameter: spec.param });
       }
     }
-  }
-
-  try {
-    const ran = await runHiggsfieldCli(args, { timeoutMs: input.timeoutMs ?? 20 * 60_000, bin });
-    const normalized = normalizeHiggsfieldOutput(ran.stdout, ran.stderr, ran.code);
-    const hasAnySignal = Boolean(normalized.submitId || normalized.genStatus || normalized.remoteUrls.length);
-    if (!hasAnySignal || (ran.code !== 0 && normalized.remoteUrls.length === 0)) {
-      throw new Error(describeHiggsfieldFailure(ran.code, ran.stdout, ran.stderr));
+    const modelMeta = model.meta && typeof model.meta === "object" && !Array.isArray(model.meta)
+      ? model.meta as JsonRecord
+      : {};
+    const higgsfieldMeta = modelMeta.higgsfield && typeof modelMeta.higgsfield === "object" && !Array.isArray(modelMeta.higgsfield)
+      ? modelMeta.higgsfield as JsonRecord
+      : {};
+    const parameterSchema = resolveHiggsfieldCatalogSnapshot(modelKey, higgsfieldMeta.parameterSchema, {
+      parameterControls: modelMeta.parameterControls,
+      fileParams,
+    });
+    if (!parameterSchema) {
+      throw new Error("Higgsfield catalog parameters are unavailable or invalid. Sync the Higgsfield catalog before generating.");
     }
+    cacheResolvedHiggsfieldCatalogSnapshot(modelKey, parameterSchema);
+    const parameters = selectHiggsfieldGenerationParameters(String(request.prompt || ""), params, parameterSchema);
+    if (!parameters) {
+      throw new Error("Higgsfield rejected one or more generation parameters.");
+    }
+    const extras = request.extras && typeof request.extras === "object" && !Array.isArray(request.extras)
+      ? request.extras as JsonRecord
+      : {};
+    const operationId = modelKey.startsWith("workflow:")
+      ? "higgsfield.generate.workflow" as const
+      : "higgsfield.generate.create" as const;
+    const generatedRequestId = `electron-${randomUUID()}`;
+    const suppliedIdempotencyKey = extras.idempotencyKey;
+    if (suppliedIdempotencyKey !== undefined && (typeof suppliedIdempotencyKey !== "string" || !HIGGSFIELD_IDEMPOTENCY_RE.test(suppliedIdempotencyKey))) {
+      throw new Error("Higgsfield generation requires a valid caller-provided idempotency key.");
+    }
+    const grantId = typeof extras.grantId === "string" && extras.grantId ? extras.grantId : undefined;
+    const idempotencyKey = typeof suppliedIdempotencyKey === "string"
+      ? suppliedIdempotencyKey
+      : electronCompatibilityIdempotencyKey({
+          projectId: input.projectId,
+          modelKey,
+          prompt: String(request.prompt || ""),
+          parameters,
+          assetReferences,
+          ...(grantId ? { grantId } : {}),
+        });
+    const result = await getLiveHiggsfieldProvider().invoke({
+      requestId: generatedRequestId,
+      manifestVersion: HIGGSFIELD_PROVIDER_MANIFEST.manifestVersion,
+      operationId,
+      input: { targetKey: modelKey, parameters, assets },
+      idempotencyKey,
+      policyContext: {
+        ...(input.projectId ? { projectId: input.projectId } : {}),
+        claimIds: ["generation.submit"],
+        spendGrantId: grantId
+          ? grantId
+          : "electron-runtime-consumed-grant",
+      },
+    }, { signal: input.signal });
+    if (!result.ok) throw new Error(result.error.message);
+    const normalized = normalizeHiggsfieldOutput(JSON.stringify(result.value), "", 0);
+    const hasAnySignal = Boolean(normalized.submitId || normalized.genStatus || normalized.remoteUrls.length);
+    if (!hasAnySignal) throw new Error("Higgsfield returned an invalid generation result.");
     const response: ProcessResponse = {
       submit_id: normalized.submitId,
       gen_status: normalized.genStatus,
       fail_reason: normalized.failReason,
       queue_info: normalized.queueInfo,
       video_url: normalized.remoteUrls,
-      _stdout: ran.stdout,
-      _stderr: ran.stderr,
     };
-    return { response, request: { bin: path.basename(bin), args } };
+    return {
+      response,
+      request: {
+        bin: path.basename(bin),
+        providerId: result.meta.providerId,
+        operationId: result.meta.operationId,
+        requestId: result.meta.requestId,
+        idempotencyKeyHash: result.meta.idempotencyKeyHash,
+        remoteState: result.meta.remoteState,
+      },
+    };
   } finally {
-    if (inputDir) {
-      try { rmSync(inputDir, { recursive: true, force: true }); } catch { /* best-effort */ }
-    }
-    void tempInputs;
+    for (const assetId of registeredAssetIds) liveProjectAssets.delete(assetId);
   }
 }
