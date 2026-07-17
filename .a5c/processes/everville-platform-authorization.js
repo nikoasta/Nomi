@@ -332,7 +332,7 @@ const hashCompatibilityProtectedTask = defineTask('freeze-authorization-compatib
 
 const verifyCompatibilityProtectedTask = defineTask('verify-authorization-compatibility-write-scope', (args, taskCtx) => ({
   kind: 'shell', title: 'Verify compatibility agent changed only its two test files',
-  shell: { command: `cd ${quote(args.projectRoot)} && git diff --cached --quiet && current=$(shasum -a 256 ${compatibilityProtectedPaths.map(quote).join(' ')}) && test "$current" = ${quote(args.protectedHashes.trim())} && dirty=$({ git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard; } | sort -u) && unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(milestoneAllowedPathPattern)} || true) && test -z "$unexpected" || { printf "Unexpected compatibility-agent writes:\\n%s\\n" "$unexpected"; exit 1; }`, expectedExitCode: 0 },
+  shell: { command: `cd ${quote(args.projectRoot)} && git diff --cached --quiet && git diff --quiet --diff-filter=D -- ${compatibilityTestPaths.map(quote).join(' ')} && for file in ${compatibilityTestPaths.map(quote).join(' ')}; do test -s "$file"; done && current=$(shasum -a 256 ${compatibilityProtectedPaths.map(quote).join(' ')}) && test "$current" = ${quote(args.protectedHashes.trim())} && dirty=$({ git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard; } | sort -u) && unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(milestoneAllowedPathPattern)} || true) && test -z "$unexpected" || { printf "Unexpected compatibility-agent writes:\\n%s\\n" "$unexpected"; exit 1; }`, expectedExitCode: 0 },
   io: taskIo(taskCtx), labels: ['agent-write-scope', 'compatibility', 'frozen-input', 'shell'],
 }))
 
@@ -408,17 +408,11 @@ const verifyFrozenTask = defineTask('verify-authorization-frozen-inputs', (args,
   labels: ['evidence', 'frozen-input', 'rfc', 'shell'],
 }))
 
-function shellTaskPassed(result) {
-  return result?.exitCode === 0
-}
+function shellTaskPassed(result) { return result?.exitCode === 0 }
 
 function reviewPassed(review) {
-  return review?.passed === true
-    && Number.isFinite(review?.score)
-    && review.score >= 90
-    && review.score <= 100
-    && Array.isArray(review?.blockers)
-    && review.blockers.length === 0
+  return review?.passed === true && Number.isFinite(review?.score) && review.score >= 90 && review.score <= 100
+    && Array.isArray(review?.blockers) && review.blockers.length === 0
 }
 
 function reviewHasActionableBlockers(review) {
@@ -698,7 +692,8 @@ export async function process(inputs, ctx) {
     spec: spec.stdout,
     boundary: boundary.stdout,
   })
-  await ctx.task(verifyCompatibilityProtectedTask, { projectRoot, protectedHashes: compatibilityProtectedHashes.stdout })
+  const compatibilityScope = await ctx.task(verifyCompatibilityProtectedTask, { projectRoot, protectedHashes: compatibilityProtectedHashes.stdout })
+  if (!shellTaskPassed(compatibilityScope)) throw new Error('Compatibility agent escaped its two-test write scope')
   const frozenBoundaryHash = await ctx.task(hashAuthorizationPathsTask, { projectRoot, label: 'boundary', paths: [boundaryPath] })
   const frozenCompatibilityTestHashes = await ctx.task(hashAuthorizationPathsTask, { projectRoot, label: 'compatibility tests', paths: compatibilityTestPaths })
 
@@ -709,6 +704,7 @@ export async function process(inputs, ctx) {
     compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
     rfcHashes: frozenRfcHashes.stdout,
   })
+  if (!shellTaskPassed(frozenVerification)) throw new Error('Frozen authorization inputs changed before review')
   let focusedGate = await ctx.task(focusedGateTask, { projectRoot })
   if (!shellTaskPassed(focusedGate)) {
     throw new Error('Focused authorization gate failed; independent review is not permitted')
@@ -753,6 +749,7 @@ export async function process(inputs, ctx) {
       compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
       rfcHashes: frozenRfcHashes.stdout,
     })
+    if (!shellTaskPassed(frozenVerification)) throw new Error('Frozen authorization inputs changed during remediation')
     focusedGate = await ctx.task(focusedGateTask, { projectRoot })
     if (!shellTaskPassed(focusedGate)) {
       throw new Error('Focused authorization gate failed after remediation; review is not permitted')
@@ -787,7 +784,8 @@ export async function process(inputs, ctx) {
   if (!shellTaskPassed(committedGate)) {
     throw new Error('Committed authorization tree verification failed; Beads closure is forbidden')
   }
-  await ctx.task(closeBeadTask, { projectRoot, beadId, score: review.score })
+  const closedBead = await ctx.task(closeBeadTask, { projectRoot, beadId, score: review.score })
+  if (!shellTaskPassed(closedBead)) throw new Error('Authorization child closure failed')
 
   return {
     success: true,
