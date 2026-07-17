@@ -353,6 +353,16 @@ const readReviewEvidenceTask = defineTask('read-higgsfield-provider-review-evide
       `git diff -- docs/architecture/higgsfield-provider-boundary.md ${implementationPaths.concat(testPaths).map(quote).join(' ')}`,
       "printf '\\n--- STATUS ---\\n'",
       'git status --short',
+      "printf '\\n--- OFFICIAL OBSERVED RED EFFECT ---\\n'",
+      `printf '%s\\n' ${quote(args.redEvidence)}`,
+      "printf '\\n--- FROZEN TEST HASH BASELINE ---\\n'",
+      `printf '%s\\n' ${quote(args.testHashes)}`,
+      "printf '\\n--- PROTECTED RFC HASH BASELINE ---\\n'",
+      `printf '%s\\n' ${quote(args.draftHashes)}`,
+      "printf '\\n--- LATEST FROZEN-INPUT EFFECT ---\\n'",
+      `printf '%s\\n' ${quote(args.frozenEvidence)}`,
+      "printf '\\n--- LATEST FOCUSED-GATE EFFECT ---\\n'",
+      `printf '%s\\n' ${quote(args.focusedGateEvidence)}`,
     ].join(' && '),
     expectedExitCode: 0,
   },
@@ -513,7 +523,7 @@ export async function process(inputs, ctx) {
     spec: spec.stdout,
     boundary: boundary.stdout,
   })
-  await ctx.task(redGateTask, { projectRoot })
+  const redGate = await ctx.task(redGateTask, { projectRoot })
   const testHashes = await ctx.task(hashTestsTask, { projectRoot })
   const tests = await ctx.task(readTestsTask, { projectRoot })
 
@@ -523,16 +533,23 @@ export async function process(inputs, ctx) {
     boundary: boundary.stdout,
     tests: tests.stdout,
   })
-  await ctx.task(verifyFrozenTask, {
+  let frozenVerification = await ctx.task(verifyFrozenTask, {
     projectRoot,
     testHashes: testHashes.stdout,
     draftHashes: draftHashes.stdout,
   })
-  await ctx.task(focusedGateTask, { projectRoot })
+  let focusedGate = await ctx.task(focusedGateTask, { projectRoot })
 
   let review = null
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const artifacts = await ctx.task(readReviewEvidenceTask, { projectRoot })
+    const artifacts = await ctx.task(readReviewEvidenceTask, {
+      projectRoot,
+      redEvidence: JSON.stringify(redGate),
+      testHashes: testHashes.stdout,
+      draftHashes: draftHashes.stdout,
+      frozenEvidence: JSON.stringify(frozenVerification),
+      focusedGateEvidence: JSON.stringify(focusedGate),
+    })
     review = await ctx.task(reviewTask, {
       spec: spec.stdout,
       artifacts: artifacts.stdout,
@@ -544,12 +561,12 @@ export async function process(inputs, ctx) {
       review: JSON.stringify(review),
       artifacts: artifacts.stdout,
     })
-    await ctx.task(verifyFrozenTask, {
+    frozenVerification = await ctx.task(verifyFrozenTask, {
       projectRoot,
       testHashes: testHashes.stdout,
       draftHashes: draftHashes.stdout,
     })
-    await ctx.task(focusedGateTask, { projectRoot })
+    focusedGate = await ctx.task(focusedGateTask, { projectRoot })
   }
 
   if (!review || !review.passed) {
