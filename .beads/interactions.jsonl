@@ -2,3 +2,4 @@
 {"id":"int-7e9149cd4d4d4816d5fcfc909c8a4511","kind":"field_change","created_at":"2026-07-17T04:30:45.603891Z","actor":"Nikolay Asta","issue_id":"evmedia-r20.2.1","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
 {"id":"int-461dfff75693c8aeba015a265d725080","kind":"field_change","created_at":"2026-07-17T04:30:45.604338Z","actor":"Nikolay Asta","issue_id":"evmedia-r20.2.1","extra":{"field":"assignee","new_value":"Nikolay Asta","old_value":""}}
 {"id":"int-b37995d7c7d8ddaba37bf0c6298ee3d5","kind":"field_change","created_at":"2026-07-17T06:31:26.849472Z","actor":"Nikolay Asta","issue_id":"evmedia-r20.2.1","extra":{"field":"status","new_value":"closed","old_value":"in_progress"}}
+{"id":"int-eb8cab5c4605db9574f684a031a6e8b1","kind":"field_change","created_at":"2026-07-17T06:36:33.939823Z","actor":"Nikolay Asta","issue_id":"evmedia-r20.7.1","extra":{"field":"status","new_value":"in_progress","old_value":"open"}}
