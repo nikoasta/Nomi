@@ -546,7 +546,7 @@ export async function process(inputs, ctx) {
     }
     draftHashes = { stdout: protectedDraftHashBaseline }
     testHashes = { stdout: frozenTestHashBaseline }
-    boundary = await ctx.task(readBoundaryTask, { projectRoot })
+    await ctx.task(readBoundaryTask, { projectRoot })
     redGate = await ctx.task(readPriorRedEvidenceTask, {
       runsRoot: inputs.runsRoot || '/Users/niko.dev/.a5c/runs',
       priorRunId: inputs.priorRunId,
