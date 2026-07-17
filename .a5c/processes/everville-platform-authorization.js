@@ -546,6 +546,10 @@ const versionTask = defineTask('version-platform-authorization', (args, taskCtx)
     command: [
       `cd ${quote(args.projectRoot)}`,
       'git diff --cached --quiet || { echo "Refusing to mix pre-staged changes into authorization commit"; exit 1; }',
+      `currentTests=$(shasum -a 256 ${contractTestPaths.map(quote).join(' ')})`,
+      `test "$currentTests" = ${quote(args.testHashes.trim())}`,
+      `currentRfcs=$(shasum -a 256 ${frozenRfcPaths.map(quote).join(' ')})`,
+      `test "$currentRfcs" = ${quote(protectedRfcHashBaseline)}`,
       `git add ${milestonePaths.map(quote).join(' ')}`,
       `expected=$(printf '%s\\n' ${milestonePaths.map(quote).join(' ')} | sort)`,
       'actual=$(git diff --cached --name-only | sort)',
@@ -575,6 +579,8 @@ const postCommitGateTask = defineTask('verify-platform-authorization-commit', (a
       'committed=$(git show --format= --name-only "$sha" | sed "/^$/d" | sort)',
       'test "$committed" = "$expected"',
       `git diff --quiet HEAD -- ${milestonePaths.map(quote).join(' ')}`,
+      `currentTests=$(shasum -a 256 ${contractTestPaths.map(quote).join(' ')})`,
+      `test "$currentTests" = ${quote(args.testHashes.trim())}`,
       `pnpm exec vitest run ${[...contractTestPaths, ...existingPlatformTests].map(quote).join(' ')}`,
       'pnpm run typecheck',
       `pnpm exec eslint ${[...implementationPaths, ...contractTestPaths].map(quote).join(' ')}`,
@@ -692,8 +698,14 @@ export async function process(inputs, ctx) {
   if (!shellTaskPassed(fullGates)) {
     throw new Error('Full repository gates failed; authorization milestone cannot be versioned')
   }
-  const version = await ctx.task(versionTask, { projectRoot })
-  const committedGate = await ctx.task(postCommitGateTask, { projectRoot })
+  const version = await ctx.task(versionTask, {
+    projectRoot,
+    testHashes: frozenTestHashes.stdout,
+  })
+  const committedGate = await ctx.task(postCommitGateTask, {
+    projectRoot,
+    testHashes: frozenTestHashes.stdout,
+  })
   if (!shellTaskPassed(committedGate)) {
     throw new Error('Committed authorization tree verification failed; Beads closure is forbidden')
   }
