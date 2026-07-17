@@ -13,33 +13,11 @@
 import { defineTask } from '@a5c-ai/babysitter-sdk'
 
 const boundaryPath = 'docs/architecture/platform-authorization-boundary.md'
-const contractTestPaths = [
-  'src/platform/authorization/contracts.test.ts',
-  'src/platform/authorization/policy.test.ts',
-  'src/platform/platformAuthorization.adapters.test.ts',
-  'src/platform/platformAuthorization.boundary.test.ts',
-]
-const implementationPaths = [
-  'src/platform/authorization/contracts.ts',
-  'src/platform/authorization/policy.ts',
-  'src/platform/client.ts',
-  'src/platform/browserPlatformClient.ts',
-  'src/platform/electronPlatformClient.ts',
-]
-const existingPlatformTests = [
-  'src/platform/platformClient.contract.test.ts',
-  'src/platform/platformClient.boundary.test.ts',
-  'src/platform/platformClient.composition.test.ts',
-  'src/platform/platformClient.facades.test.ts',
-]
-const frozenRfcPaths = [
-  'docs/architecture/everville-media-platform-acceptance-matrix.md',
-  'docs/architecture/everville-media-platform-cloud-options.md',
-  'docs/architecture/everville-media-platform-decision-brief.md',
-  'docs/architecture/everville-media-platform-rfc.md',
-  'docs/architecture/everville-media-platform-runtime-audit.md',
-  'docs/architecture/everville-media-platform-security-data.md',
-]
+const contractTestPaths = ['src/platform/authorization/contracts.test.ts', 'src/platform/authorization/policy.test.ts', 'src/platform/platformAuthorization.adapters.test.ts', 'src/platform/platformAuthorization.boundary.test.ts']
+const implementationPaths = ['src/platform/authorization/contracts.ts', 'src/platform/authorization/policy.ts', 'src/platform/client.ts', 'src/platform/browserPlatformClient.ts', 'src/platform/electronPlatformClient.ts']
+const compatibilityTestPaths = ['src/platform/platformClient.contract.test.ts', 'src/platform/platformClient.boundary.test.ts']
+const existingPlatformTests = [...compatibilityTestPaths, 'src/platform/platformClient.composition.test.ts', 'src/platform/platformClient.facades.test.ts']
+const frozenRfcPaths = ['docs/architecture/everville-media-platform-acceptance-matrix.md', 'docs/architecture/everville-media-platform-cloud-options.md', 'docs/architecture/everville-media-platform-decision-brief.md', 'docs/architecture/everville-media-platform-rfc.md', 'docs/architecture/everville-media-platform-runtime-audit.md', 'docs/architecture/everville-media-platform-security-data.md']
 
 const protectedRfcHashBaseline = `6e2798d63392443f0a6421cbc6e04b236d9338ed900f2707a40db0b611a52d36  docs/architecture/everville-media-platform-acceptance-matrix.md
 f8f1196f010a47505b5ccea0368fea12e83fe2ef02e863dbe9d9d94a748c4b95  docs/architecture/everville-media-platform-cloud-options.md
@@ -48,14 +26,10 @@ cf25c90aa2310cb885141910cb7a6ec67af2b33b85d57782ce25e0b1cd8752d0  docs/architect
 84b06c1cbf50e3e15494e3261da51c214a2cd2d06748a575dd089904ce74cd77  docs/architecture/everville-media-platform-runtime-audit.md
 61c8c195b1a6064fb84b1bdd16b249c18694d8838d676493fc42f6ffdb273c35  docs/architecture/everville-media-platform-security-data.md`
 
-const preRedAllowedDirtyPaths = [
-  '.beads/interactions.jsonl',
-  boundaryPath,
-  ...contractTestPaths,
-  ...frozenRfcPaths,
-]
+const preRedAllowedDirtyPaths = ['.beads/interactions.jsonl', boundaryPath, ...contractTestPaths, ...frozenRfcPaths]
 
-const milestonePaths = [boundaryPath, ...contractTestPaths, ...implementationPaths]
+const milestonePaths = [boundaryPath, ...contractTestPaths, ...implementationPaths, ...compatibilityTestPaths]
+const compatibilityProtectedPaths = ['.beads/interactions.jsonl', boundaryPath, ...contractTestPaths, ...implementationPaths, ...frozenRfcPaths]
 const milestoneAllowedDirtyPaths = ['.beads/interactions.jsonl', ...milestonePaths, ...frozenRfcPaths]
 const processDefinitionPaths = [
   '.a5c/processes/everville-platform-authorization.js',
@@ -233,11 +207,7 @@ const authorTestsTask = defineTask('author-authorization-tests', (args, taskCtx)
     prompt: {
       role: 'senior TypeScript contract and application-security test engineer',
       task: `Author exactly ${contractTestPaths.join(', ')} from the frozen specification below.`,
-      context: {
-        projectRoot: args.projectRoot,
-        specVerbatim: args.spec,
-        boundaryVerbatim: args.boundary,
-      },
+      context: { projectRoot: args.projectRoot, specVerbatim: args.spec, boundaryVerbatim: args.boundary },
       instructions: [
         'Do not read files under src/, electron/, or other implementation directories. Author tests strictly from SPEC and BOUNDARY.',
         'Import only the exact public modules and symbols named by BOUNDARY. The implementation modules intentionally do not exist yet.',
@@ -352,14 +322,83 @@ const implementTask = defineTask('implement-platform-authorization', (args, task
   labels: ['agent', 'authorization', 'implementation', 'security'],
 }))
 
+const hashCompatibilityProtectedTask = defineTask('freeze-authorization-compatibility-protected-inputs', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Freeze implementation and immutable inputs before compatibility-test maintenance',
+  shell: { command: `cd ${quote(args.projectRoot)} && shasum -a 256 ${compatibilityProtectedPaths.map(quote).join(' ')}`, expectedExitCode: 0 },
+  io: taskIo(taskCtx),
+  labels: ['compatibility', 'evidence', 'frozen-input', 'shell'],
+}))
+
+const verifyCompatibilityProtectedTask = defineTask('verify-authorization-compatibility-write-scope', (args, taskCtx) => ({
+  kind: 'shell', title: 'Verify compatibility agent changed only its two test files',
+  shell: { command: `cd ${quote(args.projectRoot)} && git diff --cached --quiet && current=$(shasum -a 256 ${compatibilityProtectedPaths.map(quote).join(' ')}) && test "$current" = ${quote(args.protectedHashes.trim())} && dirty=$({ git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard; } | sort -u) && unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(milestoneAllowedPathPattern)} || true) && test -z "$unexpected" || { printf "Unexpected compatibility-agent writes:\\n%s\\n" "$unexpected"; exit 1; }`, expectedExitCode: 0 },
+  io: taskIo(taskCtx), labels: ['agent-write-scope', 'compatibility', 'frozen-input', 'shell'],
+}))
+
+const updateCompatibilityTestsTask = defineTask('update-authorization-compatibility-tests', (args, taskCtx) => ({
+  kind: 'agent',
+  title: 'Update stale PlatformClient tests for additive authorization capabilities',
+  agent: {
+    name: 'platform-authorization-compatibility-test-maintainer',
+    prompt: {
+      role: 'senior TypeScript compatibility-test maintainer',
+      task: 'Update only the two stale PlatformClient tests so they preserve every existing conversation/asset assertion while recognizing the additive identity and authorization services.',
+      context: {
+        projectRoot: args.projectRoot,
+        specVerbatim: args.spec,
+        boundaryVerbatim: args.boundary,
+      },
+      instructions: [
+        `Read the current implementation, frozen authorization tests, and these exact stale tests before editing: ${compatibilityTestPaths.join(', ')}.`,
+        `Write only these exact compatibility-test paths: ${compatibilityTestPaths.join(', ')}.`,
+        'Do not edit implementation, frozen authorization tests, the boundary document, Beads, RFC drafts, package files, migrations, or lockfiles.',
+        'Preserve every existing conversation and asset delegation, payload, unsupported-result, browser import-safety, and bridge-isolation assertion.',
+        'Replace only stale capability-set assumptions with the frozen additive contract: Electron always exposes identity.session.read and authorization.check; browser exposes only identity.session.read.',
+        'Assert the new identity and authorization behavior directly where a stale test previously assumed an empty capability set. Do not weaken, skip, delete, snapshot, or conditionally bypass tests.',
+        `Run ${[...contractTestPaths, ...existingPlatformTests].join(', ')} and report exact results.`,
+        'Do not invoke Babysitter or Beads, and do not stage or commit.',
+      ],
+      outputFormat: 'JSON with filesModified, staleAssertionsUpdated, compatibilityPreserved, testResults, summary',
+    },
+    outputSchema: {
+      type: 'object',
+      required: ['filesModified', 'staleAssertionsUpdated', 'compatibilityPreserved', 'testResults', 'summary'],
+      properties: {
+        filesModified: { type: 'array', items: { type: 'string' } }, staleAssertionsUpdated: { type: 'array', items: { type: 'string' } },
+        compatibilityPreserved: { type: 'array', items: { type: 'string' } }, testResults: { type: 'array', items: { type: 'string' } }, summary: { type: 'string' },
+      },
+    },
+  },
+  io: taskIo(taskCtx),
+  labels: ['agent', 'brownfield', 'compatibility', 'tests'],
+}))
+
+const hashAuthorizationPathsTask = defineTask('freeze-authorization-paths', (args, taskCtx) => ({
+  kind: 'shell',
+  title: `Freeze ${args.label} checksums`,
+  shell: { command: `cd ${quote(args.projectRoot)} && shasum -a 256 ${args.paths.map(quote).join(' ')}`, expectedExitCode: 0 },
+  io: taskIo(taskCtx),
+  labels: ['compatibility', 'evidence', 'frozen-input', 'shell'],
+}))
+
+const hashReviewedTreeTask = defineTask('freeze-authorization-reviewed-tree', (args, taskCtx) => ({
+  kind: 'shell', title: `Freeze milestone tree for review attempt ${args.attempt}`,
+  shell: { command: `cd ${quote(args.projectRoot)} && shasum -a 256 ${milestonePaths.map(quote).join(' ')}`, expectedExitCode: 0 },
+  io: taskIo(taskCtx), labels: ['evidence', 'independent-review', 'shell'],
+}))
+
 const verifyFrozenTask = defineTask('verify-authorization-frozen-inputs', (args, taskCtx) => ({
   kind: 'shell',
   title: 'Verify tests and unapproved RFC drafts remain frozen',
   shell: {
     command: [
       `cd ${quote(args.projectRoot)}`,
+      `test "$(shasum -a 256 ${quote(boundaryPath)})" = ${quote(args.boundaryHash.trim())}`,
       `currentTests=$(shasum -a 256 ${contractTestPaths.map(quote).join(' ')})`,
       `test "$currentTests" = ${quote(args.testHashes.trim())}`,
+      `currentCompatibilityTests=$(shasum -a 256 ${compatibilityTestPaths.map(quote).join(' ')})`,
+      `test "$currentCompatibilityTests" = ${quote(args.compatibilityTestHashes.trim())}`,
       `currentRfcs=$(shasum -a 256 ${frozenRfcPaths.map(quote).join(' ')})`,
       `test "$currentRfcs" = ${quote(args.rfcHashes.trim())}`,
     ].join(' && '),
@@ -397,7 +436,7 @@ const focusedGateTask = defineTask('run-authorization-focused-gates', (args, tas
       `cd ${quote(args.projectRoot)}`,
       `pnpm exec vitest run ${[...contractTestPaths, ...existingPlatformTests].map(quote).join(' ')}`,
       'pnpm run typecheck',
-      `pnpm exec eslint ${[...implementationPaths, ...contractTestPaths].map(quote).join(' ')}`,
+      `pnpm exec eslint ${[...implementationPaths, ...contractTestPaths, ...compatibilityTestPaths].map(quote).join(' ')}`,
       'git diff --cached --quiet || { echo "Unexpected staged changes before review"; exit 1; }',
       `dirty=$({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)`,
       `unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(milestoneAllowedPathPattern)} || true)`,
@@ -426,15 +465,21 @@ const readReviewEvidenceTask = defineTask('read-authorization-review-evidence', 
       `printf '%s\\n' ${quote(args.redEvidence)}`,
       "printf '\\n--- FROZEN TEST HASHES ---\\n'",
       `printf '%s\\n' ${quote(args.testHashes)}`,
+      "printf '\\n--- FROZEN COMPATIBILITY TEST HASHES ---\\n'",
+      `printf '%s\\n' ${quote(args.compatibilityTestHashes)}`,
+      "printf '\\n--- COMPATIBILITY PROTECTED INPUT HASHES ---\\n'",
+      `printf '%s\\n' ${quote(args.protectedHashes)}`,
+      "printf '\\n--- REVIEWED MILESTONE TREE HASHES ---\\n'",
+      `printf '%s\\n' ${quote(args.reviewedTreeHashes)}`,
       "printf '\\n--- TRUSTED RFC HASH BASELINE ---\\n'",
       `printf '%s\\n' ${quote(protectedRfcHashBaseline)}`,
       "printf '\\n--- FROZEN INPUT VERIFICATION ---\\n'",
       `printf '%s\\n' ${quote(args.frozenEvidence)}`,
       "printf '\\n--- FOCUSED GATE EVIDENCE ---\\n'",
       `printf '%s\\n' ${quote(args.focusedGateEvidence)}`,
-      `for file in ${[boundaryPath, ...contractTestPaths, ...implementationPaths].map(quote).join(' ')}; do printf '\\n--- %s ---\\n' "$file"; cat "$file"; done`,
+      `for file in ${milestonePaths.map(quote).join(' ')}; do printf '\\n--- %s ---\\n' "$file"; cat "$file"; done`,
       "printf '\\n--- AUTHORIZATION DIFF ---\\n'",
-      `git diff -- ${[boundaryPath, ...contractTestPaths, ...implementationPaths].map(quote).join(' ')}`,
+      `git diff -- ${milestonePaths.map(quote).join(' ')}`,
       "printf '\\n--- CACHED DIFF (MUST BE EMPTY) ---\\n'",
       'git diff --cached',
       "printf '\\n--- STATUS ---\\n'",
@@ -460,9 +505,9 @@ const reviewTask = defineTask('review-platform-authorization', (args, taskCtx) =
       },
       instructions: [
         'Compare SPEC to ARTIFACTS directly. Ignore any narrative in your context about how ARTIFACTS were built.',
-        'Fail if ARTIFACTS does not contain the assertion-level RED marker, exact frozen test hashes, the trusted RFC hash baseline, successful frozen-input verification, and a focused gate with exitCode 0.',
+        'Fail if ARTIFACTS does not contain the assertion-level RED marker, exact frozen authorization/compatibility/protected/reviewed-tree hashes, the trusted RFC baseline, successful frozen-input verification, and a focused gate with exitCode 0.',
         'Fail on fail-open logic, role or permission confusion, cross-organization/project access, anonymous grants, inactive membership grants, malformed-input grants, unstable denial semantics, credential-bearing contracts, raw diagnostic leakage, browser fabricated identity, or Electron claims of cloud authentication.',
-        'Fail on existing PlatformClient behavior drift, tests changed after RED, vendor coupling, hidden migration/RLS/topology choices, RFC edits, files over 800 lines, or acceptance claims unsupported by tests.',
+        'Fail on existing PlatformClient behavior drift, frozen authorization tests changed after RED, compatibility tests changed after their post-update freeze, vendor coupling, hidden migration/RLS/topology choices, RFC edits, files over 800 lines, or acceptance claims unsupported by tests.',
         'Distinguish child blockers from parent work intentionally still pending: real sign-in, membership persistence, invitations, database/RLS, server enforcement, audit logs, and cloud adapters.',
         'Return exact file and line references for every blocker and score 0-100.',
       ],
@@ -546,8 +591,12 @@ const versionTask = defineTask('version-platform-authorization', (args, taskCtx)
     command: [
       `cd ${quote(args.projectRoot)}`,
       'git diff --cached --quiet || { echo "Refusing to mix pre-staged changes into authorization commit"; exit 1; }',
+      `currentReviewedTree=$(shasum -a 256 ${milestonePaths.map(quote).join(' ')})`,
+      `test "$currentReviewedTree" = ${quote(args.reviewedTreeHashes.trim())}`,
       `currentTests=$(shasum -a 256 ${contractTestPaths.map(quote).join(' ')})`,
       `test "$currentTests" = ${quote(args.testHashes.trim())}`,
+      `currentCompatibilityTests=$(shasum -a 256 ${compatibilityTestPaths.map(quote).join(' ')})`,
+      `test "$currentCompatibilityTests" = ${quote(args.compatibilityTestHashes.trim())}`,
       `currentRfcs=$(shasum -a 256 ${frozenRfcPaths.map(quote).join(' ')})`,
       `test "$currentRfcs" = ${quote(protectedRfcHashBaseline)}`,
       `git add ${milestonePaths.map(quote).join(' ')}`,
@@ -579,11 +628,15 @@ const postCommitGateTask = defineTask('verify-platform-authorization-commit', (a
       'committed=$(git show --format= --name-only "$sha" | sed "/^$/d" | sort)',
       'test "$committed" = "$expected"',
       `git diff --quiet HEAD -- ${milestonePaths.map(quote).join(' ')}`,
+      `currentReviewedTree=$(shasum -a 256 ${milestonePaths.map(quote).join(' ')})`,
+      `test "$currentReviewedTree" = ${quote(args.reviewedTreeHashes.trim())}`,
       `currentTests=$(shasum -a 256 ${contractTestPaths.map(quote).join(' ')})`,
       `test "$currentTests" = ${quote(args.testHashes.trim())}`,
+      `currentCompatibilityTests=$(shasum -a 256 ${compatibilityTestPaths.map(quote).join(' ')})`,
+      `test "$currentCompatibilityTests" = ${quote(args.compatibilityTestHashes.trim())}`,
       `pnpm exec vitest run ${[...contractTestPaths, ...existingPlatformTests].map(quote).join(' ')}`,
       'pnpm run typecheck',
-      `pnpm exec eslint ${[...implementationPaths, ...contractTestPaths].map(quote).join(' ')}`,
+      `pnpm exec eslint ${[...implementationPaths, ...contractTestPaths, ...compatibilityTestPaths].map(quote).join(' ')}`,
       `currentRfcs=$(shasum -a 256 ${frozenRfcPaths.map(quote).join(' ')})`,
       `test "$currentRfcs" = ${quote(protectedRfcHashBaseline)}`,
       `dirty=$({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)`,
@@ -611,7 +664,7 @@ const closeBeadTask = defineTask('close-platform-authorization-slice', (args, ta
 
 export async function process(inputs, ctx) {
   const projectRoot = inputs.projectRoot
-  const beadId = inputs.beadId || 'evmedia-r20.9.1'
+  const beadId = 'evmedia-r20.9.1'
 
   const spec = await ctx.task(readSpecTask, { projectRoot, beadId })
   const frozenRfcHashes = await ctx.task(hashFrozenRfcTask, { projectRoot })
@@ -639,10 +692,21 @@ export async function process(inputs, ctx) {
     boundary: boundary.stdout,
     tests: frozenTests.stdout,
   })
+  const compatibilityProtectedHashes = await ctx.task(hashCompatibilityProtectedTask, { projectRoot })
+  await ctx.task(updateCompatibilityTestsTask, {
+    projectRoot,
+    spec: spec.stdout,
+    boundary: boundary.stdout,
+  })
+  await ctx.task(verifyCompatibilityProtectedTask, { projectRoot, protectedHashes: compatibilityProtectedHashes.stdout })
+  const frozenBoundaryHash = await ctx.task(hashAuthorizationPathsTask, { projectRoot, label: 'boundary', paths: [boundaryPath] })
+  const frozenCompatibilityTestHashes = await ctx.task(hashAuthorizationPathsTask, { projectRoot, label: 'compatibility tests', paths: compatibilityTestPaths })
 
   let frozenVerification = await ctx.task(verifyFrozenTask, {
     projectRoot,
+    boundaryHash: frozenBoundaryHash.stdout,
     testHashes: frozenTestHashes.stdout,
+    compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
     rfcHashes: frozenRfcHashes.stdout,
   })
   let focusedGate = await ctx.task(focusedGateTask, { projectRoot })
@@ -651,11 +715,16 @@ export async function process(inputs, ctx) {
   }
 
   let review = null
+  let reviewedTreeHashes = null
   for (let attempt = 0; attempt < 4; attempt += 1) {
+    const candidateTreeHashes = await ctx.task(hashReviewedTreeTask, { projectRoot, attempt: attempt + 1 })
     const artifacts = await ctx.task(readReviewEvidenceTask, {
       projectRoot,
       redEvidence: JSON.stringify(redEvidence),
       testHashes: frozenTestHashes.stdout,
+      compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
+      protectedHashes: compatibilityProtectedHashes.stdout,
+      reviewedTreeHashes: candidateTreeHashes.stdout,
       frozenEvidence: JSON.stringify(frozenVerification),
       focusedGateEvidence: JSON.stringify(focusedGate),
     })
@@ -663,7 +732,10 @@ export async function process(inputs, ctx) {
       spec: spec.stdout,
       artifacts: artifacts.stdout,
     })
-    if (reviewPassed(review)) break
+    if (reviewPassed(review)) {
+      reviewedTreeHashes = candidateTreeHashes.stdout
+      break
+    }
     if (!reviewHasActionableBlockers(review)) {
       throw new Error('Independent authorization review was contradictory or lacked file:line blockers')
     }
@@ -676,7 +748,9 @@ export async function process(inputs, ctx) {
     })
     frozenVerification = await ctx.task(verifyFrozenTask, {
       projectRoot,
+      boundaryHash: frozenBoundaryHash.stdout,
       testHashes: frozenTestHashes.stdout,
+      compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
       rfcHashes: frozenRfcHashes.stdout,
     })
     focusedGate = await ctx.task(focusedGateTask, { projectRoot })
@@ -701,10 +775,14 @@ export async function process(inputs, ctx) {
   const version = await ctx.task(versionTask, {
     projectRoot,
     testHashes: frozenTestHashes.stdout,
+    compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
+    reviewedTreeHashes,
   })
   const committedGate = await ctx.task(postCommitGateTask, {
     projectRoot,
     testHashes: frozenTestHashes.stdout,
+    compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
+    reviewedTreeHashes,
   })
   if (!shellTaskPassed(committedGate)) {
     throw new Error('Committed authorization tree verification failed; Beads closure is forbidden')
