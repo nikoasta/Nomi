@@ -31,10 +31,7 @@ const preRedAllowedDirtyPaths = ['.beads/interactions.jsonl', boundaryPath, ...c
 const milestonePaths = [boundaryPath, ...contractTestPaths, ...implementationPaths, ...compatibilityTestPaths]
 const compatibilityProtectedPaths = ['.beads/interactions.jsonl', boundaryPath, ...contractTestPaths, ...implementationPaths, ...frozenRfcPaths]
 const milestoneAllowedDirtyPaths = ['.beads/interactions.jsonl', ...milestonePaths, ...frozenRfcPaths]
-const processDefinitionPaths = [
-  '.a5c/processes/everville-platform-authorization.js',
-  '.a5c/inputs/everville-platform-authorization.json',
-]
+const processDefinitionPaths = ['.a5c/processes/everville-platform-authorization.js', '.a5c/inputs/everville-platform-authorization.json']
 
 function quote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`
@@ -322,6 +319,12 @@ const implementTask = defineTask('implement-platform-authorization', (args, task
   labels: ['agent', 'authorization', 'implementation', 'security'],
 }))
 
+const normalizeTestLintTask = defineTask('normalize-authorization-test-lint', (args, taskCtx) => ({
+  kind: 'shell', title: 'Remove five semantics-free quote escapes after RED',
+  shell: { command: `cd ${quote(args.projectRoot)} && current=$(shasum -a 256 ${contractTestPaths.map(quote).join(' ')}) && test "$current" = ${quote(args.redTestHashes.trim())} && count=$(rg -o '\\\\"' ${contractTestPaths.map(quote).join(' ')} | wc -l | tr -d ' ') && test "$count" = 5 && tmp=$(mktemp -d) && trap 'rm -rf "$tmp"' EXIT && cp ${quote(contractTestPaths[0])} "$tmp/contracts.test.ts" && cp ${quote(contractTestPaths[3])} "$tmp/boundary.test.ts" && perl -pi -e 's/\\\\"/"/g' ${quote(contractTestPaths[0])} ${quote(contractTestPaths[3])} && ! rg -n '\\\\"' ${contractTestPaths.map(quote).join(' ')} && { diff -u "$tmp/contracts.test.ts" ${quote(contractTestPaths[0])} || [ $? -eq 1 ]; } && { diff -u "$tmp/boundary.test.ts" ${quote(contractTestPaths[3])} || [ $? -eq 1 ]; } && pnpm exec vitest run ${contractTestPaths.map(quote).join(' ')} && pnpm exec eslint ${contractTestPaths.map(quote).join(' ')}`, expectedExitCode: 0 },
+  io: taskIo(taskCtx), labels: ['evidence', 'lint', 'normalized-tests', 'red-green-refactor', 'shell'],
+}))
+
 const hashCompatibilityProtectedTask = defineTask('freeze-authorization-compatibility-protected-inputs', (args, taskCtx) => ({
   kind: 'shell',
   title: 'Freeze implementation and immutable inputs before compatibility-test maintenance',
@@ -332,7 +335,7 @@ const hashCompatibilityProtectedTask = defineTask('freeze-authorization-compatib
 
 const verifyCompatibilityProtectedTask = defineTask('verify-authorization-compatibility-write-scope', (args, taskCtx) => ({
   kind: 'shell', title: 'Verify compatibility agent changed only its two test files',
-  shell: { command: `cd ${quote(args.projectRoot)} && git diff --cached --quiet && git diff --quiet --diff-filter=D -- ${compatibilityTestPaths.map(quote).join(' ')} && for file in ${compatibilityTestPaths.map(quote).join(' ')}; do test -s "$file"; done && current=$(shasum -a 256 ${compatibilityProtectedPaths.map(quote).join(' ')}) && test "$current" = ${quote(args.protectedHashes.trim())} && dirty=$({ git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard; } | sort -u) && unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(milestoneAllowedPathPattern)} || true) && test -z "$unexpected" || { printf "Unexpected compatibility-agent writes:\\n%s\\n" "$unexpected"; exit 1; }`, expectedExitCode: 0 },
+  shell: { command: `cd ${quote(args.projectRoot)} && git diff --cached --quiet && git diff --quiet --diff-filter=D -- ${compatibilityTestPaths.map(quote).join(' ')} && for file in ${compatibilityTestPaths.map(quote).join(' ')}; do test -s "$file"; done && expectedCompat=$(printf '%s\\n' ${compatibilityTestPaths.map(quote).join(' ')} | sort) && actualCompat=$(git diff --name-only -- ${compatibilityTestPaths.map(quote).join(' ')} | sort) && test "$actualCompat" = "$expectedCompat" && current=$(shasum -a 256 ${compatibilityProtectedPaths.map(quote).join(' ')}) && test "$current" = ${quote(args.protectedHashes.trim())} && dirty=$({ git diff --name-only; git diff --cached --name-only; git ls-files --others --exclude-standard; } | sort -u) && unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(milestoneAllowedPathPattern)} || true) && test -z "$unexpected" || { printf "Unexpected compatibility-agent writes:\\n%s\\n" "$unexpected"; exit 1; }`, expectedExitCode: 0 },
   io: taskIo(taskCtx), labels: ['agent-write-scope', 'compatibility', 'frozen-input', 'shell'],
 }))
 
@@ -410,17 +413,9 @@ const verifyFrozenTask = defineTask('verify-authorization-frozen-inputs', (args,
 
 function shellTaskPassed(result) { return result?.exitCode === 0 }
 
-function reviewPassed(review) {
-  return review?.passed === true && Number.isFinite(review?.score) && review.score >= 90 && review.score <= 100
-    && Array.isArray(review?.blockers) && review.blockers.length === 0
-}
+function reviewPassed(review) { return review?.passed === true && Number.isFinite(review?.score) && review.score >= 90 && review.score <= 100 && Array.isArray(review?.blockers) && review.blockers.length === 0 }
 
-function reviewHasActionableBlockers(review) {
-  return review?.passed === false
-    && Array.isArray(review?.blockers)
-    && review.blockers.length > 0
-    && review.blockers.every((blocker) => /^.+:\d+\s+-\s+.+$/.test(blocker))
-}
+function reviewHasActionableBlockers(review) { return review?.passed === false && Array.isArray(review?.blockers) && review.blockers.length > 0 && review.blockers.every((blocker) => /^.+:\d+\s+-\s+.+$/.test(blocker)) }
 
 const focusedGateTask = defineTask('run-authorization-focused-gates', (args, taskCtx) => ({
   kind: 'shell',
@@ -458,7 +453,11 @@ const readReviewEvidenceTask = defineTask('read-authorization-review-evidence', 
       "printf '\\n--- RED EVIDENCE ---\\n'",
       `printf '%s\\n' ${quote(args.redEvidence)}`,
       "printf '\\n--- FROZEN TEST HASHES ---\\n'",
-      `printf '%s\\n' ${quote(args.testHashes)}`,
+      `printf '%s\\n' ${quote(args.redTestHashes)}`,
+      "printf '\\n--- NORMALIZATION EVIDENCE ---\\n'",
+      `printf '%s\\n' ${quote(args.normalizationEvidence)}`,
+      "printf '\\n--- NORMALIZED TEST HASHES ---\\n'",
+      `printf '%s\\n' ${quote(args.normalizedTestHashes)}`,
       "printf '\\n--- FROZEN COMPATIBILITY TEST HASHES ---\\n'",
       `printf '%s\\n' ${quote(args.compatibilityTestHashes)}`,
       "printf '\\n--- COMPATIBILITY PROTECTED INPUT HASHES ---\\n'",
@@ -501,7 +500,8 @@ const reviewTask = defineTask('review-platform-authorization', (args, taskCtx) =
         'Compare SPEC to ARTIFACTS directly. Ignore any narrative in your context about how ARTIFACTS were built.',
         'Fail if ARTIFACTS does not contain the assertion-level RED marker, exact frozen authorization/compatibility/protected/reviewed-tree hashes, the trusted RFC baseline, successful frozen-input verification, and a focused gate with exitCode 0.',
         'Fail on fail-open logic, role or permission confusion, cross-organization/project access, anonymous grants, inactive membership grants, malformed-input grants, unstable denial semantics, credential-bearing contracts, raw diagnostic leakage, browser fabricated identity, or Electron claims of cloud authentication.',
-        'Fail on existing PlatformClient behavior drift, frozen authorization tests changed after RED, compatibility tests changed after their post-update freeze, vendor coupling, hidden migration/RLS/topology choices, RFC edits, files over 800 lines, or acceptance claims unsupported by tests.',
+        'Allow only the evidenced deterministic removal of exactly five semantics-free escaped quotes after RED; fail if runtime string values changed or normalized authorization tests changed after their normalized freeze.',
+        'Fail on existing PlatformClient behavior drift, compatibility tests changed after their post-update freeze, vendor coupling, hidden migration/RLS/topology choices, RFC edits, files over 800 lines, or acceptance claims unsupported by tests.',
         'Distinguish child blockers from parent work intentionally still pending: real sign-in, membership persistence, invitations, database/RLS, server enforcement, audit logs, and cloud adapters.',
         'Return exact file and line references for every blocker and score 0-100.',
       ],
@@ -662,6 +662,7 @@ export async function process(inputs, ctx) {
 
   const spec = await ctx.task(readSpecTask, { projectRoot, beadId })
   const frozenRfcHashes = await ctx.task(hashFrozenRfcTask, { projectRoot })
+  if (!shellTaskPassed(frozenRfcHashes)) throw new Error('Unapproved RFC draft baseline changed')
   await ctx.task(freshStartTask, { projectRoot })
   const preflight = await ctx.task(preflightTask, { projectRoot })
   await ctx.task(boundaryAnalysisTask, {
@@ -686,7 +687,12 @@ export async function process(inputs, ctx) {
     boundary: boundary.stdout,
     tests: frozenTests.stdout,
   })
+  const normalization = await ctx.task(normalizeTestLintTask, { projectRoot, redTestHashes: frozenTestHashes.stdout })
+  if (!shellTaskPassed(normalization)) throw new Error('Deterministic post-RED test lint normalization failed')
+  const frozenNormalizedTestHashes = await ctx.task(hashAuthorizationPathsTask, { projectRoot, label: 'normalized authorization tests', paths: contractTestPaths })
+  if (!shellTaskPassed(frozenNormalizedTestHashes)) throw new Error('Normalized authorization tests could not be frozen')
   const compatibilityProtectedHashes = await ctx.task(hashCompatibilityProtectedTask, { projectRoot })
+  if (!shellTaskPassed(compatibilityProtectedHashes)) throw new Error('Compatibility protected baseline could not be frozen')
   await ctx.task(updateCompatibilityTestsTask, {
     projectRoot,
     spec: spec.stdout,
@@ -695,35 +701,39 @@ export async function process(inputs, ctx) {
   const compatibilityScope = await ctx.task(verifyCompatibilityProtectedTask, { projectRoot, protectedHashes: compatibilityProtectedHashes.stdout })
   if (!shellTaskPassed(compatibilityScope)) throw new Error('Compatibility agent escaped its two-test write scope')
   const frozenBoundaryHash = await ctx.task(hashAuthorizationPathsTask, { projectRoot, label: 'boundary', paths: [boundaryPath] })
+  if (!shellTaskPassed(frozenBoundaryHash)) throw new Error('Authorization boundary could not be frozen')
   const frozenCompatibilityTestHashes = await ctx.task(hashAuthorizationPathsTask, { projectRoot, label: 'compatibility tests', paths: compatibilityTestPaths })
+  if (!shellTaskPassed(frozenCompatibilityTestHashes)) throw new Error('Compatibility tests could not be frozen')
 
   let frozenVerification = await ctx.task(verifyFrozenTask, {
     projectRoot,
     boundaryHash: frozenBoundaryHash.stdout,
-    testHashes: frozenTestHashes.stdout,
+    testHashes: frozenNormalizedTestHashes.stdout,
     compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
     rfcHashes: frozenRfcHashes.stdout,
   })
   if (!shellTaskPassed(frozenVerification)) throw new Error('Frozen authorization inputs changed before review')
   let focusedGate = await ctx.task(focusedGateTask, { projectRoot })
-  if (!shellTaskPassed(focusedGate)) {
-    throw new Error('Focused authorization gate failed; independent review is not permitted')
-  }
+  if (!shellTaskPassed(focusedGate)) throw new Error('Focused authorization gate failed; independent review is not permitted')
 
   let review = null
   let reviewedTreeHashes = null
   for (let attempt = 0; attempt < 4; attempt += 1) {
     const candidateTreeHashes = await ctx.task(hashReviewedTreeTask, { projectRoot, attempt: attempt + 1 })
+    if (!shellTaskPassed(candidateTreeHashes)) throw new Error('Reviewed milestone tree could not be frozen')
     const artifacts = await ctx.task(readReviewEvidenceTask, {
       projectRoot,
       redEvidence: JSON.stringify(redEvidence),
-      testHashes: frozenTestHashes.stdout,
+      redTestHashes: frozenTestHashes.stdout,
+      normalizationEvidence: JSON.stringify(normalization),
+      normalizedTestHashes: frozenNormalizedTestHashes.stdout,
       compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
       protectedHashes: compatibilityProtectedHashes.stdout,
       reviewedTreeHashes: candidateTreeHashes.stdout,
       frozenEvidence: JSON.stringify(frozenVerification),
       focusedGateEvidence: JSON.stringify(focusedGate),
     })
+    if (!shellTaskPassed(artifacts)) throw new Error('Authorization review evidence could not be assembled')
     review = await ctx.task(reviewTask, {
       spec: spec.stdout,
       artifacts: artifacts.stdout,
@@ -745,53 +755,35 @@ export async function process(inputs, ctx) {
     frozenVerification = await ctx.task(verifyFrozenTask, {
       projectRoot,
       boundaryHash: frozenBoundaryHash.stdout,
-      testHashes: frozenTestHashes.stdout,
+      testHashes: frozenNormalizedTestHashes.stdout,
       compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
       rfcHashes: frozenRfcHashes.stdout,
     })
     if (!shellTaskPassed(frozenVerification)) throw new Error('Frozen authorization inputs changed during remediation')
     focusedGate = await ctx.task(focusedGateTask, { projectRoot })
-    if (!shellTaskPassed(focusedGate)) {
-      throw new Error('Focused authorization gate failed after remediation; review is not permitted')
-    }
+    if (!shellTaskPassed(focusedGate)) throw new Error('Focused authorization gate failed after remediation; review is not permitted')
   }
 
-  if (!reviewPassed(review)) {
-    return {
-      success: false,
-      beadId,
-      review,
-      reason: 'Independent authorization review did not reach passing score 90 after four attempts',
-    }
-  }
+  if (!reviewPassed(review)) return { success: false, beadId, review, reason: 'Independent authorization review did not reach passing score 90 after four attempts' }
 
   const fullGates = await ctx.task(fullGatesTask, { projectRoot })
-  if (!shellTaskPassed(fullGates)) {
-    throw new Error('Full repository gates failed; authorization milestone cannot be versioned')
-  }
+  if (!shellTaskPassed(fullGates)) throw new Error('Full repository gates failed; authorization milestone cannot be versioned')
   const version = await ctx.task(versionTask, {
     projectRoot,
-    testHashes: frozenTestHashes.stdout,
+    testHashes: frozenNormalizedTestHashes.stdout,
     compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
     reviewedTreeHashes,
   })
+  if (!shellTaskPassed(version)) throw new Error('Authorization milestone commit failed')
   const committedGate = await ctx.task(postCommitGateTask, {
     projectRoot,
-    testHashes: frozenTestHashes.stdout,
+    testHashes: frozenNormalizedTestHashes.stdout,
     compatibilityTestHashes: frozenCompatibilityTestHashes.stdout,
     reviewedTreeHashes,
   })
-  if (!shellTaskPassed(committedGate)) {
-    throw new Error('Committed authorization tree verification failed; Beads closure is forbidden')
-  }
+  if (!shellTaskPassed(committedGate)) throw new Error('Committed authorization tree verification failed; Beads closure is forbidden')
   const closedBead = await ctx.task(closeBeadTask, { projectRoot, beadId, score: review.score })
   if (!shellTaskPassed(closedBead)) throw new Error('Authorization child closure failed')
 
-  return {
-    success: true,
-    beadId,
-    review,
-    commit: version.stdout.trim().split('\n').at(-1),
-    parentStillPending: ['evmedia-r20.9', 'evmedia-r20.4'],
-  }
+  return { success: true, beadId, review, commit: version.stdout.trim().split('\n').at(-1), parentStillPending: ['evmedia-r20.9', 'evmedia-r20.4'] }
 }
