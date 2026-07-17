@@ -373,7 +373,7 @@ const readReviewEvidenceTask = defineTask('read-higgsfield-provider-review-evide
   labels: ['artifacts', 'review', 'runtime-read', 'shell'],
 }))
 
-const reviewTask = defineTask('review-higgsfield-provider', (args, taskCtx) => ({
+const reviewTask = defineTask('review-higgsfield-provider-v2', (args, taskCtx) => ({
   kind: 'agent',
   title: 'Independently review the provider boundary and CLI adapter',
   agent: {
@@ -412,7 +412,7 @@ const reviewTask = defineTask('review-higgsfield-provider', (args, taskCtx) => (
   labels: ['agent', 'independent-review', 'quality-gate', 'security'],
 }))
 
-const remediateTask = defineTask('remediate-higgsfield-provider', (args, taskCtx) => ({
+const remediateTask = defineTask('remediate-higgsfield-provider-v2', (args, taskCtx) => ({
   kind: 'agent',
   title: 'Remediate independent provider review blockers',
   agent: {
