@@ -17,6 +17,11 @@ const testPaths = [
   'electron/catalog/higgsfieldProviderAdapter.test.ts',
 ]
 
+const reviewRegressionTestPaths = [
+  'electron/catalog/higgsfieldCli.integration.test.ts',
+  'electron/catalog/higgsfieldIpc.compatibility.test.ts',
+]
+
 const protectedDrafts = [
   'docs/architecture/everville-media-platform-acceptance-matrix.md',
   'docs/architecture/everville-media-platform-cloud-options.md',
@@ -427,6 +432,14 @@ function isKnownCleanupFixtureContradiction(result) {
     && output.includes('Number of calls: 0')
 }
 
+function reviewRequiresIntegrationCoverage(review) {
+  return Array.isArray(review?.blockers) && review.blockers.some((blocker) =>
+    blocker.includes('coverage remains incomplete')
+      || blocker.includes('process-tree termination')
+      || blocker.includes('setup IPC response-shape continuity'),
+  )
+}
+
 const focusedGateTask = defineTask('run-higgsfield-provider-focused-gates', (args, taskCtx) => ({
   kind: 'shell',
   title: 'Run provider, security, compatibility, and type gates',
@@ -448,27 +461,105 @@ const focusedGateTask = defineTask('run-higgsfield-provider-focused-gates', (arg
   labels: ['compatibility', 'contract-tests', 'gate', 'security', 'shell', 'typecheck'],
 }))
 
-const readReviewEvidenceTask = defineTask('read-higgsfield-provider-review-evidence', (args, taskCtx) => ({
+const authorReviewRegressionTestsTask = defineTask('author-higgsfield-review-regression-tests-v1', (args, taskCtx) => ({
+  kind: 'agent',
+  title: 'Author missing process-tree cancellation and setup IPC compatibility tests',
+  agent: {
+    name: 'higgsfield-integration-test-author',
+    prompt: {
+      role: 'senior Electron integration and process-lifecycle test engineer',
+      task: `Author exactly these review-regression tests before remediation: ${reviewRegressionTestPaths.join(', ')}.`,
+      context: {
+        projectRoot: args.projectRoot,
+        specVerbatim: args.spec,
+        reviewVerbatim: args.review,
+        artifactsVerbatim: args.artifacts,
+        reviewRegressionTestsVerbatim: args.reviewRegressionTests || '',
+      },
+      instructions: [
+        'Read the provider boundary and only the existing Higgsfield CLI/IPC implementation and test-support paths needed to identify public seams. Do not edit implementation.',
+        `Create only these new files: ${reviewRegressionTestPaths.join(', ')}. If either path already exists, read it and report the collision without editing.`,
+        'In the CLI integration test, execute a real local fixture process that spawns a child, trigger AbortSignal cancellation or timeout through the production runner, and prove the complete spawned process tree terminates without relying only on a synthetic executor.',
+        'In the IPC compatibility test, capture the fixed status, install, login, and catalog-sync handler response shapes and verify raw provider secrets or process text do not escape new provider-result boundaries.',
+        'Keep the tests deterministic, network-free, credential-free, and macOS/Linux compatible. Do not invoke the real Higgsfield service or mutate user configuration.',
+        'Do not edit frozen provider tests, implementation, Beads, provider-boundary documentation, or any unapproved RFC draft.',
+        'Run only the two new test files and report their observed pre-remediation result without weakening a failing assertion.',
+      ],
+      outputFormat: 'JSON with filesCreated, testCases, observedResult, summary',
+    },
+    outputSchema: {
+      type: 'object',
+      required: ['filesCreated', 'testCases', 'observedResult', 'summary'],
+      properties: {
+        filesCreated: { type: 'array', items: { type: 'string' } },
+        testCases: { type: 'array', items: { type: 'string' } },
+        observedResult: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+      },
+    },
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['agent', 'integration-tests', 'review-regression', 'test-first'],
+}))
+
+const observeReviewRegressionTestsTask = defineTask('observe-higgsfield-review-regression-tests-v1', (args, taskCtx) => ({
   kind: 'shell',
-  title: 'Read provider artifacts and scoped diff verbatim',
+  title: 'Record review-regression tests before remediation',
   shell: {
     command: [
       `cd ${quote(args.projectRoot)}`,
-      `for file in docs/architecture/higgsfield-provider-boundary.md ${implementationPaths.concat(testPaths).map(quote).join(' ')}; do printf '\\n--- %s ---\\n' "$file"; cat "$file"; done`,
-      "printf '\\n--- SCOPED DIFF ---\\n'",
-      `git diff -- docs/architecture/higgsfield-provider-boundary.md ${implementationPaths.concat(testPaths).map(quote).join(' ')}`,
-      "printf '\\n--- STATUS ---\\n'",
-      'git status --short',
-      "printf '\\n--- OFFICIAL OBSERVED RED EFFECT ---\\n'",
-      `printf '%s\\n' ${quote(args.redEvidence)}`,
-      "printf '\\n--- FROZEN TEST HASH BASELINE ---\\n'",
-      `printf '%s\\n' ${quote(args.testHashes)}`,
-      "printf '\\n--- PROTECTED RFC HASH BASELINE ---\\n'",
-      `printf '%s\\n' ${quote(args.draftHashes)}`,
-      "printf '\\n--- LATEST FROZEN-INPUT EFFECT ---\\n'",
-      `printf '%s\\n' ${quote(args.frozenEvidence)}`,
-      "printf '\\n--- LATEST FOCUSED-GATE EFFECT ---\\n'",
-      `printf '%s\\n' ${quote(args.focusedGateEvidence)}`,
+      `for file in ${reviewRegressionTestPaths.map(quote).join(' ')}; do test -s "$file"; done`,
+      `set +e; pnpm exec vitest run ${reviewRegressionTestPaths.map(quote).join(' ')}; code=$?; set -e; echo "Observed review-regression exit code: $code"`,
+    ].join(' && '),
+    expectedExitCode: 0,
+    timeoutMs: 180000,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['evidence', 'review-regression', 'shell', 'test-first'],
+}))
+
+const hashReviewRegressionTestsTask = defineTask('freeze-higgsfield-review-regression-tests-v1', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Freeze review-regression test checksums',
+  shell: {
+    command: `cd ${quote(args.projectRoot)} && shasum -a 256 ${reviewRegressionTestPaths.map(quote).join(' ')}`,
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['evidence', 'frozen-input', 'review-regression', 'shell'],
+}))
+
+const readReviewRegressionTestsTask = defineTask('read-higgsfield-review-regression-tests-v1', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Read frozen review-regression tests verbatim',
+  shell: {
+    command: `cd ${quote(args.projectRoot)} && for file in ${reviewRegressionTestPaths.map(quote).join(' ')}; do printf '\n--- %s ---\n' "$file"; cat "$file"; done`,
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['frozen-input', 'review-regression', 'runtime-read', 'tests'],
+}))
+
+const verifyReviewRegressionTestsTask = defineTask('verify-higgsfield-review-regression-tests-v1', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Verify review-regression tests remain frozen',
+  shell: {
+    command: [
+      `cd ${quote(args.projectRoot)}`,
+      `current=$(shasum -a 256 ${reviewRegressionTestPaths.map(quote).join(' ')})`,
+      `test "$current" = ${quote(args.testHashes.trim())}`,
     ].join(' && '),
     expectedExitCode: 0,
   },
@@ -476,8 +567,73 @@ const readReviewEvidenceTask = defineTask('read-higgsfield-provider-review-evide
     inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
     outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
   },
-  labels: ['artifacts', 'review', 'runtime-read', 'shell'],
+  labels: ['evidence', 'frozen-input', 'review-regression', 'shell'],
 }))
+
+const expandedFocusedGateTask = defineTask('run-higgsfield-provider-expanded-gates-v1', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Run provider, process-tree, IPC compatibility, security, and type gates',
+  shell: {
+    command: [
+      `cd ${quote(args.projectRoot)}`,
+      `pnpm exec vitest run ${testPaths.concat(reviewRegressionTestPaths).map(quote).join(' ')} electron/catalog/higgsfieldCodec.test.ts electron/catalog/processOperation.test.ts electron/runtime.higgsfield-process.test.ts`,
+      'pnpm run typecheck',
+      `if rg -n "child_process\\.(exec|execSync)|shell\\s*:\\s*true" ${implementationPaths.map(quote).join(' ')}; then echo 'Unsafe shell execution primitive found'; exit 1; fi`,
+      `if rg -n "@supabase|@vercel|firebase|aws-sdk|process\\.env\\.(SUPABASE|VERCEL|AWS)" ${implementationPaths.map(quote).join(' ')}; then echo 'Unapproved cloud coupling found'; exit 1; fi`,
+    ].join(' && '),
+    expectedExitCode: 0,
+    timeoutMs: 600000,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['compatibility', 'contract-tests', 'gate', 'integration-tests', 'security', 'shell', 'typecheck'],
+}))
+
+const readReviewEvidenceTask = defineTask('read-higgsfield-provider-review-evidence', (args, taskCtx) => {
+  const evidenceTests = testPaths.concat(args.extraTestPaths || [])
+  const evidencePaths = implementationPaths.concat(evidenceTests)
+  const command = [
+    `cd ${quote(args.projectRoot)}`,
+    `for file in docs/architecture/higgsfield-provider-boundary.md ${evidencePaths.map(quote).join(' ')}; do printf '\\n--- %s ---\\n' "$file"; cat "$file"; done`,
+    "printf '\\n--- SCOPED DIFF ---\\n'",
+    `git diff -- docs/architecture/higgsfield-provider-boundary.md ${evidencePaths.map(quote).join(' ')}`,
+    "printf '\\n--- STATUS ---\\n'",
+    'git status --short',
+    "printf '\\n--- OFFICIAL OBSERVED RED EFFECT ---\\n'",
+    `printf '%s\\n' ${quote(args.redEvidence)}`,
+    "printf '\\n--- FROZEN TEST HASH BASELINE ---\\n'",
+    `printf '%s\\n' ${quote(args.testHashes)}`,
+  ]
+  if (args.reviewTestHashes) {
+    command.push(
+      "printf '\\n--- FROZEN REVIEW-REGRESSION TEST HASH BASELINE ---\\n'",
+      `printf '%s\\n' ${quote(args.reviewTestHashes)}`,
+    )
+  }
+  command.push(
+    "printf '\\n--- PROTECTED RFC HASH BASELINE ---\\n'",
+    `printf '%s\\n' ${quote(args.draftHashes)}`,
+    "printf '\\n--- LATEST FROZEN-INPUT EFFECT ---\\n'",
+    `printf '%s\\n' ${quote(args.frozenEvidence)}`,
+    "printf '\\n--- LATEST FOCUSED-GATE EFFECT ---\\n'",
+    `printf '%s\\n' ${quote(args.focusedGateEvidence)}`,
+  )
+  return {
+    kind: 'shell',
+    title: 'Read provider artifacts and scoped diff verbatim',
+    shell: {
+      command: command.join(' && '),
+      expectedExitCode: 0,
+    },
+    io: {
+      inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+      outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+    },
+    labels: ['artifacts', 'review', 'runtime-read', 'shell'],
+  }
+})
 
 const reviewTask = defineTask('review-higgsfield-provider-v3', (args, taskCtx) => ({
   kind: 'agent',
@@ -534,7 +690,7 @@ const remediateTask = defineTask('remediate-higgsfield-provider-v3', (args, task
       },
       instructions: [
         'Compare SPEC to ARTIFACTS directly before editing.',
-        'Do not edit frozen tests, Beads, provider-boundary documentation, or unapproved RFC drafts.',
+        'Do not edit frozen provider or review-regression tests, Beads, provider-boundary documentation, or unapproved RFC drafts.',
         `Change only these implementation paths: ${implementationPaths.join(', ')}.`,
         'Do not broaden product exposure, add cloud coupling, or weaken a security gate.',
         'Run focused tests and report every file changed.',
@@ -580,7 +736,7 @@ const versionTask = defineTask('version-higgsfield-provider', (args, taskCtx) =>
   shell: {
     command: [
       `cd ${quote(args.projectRoot)}`,
-      `git add docs/architecture/higgsfield-provider-boundary.md ${implementationPaths.concat(testPaths).map(quote).join(' ')}`,
+      `git add docs/architecture/higgsfield-provider-boundary.md ${implementationPaths.concat(testPaths, reviewRegressionTestPaths).map(quote).join(' ')}`,
       'git diff --cached --check',
       "git diff --cached --quiet && { echo 'No Higgsfield provider changes to commit'; exit 1; } || true",
       "git commit -m 'feat: add safe Higgsfield provider contracts'",
@@ -619,6 +775,10 @@ export async function process(inputs, ctx) {
   let boundary
   let redGate
   let testHashes
+  let reviewTestHashes = null
+  let reviewTests = null
+  let reviewTestObservation = null
+  let reviewFrozenVerification = null
 
   if (resumeFromCurrent) {
     if (!inputs.priorRunId || !inputs.priorRedEffectId) {
@@ -706,8 +866,16 @@ export async function process(inputs, ctx) {
       projectRoot,
       redEvidence: JSON.stringify(redGate),
       testHashes: testHashes.stdout,
+      extraTestPaths: reviewTestHashes ? reviewRegressionTestPaths : undefined,
+      reviewTestHashes: reviewTestHashes?.stdout,
       draftHashes: draftHashes.stdout,
-      frozenEvidence: JSON.stringify(frozenVerification),
+      frozenEvidence: reviewTestHashes
+        ? JSON.stringify({
+            provider: frozenVerification,
+            reviewRegression: reviewFrozenVerification,
+            observedBeforeRemediation: reviewTestObservation,
+          })
+        : JSON.stringify(frozenVerification),
       focusedGateEvidence: JSON.stringify(focusedGate),
     })
     review = await ctx.task(reviewTask, {
@@ -715,18 +883,38 @@ export async function process(inputs, ctx) {
       artifacts: artifacts.stdout,
     })
     if (review.passed) break
+    if (!reviewTestHashes && reviewRequiresIntegrationCoverage(review)) {
+      await ctx.task(authorReviewRegressionTestsTask, {
+        projectRoot,
+        spec: spec.stdout,
+        review: JSON.stringify(review),
+        artifacts: artifacts.stdout,
+      })
+      reviewTestObservation = await ctx.task(observeReviewRegressionTestsTask, { projectRoot })
+      reviewTestHashes = await ctx.task(hashReviewRegressionTestsTask, { projectRoot })
+      reviewTests = await ctx.task(readReviewRegressionTestsTask, { projectRoot })
+    }
     await ctx.task(remediateTask, {
       projectRoot,
       spec: spec.stdout,
       review: JSON.stringify(review),
       artifacts: artifacts.stdout,
+      reviewRegressionTests: reviewTests?.stdout,
     })
     frozenVerification = await ctx.task(verifyFrozenTask, {
       projectRoot,
       testHashes: testHashes.stdout,
       draftHashes: draftHashes.stdout,
     })
-    focusedGate = await ctx.task(focusedGateTask, { projectRoot })
+    if (reviewTestHashes) {
+      reviewFrozenVerification = await ctx.task(verifyReviewRegressionTestsTask, {
+        projectRoot,
+        testHashes: reviewTestHashes.stdout,
+      })
+    }
+    focusedGate = reviewTestHashes
+      ? await ctx.task(expandedFocusedGateTask, { projectRoot })
+      : await ctx.task(focusedGateTask, { projectRoot })
     focusedGate = await recoverKnownCleanupFixture(focusedGate)
     if (!shellTaskPassed(focusedGate)) {
       throw new Error('Focused Higgsfield provider gate failed after remediation; review is not permitted')
