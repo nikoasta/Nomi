@@ -435,7 +435,7 @@ export async function process(inputs, ctx) {
 
   const spec = await ctx.task(readSpecTask, { projectRoot, beadId })
   const preflight = await ctx.task(preflightTask, { projectRoot })
-  const runtimeBoundary = await ctx.task(runtimeAnalysisTask, {
+  await ctx.task(runtimeAnalysisTask, {
     projectRoot,
     spec: spec.stdout,
     preflight: preflight.stdout,
