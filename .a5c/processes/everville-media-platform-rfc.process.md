@@ -9,6 +9,8 @@ implementation milestones.
 
 1. Read the Beads specification and product context at runtime.
 2. Run a brownfield reuse audit before proposing infrastructure.
+   The audit includes the installed Higgsfield CLI capability surface rather
+   than treating Higgsfield as a single generation endpoint.
 3. Freeze a test-first RFC acceptance matrix without reading implementation.
 4. Investigate three independent tracks in parallel:
    - live Nomi runtime and persistence paths;

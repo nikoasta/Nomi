@@ -57,6 +57,8 @@ const reuseAuditTask = defineTask('reuse-audit', (args, taskCtx) => ({
       "(rg --files | rg '(^|/)(supabase|migrations|server|workers?|api)(/|$)|vercel\\.json|Dockerfile' || true)",
       "printf '%s\\n' '--- CLOUD SDK AND ENV USAGE ---'",
       "(rg -n 'Supabase|Postgres|Drizzle|Prisma|process\\.env|import\\.meta\\.env' src electron package.json --glob '*.{ts,tsx,json}' || true) | head -400",
+      "printf '%s\\n' '--- HIGGSFIELD CLI CAPABILITIES ---'",
+      "if command -v higgsfield >/dev/null 2>&1; then higgsfield --version && higgsfield --help | head -180; else echo 'higgsfield CLI not installed'; fi",
     ].join(' && '),
     expectedExitCode: 0,
   },
@@ -169,6 +171,7 @@ const cloudResearchTask = researchTask(
   [
     'Compare at minimum Vercel+Supabase, a self-hosted TypeScript/Postgres stack, and one credible managed alternative.',
     'Use current primary vendor documentation for claims that may have changed.',
+    'Inventory the installed Higgsfield CLI and account for generate/model/workflow/upload, Marketing Studio, Soul ID, voices, product photoshoot, marketplace cards, workspace selection, job cost, cancellation, and polling where supported.',
     'Evaluate auth/RLS, Postgres, object storage, realtime collaboration, queues/workers, signed media, FFmpeg, Higgsfield secrets, regional constraints, cost, lock-in, backups, observability, and Electron compatibility.',
     'Recommend one Alpha stack and one exit strategy, but keep the choice explicitly unapproved.',
   ],
