@@ -55,6 +55,20 @@ const preflightTask = defineTask('platform-client-preflight', (args, taskCtx) =>
   labels: ['brownfield', 'runtime-call-path', 'reuse-audit', 'shell'],
 }))
 
+const readRuntimeBoundaryTask = defineTask('read-platform-runtime-boundary', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Read the confirmed runtime boundary verbatim',
+  shell: {
+    command: `cd ${quote(args.projectRoot)} && cat docs/architecture/platform-client-runtime-boundary.md`,
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['runtime-boundary', 'runtime-read', 'spec'],
+}))
+
 const runtimeAnalysisTask = defineTask('analyze-platform-runtime-boundary', (args, taskCtx) => ({
   kind: 'agent',
   title: 'Document the reversible PlatformClient boundary',
@@ -106,9 +120,11 @@ const authorTestsTask = defineTask('author-platform-contract-tests', (args, task
       context: {
         projectRoot: args.projectRoot,
         specVerbatim: args.spec,
+        runtimeBoundaryVerbatim: args.runtimeBoundary,
       },
       instructions: [
         'Do not read files under src/, electron/, or other implementation directories. Author tests strictly from the spec text above.',
+        'Treat the runtime-boundary artifact as an additional frozen specification derived from the live-path preflight. Use its exact capability IDs, request shapes, result shapes, and compatibility constraints; do not invent alternatives.',
         'Import the public API from ./client, ./electronPlatformClient, and ./browserPlatformClient; these modules intentionally do not exist yet.',
         'Freeze conformance behavior for capability discovery, typed unsupported-capability failures, browser safety when window.nomiDesktop is absent, and Electron delegation for conversations and asset import.',
         'Add boundary assertions that the two selected live call paths import PlatformClient accessors and do not import getDesktopBridge.',
@@ -132,6 +148,20 @@ const authorTestsTask = defineTask('author-platform-contract-tests', (args, task
     outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
   },
   labels: ['agent', 'contract-tests', 'test-first'],
+}))
+
+const readFrozenTestsTask = defineTask('read-frozen-platform-tests', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Read frozen PlatformClient tests verbatim',
+  shell: {
+    command: `cd ${quote(args.projectRoot)} && for file in ${testPaths.map(quote).join(' ')} docs/architecture/platform-client-runtime-boundary.md; do printf '\\n--- %s ---\\n' "$file"; cat "$file"; done`,
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['frozen-input', 'runtime-read', 'tests'],
 }))
 
 const redGateTask = defineTask('verify-platform-tests-red', (args, taskCtx) => ({
@@ -233,7 +263,7 @@ const focusedGateTask = defineTask('run-platform-focused-gates', (args, taskCtx)
   shell: {
     command: [
       `cd ${quote(args.projectRoot)}`,
-      `pnpm exec vitest run ${testPaths.map(quote).join(' ')} src/workbench/ai/conversationPersistence.test.ts src/workbench/api/assetUploadApi.test.ts`,
+      `pnpm exec vitest run ${testPaths.map(quote).join(' ')} electron/conversations/conversationsStore.test.ts electron/runtime.assets.test.ts`,
       'pnpm run typecheck',
       `for file in ${selectedPaths.map(quote).join(' ')}; do if rg -n "getDesktopBridge|window\\.nomiDesktop" "$file"; then echo "Direct desktop coupling remains in $file"; exit 1; fi; done`,
       'if rg -n "from [\'\\"](@supabase|@vercel|firebase|aws-sdk)|process\\.env\\.(SUPABASE|VERCEL|AWS)" src/platform; then echo \'Unapproved cloud coupling found\'; exit 1; fi',
@@ -410,15 +440,21 @@ export async function process(inputs, ctx) {
     preflight: preflight.stdout,
   })
 
-  await ctx.task(authorTestsTask, { projectRoot, spec: spec.stdout })
+  const runtimeBoundarySpec = await ctx.task(readRuntimeBoundaryTask, { projectRoot })
+
+  await ctx.task(authorTestsTask, {
+    projectRoot,
+    spec: spec.stdout,
+    runtimeBoundary: runtimeBoundarySpec.stdout,
+  })
   await ctx.task(redGateTask, { projectRoot })
   const frozenTestHashes = await ctx.task(hashTestsTask, { projectRoot })
-  const frozenTests = await ctx.task(readReviewEvidenceTask, { projectRoot })
+  const frozenTests = await ctx.task(readFrozenTestsTask, { projectRoot })
 
   await ctx.task(implementTask, {
     projectRoot,
     spec: spec.stdout,
-    runtimeBoundary: JSON.stringify(runtimeBoundary),
+    runtimeBoundary: runtimeBoundarySpec.stdout,
     tests: frozenTests.stdout,
   })
   await ctx.task(verifyFrozenTestsTask, { projectRoot, expected: frozenTestHashes.stdout })
