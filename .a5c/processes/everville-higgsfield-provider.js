@@ -327,6 +327,74 @@ const implementTask = defineTask('implement-higgsfield-provider', (args, taskCtx
   labels: ['agent', 'implementation', 'security', 'higgsfield'],
 }))
 
+const correctCleanupFixtureTask = defineTask('correct-higgsfield-cleanup-schema-fixture-v1', (args, taskCtx) => ({
+  kind: 'agent',
+  title: 'Correct the contradictory cleanup schema fixture without weakening coverage',
+  agent: {
+    name: 'higgsfield-test-integrity-maintainer',
+    prompt: {
+      role: 'independent TypeScript security test integrity maintainer',
+      task: 'Correct only the catalog schema fixture contradiction proven by the recorded focused-gate failure.',
+      context: {
+        projectRoot: args.projectRoot,
+        specVerbatim: args.spec,
+        focusedGateFailureVerbatim: args.focusedGateFailure,
+        originalFrozenHashesVerbatim: args.originalTestHashes,
+      },
+      instructions: [
+        'Read docs/architecture/higgsfield-provider-boundary.md and electron/catalog/higgsfieldProviderAdapter.test.ts. Do not read or edit implementation files.',
+        'First confirm from the recorded failure and test source that the cleanup cases pass an image asset while their wan-2.5 MODEL_SCHEMA fixture omits the image property.',
+        'Modify only electron/catalog/higgsfieldProviderAdapter.test.ts. If that exact contradiction is not present, make no edit and report it.',
+        'Correct only the MODEL_SCHEMA fixture metadata so image is an accepted catalog asset input for the existing cleanup cases.',
+        'Do not delete, skip, rename, relax, or rewrite any test, executor outcome, materializeProjectAsset expectation, cleanup expectation, hostile-input assertion, or security assertion.',
+        'Do not edit the provider boundary, Beads, process files, implementation, any other test, or any unapproved RFC draft.',
+        'Run the adapter test file and report the exact result plus the changed lines.',
+      ],
+      outputFormat: 'JSON with filesModified, contradictionConfirmed, assertionsPreserved, testResults, summary',
+    },
+    outputSchema: {
+      type: 'object',
+      required: ['filesModified', 'contradictionConfirmed', 'assertionsPreserved', 'testResults', 'summary'],
+      properties: {
+        filesModified: { type: 'array', items: { type: 'string' } },
+        contradictionConfirmed: { type: 'boolean' },
+        assertionsPreserved: { type: 'array', items: { type: 'string' } },
+        testResults: { type: 'array', items: { type: 'string' } },
+        summary: { type: 'string' },
+      },
+    },
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['agent', 'fixture-correction', 'security-tests', 'test-integrity'],
+}))
+
+const verifyCleanupFixtureCorrectionTask = defineTask('verify-higgsfield-cleanup-schema-fixture-v1', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Verify the cleanup fixture correction preserves protected evidence and assertions',
+  shell: {
+    command: [
+      `cd ${quote(args.projectRoot)}`,
+      `currentUnchangedTests=$(shasum -a 256 ${testPaths.slice(0, 3).map(quote).join(' ')})`,
+      `test "$currentUnchangedTests" = ${quote(args.originalTestHashes.trim().split('\n').slice(0, 3).join('\n'))}`,
+      `originalAdapterHash=${quote(args.originalTestHashes.trim().split('\n').at(-1).split(/\s+/)[0])}`,
+      `currentAdapterHash=$(shasum -a 256 ${quote(testPaths.at(-1))} | awk '{print $1}')`,
+      'test "$currentAdapterHash" != "$originalAdapterHash"',
+      `rg -n -F -e 'cleans materialized project assets for executor outcome' -e 'expect(materializeProjectAsset).toHaveBeenCalledWith' -e 'expect(cleanup).toHaveBeenCalledTimes(1)' ${quote(testPaths.at(-1))}`,
+      `pnpm exec vitest run ${quote(testPaths.at(-1))}`,
+    ].join(' && '),
+    expectedExitCode: 0,
+    timeoutMs: 180000,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['fixture-correction', 'frozen-input', 'security-tests', 'shell'],
+}))
+
 const verifyFrozenTask = defineTask('verify-higgsfield-provider-frozen-inputs', (args, taskCtx) => ({
   kind: 'shell',
   title: 'Verify tests and unapproved RFC drafts remain frozen',
@@ -346,6 +414,18 @@ const verifyFrozenTask = defineTask('verify-higgsfield-provider-frozen-inputs', 
   },
   labels: ['architecture-unapproved', 'evidence', 'frozen-input', 'shell'],
 }))
+
+function shellTaskPassed(result) {
+  return result?.exitCode === 0
+}
+
+function isKnownCleanupFixtureContradiction(result) {
+  const output = `${result?.stdout || ''}\n${result?.stderr || ''}`
+  return result?.exitCode === 1
+    && output.includes('cleans materialized project assets for executor outcome')
+    && output.includes('5 failed')
+    && output.includes('Number of calls: 0')
+}
 
 const focusedGateTask = defineTask('run-higgsfield-provider-focused-gates', (args, taskCtx) => ({
   kind: 'shell',
@@ -584,6 +664,37 @@ export async function process(inputs, ctx) {
   })
   let focusedGate = await ctx.task(focusedGateTask, { projectRoot })
 
+  if (!shellTaskPassed(focusedGate) && isKnownCleanupFixtureContradiction(focusedGate)) {
+    await ctx.task(correctCleanupFixtureTask, {
+      projectRoot,
+      spec: spec.stdout,
+      focusedGateFailure: JSON.stringify(focusedGate),
+      originalTestHashes: testHashes.stdout,
+    })
+    await ctx.task(verifyCleanupFixtureCorrectionTask, {
+      projectRoot,
+      originalTestHashes: testHashes.stdout,
+    })
+    testHashes = await ctx.task(hashTestsTask, {
+      projectRoot,
+      fixtureCorrectionVersion: 'cleanup-schema-v1',
+    })
+    frozenVerification = await ctx.task(verifyFrozenTask, {
+      projectRoot,
+      testHashes: testHashes.stdout,
+      draftHashes: draftHashes.stdout,
+      fixtureCorrectionVersion: 'cleanup-schema-v1',
+    })
+    focusedGate = await ctx.task(focusedGateTask, {
+      projectRoot,
+      fixtureCorrectionVersion: 'cleanup-schema-v1',
+    })
+  }
+
+  if (!shellTaskPassed(focusedGate)) {
+    throw new Error('Focused Higgsfield provider gate failed; review is not permitted')
+  }
+
   let review = null
   while (!review?.passed) {
     const artifacts = await ctx.task(readReviewEvidenceTask, {
@@ -611,6 +722,9 @@ export async function process(inputs, ctx) {
       draftHashes: draftHashes.stdout,
     })
     focusedGate = await ctx.task(focusedGateTask, { projectRoot })
+    if (!shellTaskPassed(focusedGate)) {
+      throw new Error('Focused Higgsfield provider gate failed after remediation; review is not permitted')
+    }
   }
 
   await ctx.task(fullGatesTask, { projectRoot })
