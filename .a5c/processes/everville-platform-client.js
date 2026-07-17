@@ -10,6 +10,7 @@ import { defineTask } from '@a5c-ai/babysitter-sdk'
 const selectedPaths = ['src/workbench/ai/conversationPersistence.ts', 'src/workbench/api/assetUploadApi.ts']
 
 const testPaths = ['src/platform/platformClient.contract.test.ts', 'src/platform/platformClient.boundary.test.ts']
+const platformTestGlob = 'src/platform/platformClient*.test.ts'
 
 function quote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`
@@ -263,7 +264,7 @@ const focusedGateTask = defineTask('run-platform-focused-gates', (args, taskCtx)
   shell: {
     command: [
       `cd ${quote(args.projectRoot)}`,
-      `pnpm exec vitest run ${testPaths.map(quote).join(' ')} electron/conversations/conversationsStore.test.ts electron/runtime.assets.test.ts`,
+      `pnpm exec vitest run ${platformTestGlob} electron/conversations/conversationsStore.test.ts electron/runtime.assets.test.ts`,
       'pnpm run typecheck',
       `for file in ${selectedPaths.map(quote).join(' ')}; do if rg -n "getDesktopBridge|window\\.nomiDesktop" "$file"; then echo "Direct desktop coupling remains in $file"; exit 1; fi; done`,
       'if rg -n "from [\'\\"](@supabase|@vercel|firebase|aws-sdk)|process\\.env\\.(SUPABASE|VERCEL|AWS)" src/platform; then echo \'Unapproved cloud coupling found\'; exit 1; fi',
@@ -283,7 +284,7 @@ const readReviewEvidenceTask = defineTask('read-platform-review-evidence', (args
   shell: {
     command: [
       `cd ${quote(args.projectRoot)}`,
-      'for file in docs/architecture/platform-client-runtime-boundary.md src/platform/client.ts src/platform/electronPlatformClient.ts src/platform/browserPlatformClient.ts src/platform/platformClient.contract.test.ts src/platform/platformClient.boundary.test.ts src/workbench/ai/conversationPersistence.ts src/workbench/api/assetUploadApi.ts; do printf \'\\n--- %s ---\\n\' "$file"; cat "$file"; done',
+      `for file in docs/architecture/platform-client-runtime-boundary.md src/platform/*.ts ${selectedPaths.map(quote).join(' ')}; do printf '\\n--- %s ---\\n' "$file"; cat "$file"; done`,
       "printf '\\n--- DIFF ---\\n'",
       'git diff -- src/platform src/workbench/ai/conversationPersistence.ts src/workbench/api/assetUploadApi.ts docs/architecture/platform-client-runtime-boundary.md',
       "printf '\\n--- STATUS ---\\n'",
