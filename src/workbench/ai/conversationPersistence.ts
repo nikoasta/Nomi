@@ -2,8 +2,9 @@
 // 纯线程模型在 conversationThreads.ts;本层负责:① 订阅两面板 store 消息变化 → 同步进
 // 活动线程 + 防抖回写;② IPC 读写;③ 项目切换载入;④ 暴露 UI 操作(新建/切换/删除/列表)
 // 给面板与历史弹层。切项目前必须先 flushNow(旧 id),否则防抖窗口里的回写会写错项目文件。
-import { getDesktopBridge } from '../../desktop/bridge'
 import { seedWorkbenchAgentSession } from '../../api/desktopClient'
+import { getPlatformClient } from '../../platform/client'
+import { reportPlatformDiagnostic } from '../../platform/platformDiagnostics'
 import { workbenchSessionKey } from './workbenchAgentRunner'
 import { useWorkbenchStore } from '../workbenchStore'
 import { useGenerationCanvasStore } from '../generationCanvas/store/generationCanvasStore'
@@ -33,10 +34,13 @@ const WRITE_DEBOUNCE_MS = 1000
 const now = (): number => Date.now()
 
 // 面板 area ↔ store 投影适配器。活动线程的 messages 实时映射到这些字段(消费组件零改)。
-const adapters: Record<ConvArea, {
-  getMessages: () => WorkbenchAiMessage[]
-  setMessages: (messages: WorkbenchAiMessage[]) => void
-}> = {
+const adapters: Record<
+  ConvArea,
+  {
+    getMessages: () => WorkbenchAiMessage[]
+    setMessages: (messages: WorkbenchAiMessage[]) => void
+  }
+> = {
   creation: {
     getMessages: () => useWorkbenchStore.getState().creationAiMessages,
     setMessages: (messages) => useWorkbenchStore.getState().setCreationAiMessages(messages),
@@ -78,16 +82,34 @@ export function subscribeConversations(cb: () => void): () => void {
 // ───────────────────────────── 回写 ─────────────────────────────
 
 function writeNow(projectId: string): void {
-  const api = getDesktopBridge()?.conversations
-  if (!api || !projectId) return
-  void api
-    .write(projectId, {
+  if (!projectId) return
+  void getPlatformClient()
+    .conversations.write(projectId, {
       creation: serializeArea(projectId, 'creation', now()),
       generation: serializeArea(projectId, 'generation', now()),
       // S6-5 事务回执随对话落盘(审计 A6):「整笔撤销」入口不被一次 reload 蒸发。
       committedProposal: getCommittedProposal(),
     })
-    .catch(() => {})
+    .then((result) => {
+      if (!result.ok && result.error.code !== 'UNSUPPORTED_CAPABILITY') {
+        reportPlatformDiagnostic({
+          kind: 'platform-operation-failure',
+          capability: 'conversations.write',
+          code: result.error.code,
+          source: 'platform-result',
+          context: 'conversation-write',
+        })
+      }
+    })
+    .catch(() => {
+      reportPlatformDiagnostic({
+        kind: 'platform-operation-failure',
+        capability: 'conversations.write',
+        code: 'INTERNAL',
+        source: 'contract-rejection',
+        context: 'conversation-write',
+      })
+    })
 }
 
 let timer: ReturnType<typeof setTimeout> | null = null
@@ -116,13 +138,23 @@ export function flushConversationsNow(projectId: string | null): void {
 
 /** hydrate 后把磁盘上的会话列表迁灌进模型,并把各 area 活动线程气泡投影回面板。 */
 export async function loadProjectConversations(projectId: string): Promise<void> {
-  const api = getDesktopBridge()?.conversations
-  if (!api) return
   try {
-    const { ok, conversations } = await api.read(projectId)
+    const result = await getPlatformClient().conversations.read(projectId)
+    if (!result.ok && result.error.code === 'UNSUPPORTED_CAPABILITY') return
+    if (!result.ok) {
+      reportPlatformDiagnostic({
+        kind: 'platform-operation-failure',
+        capability: 'conversations.read',
+        code: result.error.code,
+        source: 'platform-result',
+        context: 'conversation-load',
+      })
+      if (result.error.details?.source !== 'bridge-response') return
+    }
+    const conversations = result.ok ? result.value : null
     const stamp = now()
-    const creationMessages = hydrateArea(projectId, 'creation', ok ? conversations?.creation : null, stamp)
-    const generationMessages = hydrateArea(projectId, 'generation', ok ? conversations?.generation : null, stamp)
+    const creationMessages = hydrateArea(projectId, 'creation', conversations?.creation, stamp)
+    const generationMessages = hydrateArea(projectId, 'generation', conversations?.generation, stamp)
     adapters.creation.setMessages(creationMessages)
     adapters.generation.setMessages(generationMessages)
     // 打开项目即把活动线程气泡种回模型记忆——开门就能带记忆接着聊(气泡=UI 与模型记忆的统一真相源,
@@ -130,13 +162,19 @@ export async function loadProjectConversations(projectId: string): Promise<void>
     seedActiveModelMemory('creation', creationMessages)
     seedActiveModelMemory('generation', generationMessages)
     // 回执种回(仅内存槽为空时;损坏数据 parse 失败则宁缺勿错)。
-    if (ok && !getCommittedProposal() && conversations?.committedProposal) {
+    if (result.ok && !getCommittedProposal() && conversations?.committedProposal) {
       const record = parseCommittedProposalRecord(conversations.committedProposal)
       if (record) setCommittedProposal(record)
     }
     bump()
   } catch {
-    /* 旁路:读失败不影响面板 */
+    reportPlatformDiagnostic({
+      kind: 'platform-operation-failure',
+      capability: 'conversations.read',
+      code: 'INTERNAL',
+      source: 'contract-rejection',
+      context: 'conversation-load',
+    })
   }
 }
 
@@ -203,8 +241,14 @@ export function initConversationPersistence(getProjectId: () => string | null): 
     if (projectId) syncActiveMessages(projectId, area, adapters[area].getMessages(), now())
     scheduleConversationsWrite(getProjectId)
   }
-  const unsubscribeWorkbench = useWorkbenchStore.subscribe((state) => state.creationAiMessages, () => onChange('creation'))
-  const unsubscribeCanvas = useGenerationCanvasStore.subscribe((state) => state.generationAiMessages, () => onChange('generation'))
+  const unsubscribeWorkbench = useWorkbenchStore.subscribe(
+    (state) => state.creationAiMessages,
+    () => onChange('creation'),
+  )
+  const unsubscribeCanvas = useGenerationCanvasStore.subscribe(
+    (state) => state.generationAiMessages,
+    () => onChange('generation'),
+  )
   const unsubscribeProposal = subscribeCommittedProposal(() => scheduleConversationsWrite(getProjectId))
   return () => {
     unsubscribeWorkbench()

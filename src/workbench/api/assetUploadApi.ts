@@ -1,16 +1,13 @@
 import { getDesktopActiveProjectId } from '../../desktop/activeProject'
-import { getDesktopBridge, type DesktopBridge } from '../../desktop/bridge'
+import {
+  getPlatformClient,
+  type PlatformError,
+  type PlatformResult,
+  type WorkbenchAssetDto,
+} from '../../platform/client'
 import type { TaskKind } from './taskApi'
 
-export type WorkbenchAssetDto = {
-  id: string
-  name: string
-  data: Record<string, unknown>
-  createdAt: string
-  updatedAt: string
-  userId: string
-  projectId?: string | null
-}
+export type { WorkbenchAssetDto } from '../../platform/client'
 
 /** 从落盘资产 DTO 取可持久化 URL（nomi-local://）；无则空串。单一实现，别在各 adapter 各抄一份（P1）。 */
 export function hostedAssetUrl(asset: WorkbenchAssetDto | null | undefined): string {
@@ -26,10 +23,27 @@ export type UploadWorkbenchAssetMeta = {
   ownerNodeId?: string | null
 }
 
-function requireDesktopRuntime(feature: string): DesktopBridge {
-  const desktop = getDesktopBridge()
-  if (!desktop) throw new Error(`${feature} requires the Electron desktop runtime`)
-  return desktop
+export class PlatformOperationError extends Error {
+  readonly code: PlatformError['code']
+  readonly capability: PlatformError['capability']
+  readonly retryable: boolean
+  readonly details?: Readonly<Record<string, unknown>>
+
+  constructor(error: PlatformError, fallbackMessage?: string) {
+    super(fallbackMessage || error.message)
+    this.name = 'PlatformOperationError'
+    this.code = error.code
+    this.capability = error.capability
+    this.retryable = error.retryable
+    this.details = error.details
+  }
+}
+
+function unwrapPlatformResult<T>(result: PlatformResult<T>, feature: string): T {
+  if (result.ok) return result.value
+  const fallbackMessage =
+    result.error.code === 'UNSUPPORTED_CAPABILITY' ? `${feature} requires the Electron desktop runtime` : undefined
+  throw new PlatformOperationError(result.error, fallbackMessage)
 }
 
 function resolveProjectId(meta?: UploadWorkbenchAssetMeta): string {
@@ -46,9 +60,7 @@ export function buildWorkbenchAssetImportRequestKey(
   const fileName = typeof file.name === 'string' ? file.name.trim() : ''
   const fileSize = typeof file.size === 'number' && Number.isFinite(file.size) ? String(file.size) : ''
   const lastModified =
-    typeof file.lastModified === 'number' && Number.isFinite(file.lastModified)
-      ? String(file.lastModified)
-      : ''
+    typeof file.lastModified === 'number' && Number.isFinite(file.lastModified) ? String(file.lastModified) : ''
   const fileType = typeof file.type === 'string' ? file.type.trim().toLowerCase() : ''
   const uploadName = typeof name === 'string' ? name.trim() : ''
   const projectId = typeof meta?.projectId === 'string' ? meta.projectId.trim() : ''
@@ -59,8 +71,9 @@ export function buildWorkbenchAssetImportRequestKey(
 export async function listWorkbenchLocalAssets(): Promise<{ items: WorkbenchAssetDto[]; cursor: string | null }> {
   const projectId = getDesktopActiveProjectId()
   if (!projectId) return { items: [], cursor: null }
-  const desktop = requireDesktopRuntime('local asset list')
-  return desktop.assets.list({ projectId, limit: 200 }) as Promise<{ items: WorkbenchAssetDto[]; cursor: string | null }>
+  const client = getPlatformClient()
+  const result = await client.assets.list({ projectId, limit: 200 })
+  return unwrapPlatformResult<{ items: WorkbenchAssetDto[]; cursor: string | null }>(result, 'local asset list')
 }
 
 export async function importWorkbenchLocalAssetFile(
@@ -68,15 +81,16 @@ export async function importWorkbenchLocalAssetFile(
   name?: string,
   meta?: UploadWorkbenchAssetMeta,
 ): Promise<WorkbenchAssetDto> {
-  const desktop = requireDesktopRuntime('local asset import')
+  const client = getPlatformClient()
   const arrayBuffer = await file.arrayBuffer()
-  return desktop.assets.importFile({
+  const result = await client.assets.importFile({
     projectId: resolveProjectId(meta),
     fileName: name || file.name || 'asset',
     contentType: file.type || 'application/octet-stream',
     bytes: arrayBuffer,
     kind: 'upload',
-  }) as Promise<WorkbenchAssetDto>
+  })
+  return unwrapPlatformResult<WorkbenchAssetDto>(result, 'local asset import')
 }
 
 export async function importWorkbenchRemoteAssetUrl(
@@ -84,14 +98,15 @@ export async function importWorkbenchRemoteAssetUrl(
   name?: string,
   meta?: UploadWorkbenchAssetMeta,
 ): Promise<WorkbenchAssetDto> {
-  const desktop = requireDesktopRuntime('remote asset import')
-  return desktop.assets.importRemoteUrl({
+  const client = getPlatformClient()
+  const result = await client.assets.importRemoteUrl({
     projectId: resolveProjectId(meta),
     url,
     kind: 'upload',
     fileName: name,
     ownerNodeId: meta?.ownerNodeId || null,
-  }) as Promise<WorkbenchAssetDto>
+  })
+  return unwrapPlatformResult<WorkbenchAssetDto>(result, 'remote asset import')
 }
 
 export async function recoverImportedWorkbenchLocalAssetFile(_file: File): Promise<WorkbenchAssetDto | null> {
