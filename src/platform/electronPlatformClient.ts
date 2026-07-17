@@ -1,3 +1,11 @@
+import {
+  AUTHORIZATION_PERMISSIONS,
+  type AuthorizationPolicyRequest,
+  type OrganizationMembership,
+  type PlatformSession,
+  type ProjectPermission,
+} from './authorization/contracts'
+import { evaluateAuthorization } from './authorization/policy'
 import type {
   PersistedConversationsV2,
   PlatformAssetImportFileRequest,
@@ -39,12 +47,48 @@ export type ElectronPlatformBridge = {
 }
 
 const CAPABILITY_ORDER: readonly PlatformCapability[] = [
+  'identity.session.read',
+  'authorization.check',
   'conversations.read',
   'conversations.write',
   'assets.list',
   'assets.import-file',
   'assets.import-remote-url',
 ]
+
+const LOCAL_PRINCIPAL_ID = 'local-runtime:principal'
+const LOCAL_ORGANIZATION_ID = 'local-runtime:organization'
+const LOCAL_PROJECT_PERMISSIONS = AUTHORIZATION_PERMISSIONS.filter(
+  (permission): permission is ProjectPermission => permission !== 'organization.admin',
+)
+
+type LocalPlatformSession = Extract<PlatformSession, { state: 'authenticated' }> & {
+  activeMembership: OrganizationMembership
+}
+
+function createLocalSession(): LocalPlatformSession {
+  return {
+    state: 'authenticated',
+    principal: {
+      id: LOCAL_PRINCIPAL_ID,
+      kind: 'local-runtime',
+      displayName: 'Local runtime',
+    },
+    activeMembership: {
+      principalId: LOCAL_PRINCIPAL_ID,
+      organizationId: LOCAL_ORGANIZATION_ID,
+      status: 'active',
+      organizationPermissions: [],
+      projects: [],
+    },
+  }
+}
+
+function localAuthorizationSession(projectId: string): LocalPlatformSession {
+  const session = createLocalSession()
+  session.activeMembership.projects = [{ projectId, permissions: LOCAL_PROJECT_PERMISSIONS }]
+  return session
+}
 
 const CODE_MESSAGES: Record<PlatformErrorCode, string> = {
   UNSUPPORTED_CAPABILITY: 'Capability is not supported by this runtime',
@@ -162,7 +206,7 @@ async function invoke<T>(
 }
 
 export function createElectronPlatformClient(bridge: ElectronPlatformBridge): PlatformClient {
-  const available = new Set<PlatformCapability>()
+  const available = new Set<PlatformCapability>(['identity.session.read', 'authorization.check'])
   if (bridge.conversations?.read) available.add('conversations.read')
   if (bridge.conversations?.write) available.add('conversations.write')
   if (bridge.assets?.list) available.add('assets.list')
@@ -174,6 +218,45 @@ export function createElectronPlatformClient(bridge: ElectronPlatformBridge): Pl
   return {
     capabilities,
     supports: (capability) => capabilities.has(capability),
+    identity: {
+      getSession: () => Promise.resolve({ ok: true, value: createLocalSession() }),
+    },
+    authorization: {
+      check: (request) => {
+        try {
+          const policyRequest: AuthorizationPolicyRequest = {
+            session: createLocalSession(),
+            resource: request.resource,
+            permission: request.permission,
+          }
+          const initialDecision = evaluateAuthorization(policyRequest)
+          if (initialDecision.reason !== 'DENY_PROJECT_SCOPE_MISMATCH') {
+            return Promise.resolve({ ok: true, value: initialDecision })
+          }
+
+          const scope = policyRequest.resource.scope
+          if (scope.kind !== 'project' || typeof scope.projectId !== 'string') {
+            return Promise.resolve({
+              ok: true,
+              value: { allowed: false, reason: 'DENY_MALFORMED_REQUEST' },
+            })
+          }
+
+          return Promise.resolve({
+            ok: true,
+            value: evaluateAuthorization({
+              ...policyRequest,
+              session: localAuthorizationSession(scope.projectId),
+            }),
+          })
+        } catch {
+          return Promise.resolve({
+            ok: true,
+            value: { allowed: false, reason: 'DENY_MALFORMED_REQUEST' },
+          })
+        }
+      },
+    },
     conversations: {
       async read(projectId) {
         const capability = 'conversations.read'

@@ -1,4 +1,5 @@
 import { getDesktopBridge, type DesktopBridge } from '../desktop/bridge'
+import type { AuthorizationCheckRequest, AuthorizationDecision, PlatformSession } from './authorization/contracts'
 import { createBrowserPlatformClient } from './browserPlatformClient'
 import { createElectronPlatformClient, type ElectronPlatformBridge } from './electronPlatformClient'
 
@@ -35,6 +36,8 @@ export type WorkbenchAssetDto = {
 }
 
 export type PlatformCapability =
+  | 'identity.session.read'
+  | 'authorization.check'
   | 'conversations.read'
   | 'conversations.write'
   | 'assets.list'
@@ -74,6 +77,14 @@ export type PlatformConversations = {
   write(projectId: string, value: PlatformConversationValue): Promise<PlatformResult<void>>
 }
 
+export type PlatformIdentity = {
+  getSession(): Promise<PlatformResult<PlatformSession>>
+}
+
+export type PlatformAuthorization = {
+  check(request: AuthorizationCheckRequest): Promise<PlatformResult<AuthorizationDecision>>
+}
+
 export type PlatformAssetListRequest = {
   projectId: string
   cursor?: string | null
@@ -111,6 +122,8 @@ export type PlatformAssets = {
 export type PlatformClient = {
   readonly capabilities: ReadonlySet<PlatformCapability>
   supports(capability: PlatformCapability): boolean
+  readonly identity: PlatformIdentity
+  readonly authorization: PlatformAuthorization
   readonly conversations: PlatformConversations
   readonly assets: PlatformAssets
 }

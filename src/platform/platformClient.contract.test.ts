@@ -16,7 +16,13 @@ import { createElectronPlatformClient } from './electronPlatformClient'
 
 const PROJECT_ID = 'project-alpha'
 
+const LOCAL_RUNTIME_CAPABILITIES = [
+  'identity.session.read',
+  'authorization.check',
+] as const satisfies readonly PlatformCapability[]
+
 const CAPABILITIES = [
+  ...LOCAL_RUNTIME_CAPABILITIES,
   'conversations.read',
   'conversations.write',
   'assets.list',
@@ -93,8 +99,6 @@ function asElectronBridge(bridge: unknown): Parameters<typeof createElectronPlat
 }
 
 async function expectUnsupportedConformance(client: PlatformClient) {
-  expect([...client.capabilities]).toEqual([])
-
   for (const operation of operations) {
     expect(client.supports(operation.capability)).toBe(false)
 
@@ -185,11 +189,13 @@ describe('PlatformClient contract', () => {
     expect(importRemoteUrl).toHaveBeenCalledWith(remoteRequest)
   })
 
-  it('advertises only injected Electron methods and returns typed unsupported results for missing methods', async () => {
+  it('advertises local authorization plus only injected Electron methods and returns typed unsupported results for missing methods', async () => {
     const list = vi.fn(async () => ({ items: [asset], cursor: null }))
     const client = createElectronPlatformClient(asElectronBridge({ assets: { list } }))
 
-    expect([...client.capabilities]).toEqual(['assets.list'])
+    expect([...client.capabilities]).toEqual([...LOCAL_RUNTIME_CAPABILITIES, 'assets.list'])
+    expect(client.supports('identity.session.read')).toBe(true)
+    expect(client.supports('authorization.check')).toBe(true)
     expect(client.supports('assets.list')).toBe(true)
     await expect(client.assets.list(listRequest)).resolves.toEqual({
       ok: true,
@@ -205,10 +211,77 @@ describe('PlatformClient contract', () => {
     }
   })
 
-  it('runs the same unsupported conformance contract against Electron and browser adapters', async () => {
+  it('preserves unsupported service conformance while exposing runtime-specific identity and authorization', async () => {
     const electronClient = createElectronPlatformClient(asElectronBridge({}))
     const { createBrowserPlatformClient } = await import('./browserPlatformClient')
     const browserClient = createBrowserPlatformClient()
+
+    expect([...electronClient.capabilities]).toEqual(LOCAL_RUNTIME_CAPABILITIES)
+    expect(electronClient.supports('identity.session.read')).toBe(true)
+    expect(electronClient.supports('authorization.check')).toBe(true)
+    await expect(electronClient.identity.getSession()).resolves.toEqual({
+      ok: true,
+      value: {
+        state: 'authenticated',
+        principal: {
+          id: 'local-runtime:principal',
+          kind: 'local-runtime',
+          displayName: 'Local runtime',
+        },
+        activeMembership: {
+          principalId: 'local-runtime:principal',
+          organizationId: 'local-runtime:organization',
+          status: 'active',
+          organizationPermissions: [],
+          projects: [],
+        },
+      },
+    })
+    await expect(
+      electronClient.authorization.check({
+        resource: {
+          family: 'project',
+          scope: {
+            kind: 'project',
+            organizationId: 'local-runtime:organization',
+            projectId: PROJECT_ID,
+          },
+        },
+        permission: 'project.read',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: { allowed: true, reason: 'ALLOW_EXPLICIT_PERMISSION' },
+    })
+
+    expect([...browserClient.capabilities]).toEqual(['identity.session.read'])
+    expect(browserClient.supports('identity.session.read')).toBe(true)
+    expect(browserClient.supports('authorization.check')).toBe(false)
+    await expect(browserClient.identity.getSession()).resolves.toEqual({
+      ok: true,
+      value: { state: 'unauthenticated' },
+    })
+    await expect(
+      browserClient.authorization.check({
+        resource: {
+          family: 'project',
+          scope: {
+            kind: 'project',
+            organizationId: 'browser-organization',
+            projectId: PROJECT_ID,
+          },
+        },
+        permission: 'project.read',
+      }),
+    ).resolves.toEqual({
+      ok: false,
+      error: expect.objectContaining({
+        code: 'UNSUPPORTED_CAPABILITY',
+        capability: 'authorization.check',
+        retryable: false,
+        message: expect.any(String),
+      }),
+    })
 
     await expectUnsupportedConformance(electronClient)
     await expectUnsupportedConformance(browserClient)

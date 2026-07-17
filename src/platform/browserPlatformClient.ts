@@ -1,6 +1,6 @@
 import type { PlatformCapability, PlatformClient, PlatformResult } from './client'
 
-const NO_CAPABILITIES: ReadonlySet<PlatformCapability> = new Set()
+const BROWSER_CAPABILITIES: ReadonlySet<PlatformCapability> = new Set(['identity.session.read'])
 
 function unsupported<T>(capability: PlatformCapability): Promise<PlatformResult<T>> {
   return Promise.resolve({
@@ -16,8 +16,14 @@ function unsupported<T>(capability: PlatformCapability): Promise<PlatformResult<
 
 export function createBrowserPlatformClient(): PlatformClient {
   return {
-    capabilities: NO_CAPABILITIES,
-    supports: () => false,
+    capabilities: BROWSER_CAPABILITIES,
+    supports: (capability) => BROWSER_CAPABILITIES.has(capability),
+    identity: {
+      getSession: () => Promise.resolve({ ok: true, value: { state: 'unauthenticated' } }),
+    },
+    authorization: {
+      check: () => unsupported('authorization.check'),
+    },
     conversations: {
       read: () => unsupported('conversations.read'),
       write: () => unsupported('conversations.write'),

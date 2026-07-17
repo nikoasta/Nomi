@@ -65,7 +65,34 @@ describe('PlatformClient runtime boundary', () => {
       const client = createBrowserPlatformClient()
 
       expect(desktopBridgeLoaded).not.toHaveBeenCalled()
-      expect([...client.capabilities]).toEqual([])
+      expect([...client.capabilities]).toEqual(['identity.session.read'])
+      expect(client.supports('identity.session.read')).toBe(true)
+      expect(client.supports('authorization.check')).toBe(false)
+      await expect(client.identity.getSession()).resolves.toEqual({
+        ok: true,
+        value: { state: 'unauthenticated' },
+      })
+      await expect(
+        client.authorization.check({
+          resource: {
+            family: 'project',
+            scope: {
+              kind: 'project',
+              organizationId: 'browser-organization',
+              projectId: PROJECT_ID,
+            },
+          },
+          permission: 'project.read',
+        }),
+      ).resolves.toEqual({
+        ok: false,
+        error: expect.objectContaining({
+          code: 'UNSUPPORTED_CAPABILITY',
+          capability: 'authorization.check',
+          retryable: false,
+          message: expect.any(String),
+        }),
+      })
 
       for (const capability of CAPABILITIES) {
         expect(client.supports(capability)).toBe(false)
