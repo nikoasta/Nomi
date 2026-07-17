@@ -664,11 +664,14 @@ export async function process(inputs, ctx) {
   })
   let focusedGate = await ctx.task(focusedGateTask, { projectRoot })
 
-  if (!shellTaskPassed(focusedGate) && isKnownCleanupFixtureContradiction(focusedGate)) {
+  async function recoverKnownCleanupFixture(currentGate) {
+    if (shellTaskPassed(currentGate) || !isKnownCleanupFixtureContradiction(currentGate)) {
+      return currentGate
+    }
     await ctx.task(correctCleanupFixtureTask, {
       projectRoot,
       spec: spec.stdout,
-      focusedGateFailure: JSON.stringify(focusedGate),
+      focusedGateFailure: JSON.stringify(currentGate),
       originalTestHashes: testHashes.stdout,
     })
     await ctx.task(verifyCleanupFixtureCorrectionTask, {
@@ -685,11 +688,13 @@ export async function process(inputs, ctx) {
       draftHashes: draftHashes.stdout,
       fixtureCorrectionVersion: 'cleanup-schema-v1',
     })
-    focusedGate = await ctx.task(focusedGateTask, {
+    return ctx.task(focusedGateTask, {
       projectRoot,
       fixtureCorrectionVersion: 'cleanup-schema-v1',
     })
   }
+
+  focusedGate = await recoverKnownCleanupFixture(focusedGate)
 
   if (!shellTaskPassed(focusedGate)) {
     throw new Error('Focused Higgsfield provider gate failed; review is not permitted')
@@ -722,6 +727,7 @@ export async function process(inputs, ctx) {
       draftHashes: draftHashes.stdout,
     })
     focusedGate = await ctx.task(focusedGateTask, { projectRoot })
+    focusedGate = await recoverKnownCleanupFixture(focusedGate)
     if (!shellTaskPassed(focusedGate)) {
       throw new Error('Focused Higgsfield provider gate failed after remediation; review is not permitted')
     }
