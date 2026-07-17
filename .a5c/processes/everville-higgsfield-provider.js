@@ -4,7 +4,7 @@
  * @skill methodologies/cc10x/skills/test-driven-development/SKILL.md
  * @skill specializations/desktop-development/skills/electron-ipc-security-audit/SKILL.md
  * @agent methodologies/rpikit/agents/security-reviewer/AGENT.md
- * @inputs { projectRoot: string, beadId: string }
+ * @inputs { projectRoot: string, beadId: string, resumeFromCurrent?: boolean, priorRunId?: string, priorRedEffectId?: string }
  * @outputs { success: boolean, beadId: string, review: object, commit: string }
  */
 
@@ -37,6 +37,18 @@ const implementationPaths = [
   'electron/catalog/processOperation.ts',
   'electron/catalog/higgsfieldIpc.ts',
 ]
+
+const frozenTestHashBaseline = `4229827a1085a750d42f13dc9069c703f3adb039a1b0ec89e293e05b15f69b1b  src/platform/generation/provider.contract.test.ts
+04f96afe23f528b0c5df552fcdc8657c8726d03d6c5f4bf2111584f4682045a8  src/platform/generation/browserGenerationProvider.test.ts
+f9c19c897e96b24b72a7f866d3afa047b5e81c2432e3ea6a7bba0ecb82acf9d9  electron/catalog/higgsfieldProviderManifest.test.ts
+8ba500b5e70d3c1e41e2f690f9eac673b049a356ed10c7508aba2f4aefd2ef71  electron/catalog/higgsfieldProviderAdapter.test.ts`
+
+const protectedDraftHashBaseline = `6e2798d63392443f0a6421cbc6e04b236d9338ed900f2707a40db0b611a52d36  docs/architecture/everville-media-platform-acceptance-matrix.md
+f8f1196f010a47505b5ccea0368fea12e83fe2ef02e863dbe9d9d94a748c4b95  docs/architecture/everville-media-platform-cloud-options.md
+cf25c90aa2310cb885141910cb7a6ec67af2b33b85d57782ce25e0b1cd8752d0  docs/architecture/everville-media-platform-decision-brief.md
+8a3be9f1a3285ac94ba6b21e220684ee71841797c1b0a1b990559c66998816e2  docs/architecture/everville-media-platform-rfc.md
+84b06c1cbf50e3e15494e3261da51c214a2cd2d06748a575dd089904ce74cd77  docs/architecture/everville-media-platform-runtime-audit.md
+61c8c195b1a6064fb84b1bdd16b249c18694d8838d676493fc42f6ffdb273c35  docs/architecture/everville-media-platform-security-data.md`
 
 function quote(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`
@@ -161,6 +173,20 @@ const readBoundaryTask = defineTask('read-higgsfield-provider-boundary', (args, 
     outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
   },
   labels: ['frozen-input', 'runtime-read', 'spec'],
+}))
+
+const readPriorRedEvidenceTask = defineTask('read-prior-higgsfield-red-evidence', (args, taskCtx) => ({
+  kind: 'shell',
+  title: 'Read the original observed RED effect from the prior run',
+  shell: {
+    command: `cat ${quote(`${args.runsRoot}/${args.priorRunId}/tasks/${args.priorRedEffectId}/result.json`)}`,
+    expectedExitCode: 0,
+  },
+  io: {
+    inputJsonPath: `tasks/${taskCtx.effectId}/input.json`,
+    outputJsonPath: `tasks/${taskCtx.effectId}/result.json`,
+  },
+  labels: ['evidence', 'red-green-refactor', 'runtime-read', 'shell'],
 }))
 
 const authorTestsTask = defineTask('author-higgsfield-provider-tests', (args, taskCtx) => ({
@@ -373,7 +399,7 @@ const readReviewEvidenceTask = defineTask('read-higgsfield-provider-review-evide
   labels: ['artifacts', 'review', 'runtime-read', 'shell'],
 }))
 
-const reviewTask = defineTask('review-higgsfield-provider-v2', (args, taskCtx) => ({
+const reviewTask = defineTask('review-higgsfield-provider-v3', (args, taskCtx) => ({
   kind: 'agent',
   title: 'Independently review the provider boundary and CLI adapter',
   agent: {
@@ -412,7 +438,7 @@ const reviewTask = defineTask('review-higgsfield-provider-v2', (args, taskCtx) =
   labels: ['agent', 'independent-review', 'quality-gate', 'security'],
 }))
 
-const remediateTask = defineTask('remediate-higgsfield-provider-v2', (args, taskCtx) => ({
+const remediateTask = defineTask('remediate-higgsfield-provider-v3', (args, taskCtx) => ({
   kind: 'agent',
   title: 'Remediate independent provider review blockers',
   agent: {
@@ -506,33 +532,51 @@ const closeBeadTask = defineTask('close-higgsfield-provider-slice', (args, taskC
 export async function process(inputs, ctx) {
   const projectRoot = inputs.projectRoot
   const beadId = inputs.beadId || 'evmedia-r20.7.1'
+  const resumeFromCurrent = inputs.resumeFromCurrent === true
 
   const spec = await ctx.task(readSpecTask, { projectRoot, beadId })
-  const preflight = await ctx.task(preflightTask, { projectRoot })
-  const draftHashes = await ctx.task(hashProtectedDraftsTask, { projectRoot })
+  let draftHashes
+  let boundary
+  let redGate
+  let testHashes
 
-  await ctx.task(boundaryTask, {
-    projectRoot,
-    spec: spec.stdout,
-    preflight: preflight.stdout,
-  })
-  const boundary = await ctx.task(readBoundaryTask, { projectRoot })
+  if (resumeFromCurrent) {
+    if (!inputs.priorRunId || !inputs.priorRedEffectId) {
+      throw new Error('resumeFromCurrent requires priorRunId and priorRedEffectId')
+    }
+    draftHashes = { stdout: protectedDraftHashBaseline }
+    testHashes = { stdout: frozenTestHashBaseline }
+    boundary = await ctx.task(readBoundaryTask, { projectRoot })
+    redGate = await ctx.task(readPriorRedEvidenceTask, {
+      runsRoot: inputs.runsRoot || '/Users/niko.dev/.a5c/runs',
+      priorRunId: inputs.priorRunId,
+      priorRedEffectId: inputs.priorRedEffectId,
+    })
+  } else {
+    const preflight = await ctx.task(preflightTask, { projectRoot })
+    draftHashes = await ctx.task(hashProtectedDraftsTask, { projectRoot })
+    await ctx.task(boundaryTask, {
+      projectRoot,
+      spec: spec.stdout,
+      preflight: preflight.stdout,
+    })
+    boundary = await ctx.task(readBoundaryTask, { projectRoot })
+    await ctx.task(authorTestsTask, {
+      projectRoot,
+      spec: spec.stdout,
+      boundary: boundary.stdout,
+    })
+    redGate = await ctx.task(redGateTask, { projectRoot })
+    testHashes = await ctx.task(hashTestsTask, { projectRoot })
+    const tests = await ctx.task(readTestsTask, { projectRoot })
+    await ctx.task(implementTask, {
+      projectRoot,
+      spec: spec.stdout,
+      boundary: boundary.stdout,
+      tests: tests.stdout,
+    })
+  }
 
-  await ctx.task(authorTestsTask, {
-    projectRoot,
-    spec: spec.stdout,
-    boundary: boundary.stdout,
-  })
-  const redGate = await ctx.task(redGateTask, { projectRoot })
-  const testHashes = await ctx.task(hashTestsTask, { projectRoot })
-  const tests = await ctx.task(readTestsTask, { projectRoot })
-
-  await ctx.task(implementTask, {
-    projectRoot,
-    spec: spec.stdout,
-    boundary: boundary.stdout,
-    tests: tests.stdout,
-  })
   let frozenVerification = await ctx.task(verifyFrozenTask, {
     projectRoot,
     testHashes: testHashes.stdout,
@@ -541,7 +585,7 @@ export async function process(inputs, ctx) {
   let focusedGate = await ctx.task(focusedGateTask, { projectRoot })
 
   let review = null
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  while (!review?.passed) {
     const artifacts = await ctx.task(readReviewEvidenceTask, {
       projectRoot,
       redEvidence: JSON.stringify(redGate),
@@ -567,10 +611,6 @@ export async function process(inputs, ctx) {
       draftHashes: draftHashes.stdout,
     })
     focusedGate = await ctx.task(focusedGateTask, { projectRoot })
-  }
-
-  if (!review || !review.passed) {
-    return { success: false, beadId, review, reason: 'Independent review blockers remain after three attempts' }
   }
 
   await ctx.task(fullGatesTask, { projectRoot })
