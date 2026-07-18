@@ -585,7 +585,7 @@ const verifyFrozenTask = defineTask('verify-platform-assets-frozen-inputs', (arg
       `currentCompatibility=$(shasum -a 256 ${mutableCompatibilityTestPaths.map(quote).join(' ')})`,
       `test "$currentCompatibility" = ${quote(args.compatibilityHashes.trim())}`,
       `git diff --quiet HEAD -- ${protectedCompatibilityTestPaths.map(quote).join(' ')}`,
-      'git diff --cached --quiet || { echo "Unexpected staged changes before review"; exit 1; }',
+      'if ! git diff --cached --quiet; then echo "Unexpected staged changes before review"; exit 1; fi',
       `dirty=$({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)`,
       `unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(allowedDirtyPattern)} || true)`,
       'test -z "$unexpected" || { printf "Unexpected milestone writes:\\n%s\\n" "$unexpected"; exit 1; }',
@@ -605,7 +605,7 @@ const focusedGateTask = defineTask('run-platform-assets-focused-gates', (args, t
       `pnpm exec vitest run ${[...contractTestPaths, ...compatibilityTestPaths].map(quote).join(' ')}`,
       'pnpm run typecheck',
       `pnpm exec eslint ${[...implementationPaths, ...contractTestPaths, ...mutableCompatibilityTestPaths].map(quote).join(' ')}`,
-      'git diff --cached --quiet || { echo "Unexpected staged changes before review"; exit 1; }',
+      'if ! git diff --cached --quiet; then echo "Unexpected staged changes before review"; exit 1; fi',
       `dirty=$({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)`,
       `unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(allowedDirtyPattern)} || true)`,
       'test -z "$unexpected" || { printf "Unexpected milestone writes:\\n%s\\n" "$unexpected"; exit 1; }',
@@ -1000,21 +1000,89 @@ export async function process(inputs, ctx) {
     compatibilityHashes: frozenCompatibilityHashes.stdout,
   })
   if (!shellTaskPassed(frozenVerification)) throw new Error('Frozen asset inputs changed during implementation')
-  const preFocusedTreeHashes = await ctx.task(hashPathsTask, {
+  let focusedTreeHashes = await ctx.task(hashPathsTask, {
     projectRoot,
     label: 'asset tree before first executable focused gate',
     paths: milestonePaths,
   })
-  if (!shellTaskPassed(preFocusedTreeHashes)) throw new Error('Asset tree could not be frozen before focused gates')
+  if (!shellTaskPassed(focusedTreeHashes)) throw new Error('Asset tree could not be frozen before focused gates')
   let focusedGate = await ctx.task(focusedGateTask, { projectRoot })
-  if (!shellTaskPassed(focusedGate)) throw new Error('Focused asset gate failed; independent review is forbidden')
   const postFocusedTree = await ctx.task(verifyPathHashesTask, {
     projectRoot,
     label: 'asset tree after first executable focused gate',
     paths: milestonePaths,
-    expected: preFocusedTreeHashes.stdout,
+    expected: focusedTreeHashes.stdout,
   })
   if (!shellTaskPassed(postFocusedTree)) throw new Error('Focused asset gate changed generated artifacts')
+
+  for (let attempt = 0; !shellTaskPassed(focusedGate) && attempt < 4; attempt += 1) {
+    const failureArtifacts = await ctx.task(readReviewEvidenceTask, {
+      projectRoot,
+      redEvidence: JSON.stringify(redEvidence),
+      frozenVerificationEvidence: JSON.stringify(frozenVerification),
+      focusedGateEvidence: JSON.stringify(focusedGate),
+      testHashes: frozenTestHashes.stdout,
+      boundaryHash: frozenBoundaryHash.stdout,
+      rfcHashes: frozenRfcHashes.stdout,
+      ledgerHash: frozenLedgerHash.stdout,
+      compatibilityHashes: frozenCompatibilityHashes.stdout,
+      reviewedTreeHashes: focusedTreeHashes.stdout,
+    })
+    if (!shellTaskPassed(failureArtifacts)) throw new Error('Focused-gate failure evidence could not be assembled')
+    const failureReview = await ctx.task(reviewTask, {
+      spec: spec.stdout,
+      artifacts: failureArtifacts.stdout,
+    })
+    const postFailureReviewTree = await ctx.task(verifyPathHashesTask, {
+      projectRoot,
+      label: `asset tree after focused-gate diagnosis ${attempt + 1}`,
+      paths: milestonePaths,
+      expected: focusedTreeHashes.stdout,
+    })
+    if (!shellTaskPassed(postFailureReviewTree)) throw new Error('Focused-gate reviewer changed milestone artifacts')
+    frozenVerification = await ctx.task(verifyFrozenTask, {
+      projectRoot,
+      testHashes: frozenTestHashes.stdout,
+      boundaryHash: frozenBoundaryHash.stdout,
+      rfcHashes: frozenRfcHashes.stdout,
+      ledgerHash: frozenLedgerHash.stdout,
+      compatibilityHashes: frozenCompatibilityHashes.stdout,
+    })
+    if (!shellTaskPassed(frozenVerification)) throw new Error('Focused-gate reviewer changed frozen inputs or scope')
+    if (!reviewHasActionableBlockers(failureReview)) {
+      throw new Error('Focused-gate reviewer did not return actionable path:line blockers')
+    }
+    await ctx.task(remediateTask, {
+      projectRoot,
+      review: JSON.stringify(failureReview),
+      artifacts: failureArtifacts.stdout,
+      spec: spec.stdout,
+    })
+    focusedTreeHashes = await ctx.task(hashPathsTask, {
+      projectRoot,
+      label: `asset tree after focused-gate remediation ${attempt + 1}`,
+      paths: milestonePaths,
+    })
+    if (!shellTaskPassed(focusedTreeHashes)) throw new Error('Focused-gate remediation tree could not be frozen')
+    frozenVerification = await ctx.task(verifyFrozenTask, {
+      projectRoot,
+      testHashes: frozenTestHashes.stdout,
+      boundaryHash: frozenBoundaryHash.stdout,
+      rfcHashes: frozenRfcHashes.stdout,
+      ledgerHash: frozenLedgerHash.stdout,
+      compatibilityHashes: frozenCompatibilityHashes.stdout,
+    })
+    if (!shellTaskPassed(frozenVerification)) throw new Error('Frozen asset inputs changed during focused-gate remediation')
+    focusedGate = await ctx.task(focusedGateTask, { projectRoot })
+    const postRemediationGateTree = await ctx.task(verifyPathHashesTask, {
+      projectRoot,
+      label: `asset tree after focused-gate remediation check ${attempt + 1}`,
+      paths: milestonePaths,
+      expected: focusedTreeHashes.stdout,
+    })
+    if (!shellTaskPassed(postRemediationGateTree)) throw new Error('Focused gate changed remediated asset artifacts')
+  }
+  if (!shellTaskPassed(focusedGate)) throw new Error('Focused asset gate failed after four remediation attempts')
 
   let review = null
   let reviewedTreeHashes = null
@@ -1055,7 +1123,7 @@ export async function process(inputs, ctx) {
       compatibilityHashes: frozenCompatibilityHashes.stdout,
     })
     if (!shellTaskPassed(frozenVerification)) throw new Error('Independent reviewer changed frozen inputs or scope')
-    if (reviewPassed(review)) {
+    if (reviewPassed(review) && shellTaskPassed(focusedGate)) {
       reviewedTreeHashes = candidateTreeHashes.stdout
       break
     }
@@ -1085,7 +1153,6 @@ export async function process(inputs, ctx) {
     })
     if (!shellTaskPassed(frozenVerification)) throw new Error('Frozen asset inputs changed during remediation')
     focusedGate = await ctx.task(focusedGateTask, { projectRoot })
-    if (!shellTaskPassed(focusedGate)) throw new Error('Focused asset gate failed after remediation')
     const postRemediationGateTree = await ctx.task(verifyPathHashesTask, {
       projectRoot,
       label: `remediated asset tree after focused gate ${attempt + 1}`,
@@ -1095,7 +1162,7 @@ export async function process(inputs, ctx) {
     if (!shellTaskPassed(postRemediationGateTree)) throw new Error('Focused gate changed remediated asset artifacts')
   }
 
-  if (!reviewPassed(review)) {
+  if (!reviewPassed(review) || !shellTaskPassed(focusedGate)) {
     return { success: false, beadId, review, reason: 'Independent asset review did not reach passing score 90 after four attempts' }
   }
 
