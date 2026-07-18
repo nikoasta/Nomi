@@ -30,6 +30,9 @@ const implementationPaths = [
   'src/platform/client.ts',
   'src/platform/browserPlatformClient.ts',
   'src/platform/electronPlatformClient.ts',
+  'src/desktop/bridge.ts',
+  'electron/preload.ts',
+  'electron/main.ts',
   'src/workbench/api/assetUploadApi.ts',
   'src/workbench/assets/useAllProjectAssets.ts',
 ]
