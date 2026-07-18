@@ -33,6 +33,26 @@ const implementationPaths = [
   'src/workbench/api/assetUploadApi.ts',
   'src/workbench/assets/useAllProjectAssets.ts',
 ]
+const generatedCompilerArtifactPaths = [
+  'src/desktop/bridge.js',
+  'src/desktop/bridge.js.map',
+  'src/desktop/providerKind.js',
+  'src/desktop/providerKind.js.map',
+  'src/platform/assets/contracts.js',
+  'src/platform/assets/contracts.js.map',
+  'src/platform/assets/runtime.js',
+  'src/platform/assets/runtime.js.map',
+  'src/platform/authorization/contracts.js',
+  'src/platform/authorization/contracts.js.map',
+  'src/platform/authorization/policy.js',
+  'src/platform/authorization/policy.js.map',
+  'src/platform/browserPlatformClient.js',
+  'src/platform/browserPlatformClient.js.map',
+  'src/platform/client.js',
+  'src/platform/client.js.map',
+  'src/platform/electronPlatformClient.js',
+  'src/platform/electronPlatformClient.js.map',
+]
 const mutableCompatibilityTestPaths = [
   'src/platform/platformClient.contract.test.ts',
   'src/platform/platformClient.boundary.test.ts',
@@ -568,7 +588,12 @@ const compatibilityScopeTask = defineTask('verify-platform-assets-compatibility-
   labels: ['compatibility', 'frozen-input', 'scope', 'shell'],
 }))
 
-const verifyFrozenTask = defineTask('verify-platform-assets-frozen-inputs', (args, taskCtx) => ({
+const verifyFrozenTask = defineTask('verify-platform-assets-frozen-inputs', (args, taskCtx) => {
+  const scopedAllowedDirtyPattern = args.allowCompilerArtifacts
+    ? `^(${[...allowedDirtyPaths, ...generatedCompilerArtifactPaths].map(regexEscape).join('|')})$`
+    : allowedDirtyPattern
+
+  return {
   kind: 'shell',
   title: 'Verify frozen spec artifacts and bounded writes',
   shell: {
@@ -587,14 +612,15 @@ const verifyFrozenTask = defineTask('verify-platform-assets-frozen-inputs', (arg
       `git diff --quiet HEAD -- ${protectedCompatibilityTestPaths.map(quote).join(' ')}`,
       'if ! git diff --cached --quiet; then echo "Unexpected staged changes before review"; exit 1; fi',
       `dirty=$({ git diff --name-only; git ls-files --others --exclude-standard; } | sort -u)`,
-      `unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(allowedDirtyPattern)} || true)`,
+      `unexpected=$(printf '%s\\n' "$dirty" | rg -v ${quote(scopedAllowedDirtyPattern)} || true)`,
       'test -z "$unexpected" || { printf "Unexpected milestone writes:\\n%s\\n" "$unexpected"; exit 1; }',
     ]),
     expectedExitCode: 0,
   },
   io: taskIo(taskCtx),
   labels: ['frozen-input', 'scope', 'security', 'shell'],
-}))
+  }
+})
 
 const focusedGateTask = defineTask('run-platform-assets-focused-gates', (args, taskCtx) => ({
   kind: 'shell',
@@ -712,6 +738,7 @@ const remediateTask = defineTask('remediate-platform-assets-slice', (args, taskC
       instructions: [
         'Compare SPEC to ARTIFACTS directly and verify every blocker against current code.',
         `Edit only these implementation paths: ${implementationPaths.join(', ')}. Do not create helper files.`,
+        `If present and untracked, delete only these known TypeScript gate artifacts: ${generatedCompilerArtifactPaths.join(', ')}. Do not edit or create them, and refuse to delete any of them if tracked.`,
         `Do not edit ${boundaryPath}, tests, Beads, RFC drafts, package files, migrations, or lockfiles.`,
         'Preserve stable identity, truthful provenance, locator separation, browser safety, Electron continuity, and legacy facade behavior.',
         'Do not add cloud/storage vendor coupling or broaden this child.',
@@ -1047,6 +1074,7 @@ export async function process(inputs, ctx) {
       rfcHashes: frozenRfcHashes.stdout,
       ledgerHash: frozenLedgerHash.stdout,
       compatibilityHashes: frozenCompatibilityHashes.stdout,
+      allowCompilerArtifacts: true,
     })
     if (!shellTaskPassed(frozenVerification)) throw new Error('Focused-gate reviewer changed frozen inputs or scope')
     if (!reviewHasActionableBlockers(failureReview)) {
