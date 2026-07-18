@@ -1015,7 +1015,7 @@ export async function process(inputs, ctx) {
   })
   if (!shellTaskPassed(postFocusedTree)) throw new Error('Focused asset gate changed generated artifacts')
 
-  for (let attempt = 0; !shellTaskPassed(focusedGate) && attempt < 4; attempt += 1) {
+  for (let attempt = 0; !shellTaskPassed(focusedGate); attempt += 1) {
     const failureArtifacts = await ctx.task(readReviewEvidenceTask, {
       projectRoot,
       redEvidence: JSON.stringify(redEvidence),
@@ -1082,11 +1082,9 @@ export async function process(inputs, ctx) {
     })
     if (!shellTaskPassed(postRemediationGateTree)) throw new Error('Focused gate changed remediated asset artifacts')
   }
-  if (!shellTaskPassed(focusedGate)) throw new Error('Focused asset gate failed after four remediation attempts')
-
   let review = null
   let reviewedTreeHashes = null
-  for (let attempt = 0; attempt < 4; attempt += 1) {
+  for (let attempt = 0; ; attempt += 1) {
     const candidateTreeHashes = await ctx.task(hashPathsTask, {
       projectRoot,
       label: `reviewed asset tree attempt ${attempt + 1}`,
@@ -1130,7 +1128,6 @@ export async function process(inputs, ctx) {
     if (!reviewHasActionableBlockers(review)) {
       throw new Error('Independent asset review was contradictory or lacked actionable path:line blockers')
     }
-    if (attempt === 3) break
     await ctx.task(remediateTask, {
       projectRoot,
       review: JSON.stringify(review),
@@ -1163,7 +1160,7 @@ export async function process(inputs, ctx) {
   }
 
   if (!reviewPassed(review) || !shellTaskPassed(focusedGate)) {
-    return { success: false, beadId, review, reason: 'Independent asset review did not reach passing score 90 after four attempts' }
+    return { success: false, beadId, review, reason: 'Independent asset review did not reach passing score 90' }
   }
 
   const preFullGateTree = await ctx.task(hashPathsTask, {
