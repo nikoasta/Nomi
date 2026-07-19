@@ -1,37 +1,56 @@
 # Current State
 
-The dedicated `everville/media-platform` branch contains the initial Everville
-Media Platform workflow draft and is aligned to orchestration baseline
-`balanced-v2.12`.
+The dedicated `everville/media-platform` branch contains the Everville Media
+Platform backlog and a live static web shell at `https://cut.eva.mba/#/studio`.
+The branch is aligned to orchestration baseline `balanced-v2.12`.
 
-Beads epic `evmedia-r20` is the durable product backlog. Bootstrap task
-`evmedia-r20.6` completed the branch and orchestration setup; the next product
-task is `evmedia-r20.4`. Beads uses embedded Dolt in local-only mode; no remote
-is configured because the repository `origin` is the public Nomi upstream.
+Beads epic `evmedia-r20` remains the durable product backlog. The first
+corporate portal implementation slice is `evmedia-r20.13`: a typed
+PlatformClient collaboration contract for projects, revisions, review queues,
+approvals, and audit events. Browser and Electron adapters intentionally fail
+closed with `UNSUPPORTED_CAPABILITY` until the Supabase/BFF backend exists.
+
+New durable architecture note:
+
+- `docs/architecture/everville-corporate-portal-foundation.md`
+
+Verified for the slice:
+
+- focused Vitest platform suite passed;
+- `pnpm exec tsc -p tsconfig.app.json --noEmit` passed;
+- `pnpm run check:i18n` passed;
+- `pnpm run check:secrets` passed;
+- `pnpm run build:renderer` passed;
+- `curl -I https://cut.eva.mba` returned `HTTP/2 200`;
+- `scripts/orchestration/run_process_verification.sh` passed before handoff
+  update.
 
 The upstream contribution branches remain separate and must not receive
 Everville-specific orchestration, backend, authorization, or brand-policy work.
 
 ## Next recommended
 
-Next stage id: `evmedia-r20.4-cloud-platform-rfc`
+Next stage id: `evmedia-r20.9-supabase-auth-rls`
 
-Recommended action: start `evmedia-r20.4`. Trace current renderer-to-Electron
-runtime call paths and write the technical RFC before changing application
-code.
+Recommended action: implement the server-backed auth/organization/workspace
+slice behind the new collaboration contract. Create the first Supabase migration
+with the Supabase CLI, add RLS tests for two organizations/two users, and add a
+web PlatformClient adapter that uses only publishable browser credentials while
+all service-role/provider secrets remain server-only.
 
 ## Starter prompt for next orchestrator
 
 Use $orchestrator-stage in `/Users/niko.dev/Developer/work/nomi-i18n` on branch
 `everville/media-platform`. Read `AGENTS.md`, `.codex/orchestrator.toml`, this
-handoff, `.codex/project-index.md`, Beads epic `evmedia-r20`, and child
-`evmedia-r20.4`. Preserve upstream pullability and do not push to the current
-public `origin`. Produce the required Parallel Decomposition Matrix before the
-architecture stage.
+handoff, `.codex/project-index.md`, Beads epic `evmedia-r20`, and children
+`evmedia-r20.9` plus `evmedia-r20.13`. Preserve upstream pullability and do not
+push to the current public `origin`. Produce the required Parallel
+Decomposition Matrix before the backend/auth stage.
 
 ## Explicit defers
 
 - Private Everville git remote and Beads Dolt remote configuration.
-- CI/CD integration until the private delivery target is selected.
-- Cloud architecture and application changes tracked by children of
-  `evmedia-r20`.
+- Live Supabase project creation/linking and production migration application.
+- Auth UI, BFF/server routes, storage signed URL resolver, durable generation
+  workers, Higgsfield cloud credential custody, realtime presence, and conflict
+  resolution UI.

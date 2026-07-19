@@ -45,6 +45,8 @@ in `.codex/handoff.md`, Beads, and `.codex/stages/`, not here.
   playback, text overlays, and export preparation.
 - `src/workbench/api/` - renderer wrappers around desktop task, catalog,
   prompts, skills, uploads, and generation services.
+- `src/platform/` - runtime-neutral PlatformClient contracts for identity,
+  authorization, assets, generation providers, and corporate collaboration.
 - `src/desktop/` - Electron bridge types and active-project coordination.
 - `src/design/` and `src/theme/` - design primitives, tokens, and theme.
 - `src/i18n/` - Chinese, English, and Russian locale and display adapters.
@@ -78,6 +80,8 @@ in `.codex/handoff.md`, Beads, and `.codex/stages/`, not here.
   versioned migrations rather than ad hoc rewrites.
 - Future cloud media must use stable asset identities; `nomi-local://` remains a
   desktop runtime URL, not a portable persisted cloud identity.
+- Future corporate collaboration enters through `src/platform/collaboration`;
+  current browser and Electron adapters fail closed until a backend exists.
 - Beads is the only durable task ledger. Babysitter `.a5c/` journals are
   execution state only.
 

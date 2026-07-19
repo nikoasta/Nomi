@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { AssetId, AssetVersionId } from './assets/contracts'
 import type { PersistedConversationArea, PlatformCapability, PlatformClient } from './client'
+import { PORTAL_CAPABILITIES } from './collaboration/contracts'
 
 const CAPABILITIES = [
   'conversations.read',
@@ -15,6 +16,7 @@ const CAPABILITIES = [
   'asset-records.import-file',
   'asset-records.import-remote-url',
   'asset-records.resolve',
+  ...PORTAL_CAPABILITIES,
 ] as const satisfies readonly PlatformCapability[]
 
 const PROJECT_ID = 'project-browser-boundary'
@@ -78,6 +80,57 @@ async function invokeCapability(client: PlatformClient, capability: PlatformCapa
         assetId: ASSET_ID,
         versionId: VERSION_ID,
         purpose: 'display',
+      })
+    case 'portal.projects.list':
+      return client.collaboration.listProjects({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: 'workspace-browser-boundary',
+      })
+    case 'portal.projects.create':
+      return client.collaboration.createProject({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: 'workspace-browser-boundary',
+        title: 'Browser Project',
+        slug: 'browser-project',
+        classification: 'internal',
+        idempotencyKey: 'browser-project-create-1',
+      })
+    case 'portal.project-revisions.save':
+      return client.collaboration.saveProjectRevision({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: 'workspace-browser-boundary',
+        projectId: PROJECT_ID,
+        expectedCurrentRevisionId: null,
+        snapshotDigest: 'a'.repeat(64),
+        snapshot: { schemaVersion: 'nomi-project.v1' },
+        idempotencyKey: 'browser-revision-save-1',
+      })
+    case 'portal.review-queue.list':
+      return client.collaboration.listReviewQueue({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: 'workspace-browser-boundary',
+      })
+    case 'portal.approvals.decide':
+      return client.collaboration.decideApproval({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: 'workspace-browser-boundary',
+        approvalGateId: 'approval-browser-boundary',
+        projectId: PROJECT_ID,
+        decision: 'approved',
+        comment: null,
+        expectedPolicySnapshotDigest: 'b'.repeat(64),
+        idempotencyKey: 'browser-approval-1',
+      })
+    case 'portal.audit-events.append':
+      return client.collaboration.appendAuditEvent({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: 'workspace-browser-boundary',
+        projectId: PROJECT_ID,
+        action: 'project.view',
+        targetType: 'project',
+        targetId: PROJECT_ID,
+        metadata: {},
+        idempotencyKey: 'browser-audit-1',
       })
   }
 }

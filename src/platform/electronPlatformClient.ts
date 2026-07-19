@@ -20,6 +20,7 @@ import {
   type AssetResolveRequest,
   type PlatformAssetRecords,
 } from './assets/contracts'
+import { PORTAL_CAPABILITIES } from './collaboration/contracts'
 import type {
   PersistedConversationsV2,
   PlatformAssetImportFileRequest,
@@ -101,6 +102,7 @@ const CAPABILITY_ORDER: readonly PlatformCapability[] = [
   'assets.import-file',
   'assets.import-remote-url',
   ...ASSET_RECORD_CAPABILITIES,
+  ...PORTAL_CAPABILITIES,
 ]
 
 const LOCAL_PRINCIPAL_ID = 'local-runtime:principal'
@@ -295,11 +297,13 @@ async function invoke<T>(
   }
 }
 
-function isClientOptions(value: ElectronPlatformBridge | ElectronPlatformClientOptions): value is ElectronPlatformClientOptions {
+function isClientOptions(
+  value: ElectronPlatformBridge | ElectronPlatformClientOptions,
+): value is ElectronPlatformClientOptions {
   return Boolean(
     value &&
-      typeof value === 'object' &&
-      ('bridge' in value || 'assetRecordAdapter' in value || 'authorization' in value || 'session' in value),
+    typeof value === 'object' &&
+    ('bridge' in value || 'assetRecordAdapter' in value || 'authorization' in value || 'session' in value),
   )
 }
 
@@ -353,7 +357,9 @@ function authorizationAllowed(response: unknown): boolean {
   return value.allowed === true || value.decision === 'allow'
 }
 
-function hasControlCharacter(value: string): boolean { return Array.from(value).some((character) => character.charCodeAt(0) <= 0x1f || character.charCodeAt(0) === 0x7f) }
+function hasControlCharacter(value: string): boolean {
+  return Array.from(value).some((character) => character.charCodeAt(0) <= 0x1f || character.charCodeAt(0) === 0x7f)
+}
 
 function hasRequestedElectronLocator(url: string, projectId: string): boolean {
   const locatorPrefix = `nomi-local://asset/${encodeURIComponent(projectId)}/`
@@ -379,10 +385,7 @@ function hasRequestedElectronLocator(url: string, projectId: string): boolean {
     })
 }
 
-function resolutionForRequest(
-  value: unknown,
-  request: AssetResolveRequest,
-): AssetResolution | null {
+function resolutionForRequest(value: unknown, request: AssetResolveRequest): AssetResolution | null {
   let resolution: AssetResolution
   try {
     resolution = parseAssetResolution(value)
@@ -415,7 +418,8 @@ export function createElectronPlatformClient(
   const hostAssetRecordAdapter = bridge.assetRecords
   const assetRecordAdapter = options.assetRecordAdapter ?? hostAssetRecordAdapter
   const hostAuthorizesGeneratedAssets = !options.assetRecordAdapter && Boolean(hostAssetRecordAdapter)
-  const authorization = options.authorization ?? (hostAssetRecordAdapter ? createLocalAssetRecordAuthorization() : undefined)
+  const authorization =
+    options.authorization ?? (hostAssetRecordAdapter ? createLocalAssetRecordAuthorization() : undefined)
   const assetSession = options.session ?? createLocalSession()
   const filteredListCursors = new Map<
     string,
@@ -567,11 +571,8 @@ export function createElectronPlatformClient(
         if (request.cursor != null) {
           const state = filteredListCursors.get(request.cursor!)
           filteredListCursors.delete(request.cursor!)
-          if (
-            !state ||
-            state.organizationId !== request.organizationId ||
-            state.projectId !== request.projectId
-          ) return { ok: false, error: operationError(capability, 'INVALID_ARGUMENT') }
+          if (!state || state.organizationId !== request.organizationId || state.projectId !== request.projectId)
+            return { ok: false, error: operationError(capability, 'INVALID_ARGUMENT') }
           for (const bundle of state.items) {
             if (await authorizeAssetRecord('asset.read', request, bundle.asset.id)) items.push(bundle)
           }
@@ -592,14 +593,16 @@ export function createElectronPlatformClient(
               Object.keys(page).some((key) => key !== 'items' && key !== 'cursor') ||
               !Array.isArray(page.items) ||
               (page.cursor !== null && typeof page.cursor !== 'string')
-            ) return { ok: false, error: operationError(capability, 'INTEGRITY_ERROR') }
+            )
+              return { ok: false, error: operationError(capability, 'INTEGRITY_ERROR') }
             try {
               for (const item of page.items) {
                 const bundle = parseAssetRecordBundle(item)
                 if (
                   bundle.asset.scope.organizationId === request.organizationId &&
                   bundle.asset.scope.projectId === request.projectId
-                ) trustedItems.push(bundle)
+                )
+                  trustedItems.push(bundle)
               }
             } catch {
               return { ok: false, error: operationError(capability, 'INTEGRITY_ERROR') }
@@ -692,7 +695,9 @@ export function createElectronPlatformClient(
             return allowed
           },
         })
-        const result = await invokeAssetRecord(capability, () => assetRecordAdapter.importRemoteUrl!(request, operation))
+        const result = await invokeAssetRecord(capability, () =>
+          assetRecordAdapter.importRemoteUrl!(request, operation),
+        )
         if (!result.ok) return result
         try {
           const bundle = parseAssetRecordBundle(result.value)
@@ -721,6 +726,14 @@ export function createElectronPlatformClient(
           ? { ok: true, value: resolution }
           : { ok: false, error: operationError(capability, 'INTEGRITY_ERROR') }
       },
+    },
+    collaboration: {
+      listProjects: () => Promise.resolve(unsupported('portal.projects.list')),
+      createProject: () => Promise.resolve(unsupported('portal.projects.create')),
+      saveProjectRevision: () => Promise.resolve(unsupported('portal.project-revisions.save')),
+      listReviewQueue: () => Promise.resolve(unsupported('portal.review-queue.list')),
+      decideApproval: () => Promise.resolve(unsupported('portal.approvals.decide')),
+      appendAuditEvent: () => Promise.resolve(unsupported('portal.audit-events.append')),
     },
   }
 }

@@ -28,6 +28,7 @@ import type {
   PlatformResult,
   WorkbenchAssetDto,
 } from './client'
+import { PORTAL_CAPABILITIES } from './collaboration/contracts'
 import { createElectronPlatformClient } from './electronPlatformClient'
 import {
   clearActiveWorkbenchProjectSaveTarget,
@@ -125,6 +126,8 @@ const assetResolveRequest = {
   purpose: 'display',
 } satisfies AssetResolveRequest
 
+const WORKSPACE_ID = 'workspace-alpha'
+
 type Operation = {
   capability: PlatformCapability
   invoke(client: PlatformClient): Promise<PlatformResult<unknown>>
@@ -167,7 +170,77 @@ const operations: readonly Operation[] = [
     capability: 'asset-records.resolve',
     invoke: (client) => client.assetRecords.resolve(assetResolveRequest),
   },
+  {
+    capability: 'portal.projects.list',
+    invoke: (client) =>
+      client.collaboration.listProjects({ organizationId: ORGANIZATION_ID, workspaceId: WORKSPACE_ID }),
+  },
+  {
+    capability: 'portal.projects.create',
+    invoke: (client) =>
+      client.collaboration.createProject({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: WORKSPACE_ID,
+        title: 'Project Alpha',
+        slug: 'project-alpha',
+        classification: 'internal',
+        idempotencyKey: 'project-alpha-create-1',
+      }),
+  },
+  {
+    capability: 'portal.project-revisions.save',
+    invoke: (client) =>
+      client.collaboration.saveProjectRevision({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: WORKSPACE_ID,
+        projectId: PROJECT_ID,
+        expectedCurrentRevisionId: null,
+        snapshotDigest: 'a'.repeat(64),
+        snapshot: { schemaVersion: 'nomi-project.v1' },
+        idempotencyKey: 'project-alpha-revision-1',
+      }),
+  },
+  {
+    capability: 'portal.review-queue.list',
+    invoke: (client) =>
+      client.collaboration.listReviewQueue({ organizationId: ORGANIZATION_ID, workspaceId: WORKSPACE_ID }),
+  },
+  {
+    capability: 'portal.approvals.decide',
+    invoke: (client) =>
+      client.collaboration.decideApproval({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: WORKSPACE_ID,
+        approvalGateId: 'approval-alpha',
+        projectId: PROJECT_ID,
+        decision: 'approved',
+        comment: null,
+        expectedPolicySnapshotDigest: 'b'.repeat(64),
+        idempotencyKey: 'approval-alpha-1',
+      }),
+  },
+  {
+    capability: 'portal.audit-events.append',
+    invoke: (client) =>
+      client.collaboration.appendAuditEvent({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: WORKSPACE_ID,
+        projectId: PROJECT_ID,
+        action: 'project.view',
+        targetType: 'project',
+        targetId: PROJECT_ID,
+        metadata: {},
+        idempotencyKey: 'audit-alpha-1',
+      }),
+  },
 ]
+
+if (
+  operations.filter(({ capability }) => PORTAL_CAPABILITIES.includes(capability as never)).length !==
+  PORTAL_CAPABILITIES.length
+) {
+  throw new Error('PlatformClient contract test must cover every portal capability')
+}
 
 function asElectronBridge(bridge: unknown): Parameters<typeof createElectronPlatformClient>[0] {
   return bridge as Parameters<typeof createElectronPlatformClient>[0]

@@ -1,4 +1,5 @@
 import type { PlatformCapability, PlatformClient, PlatformResult } from './client'
+import { PORTAL_CAPABILITIES } from './collaboration/contracts'
 
 type FilterableCapabilitySet = ReadonlySet<PlatformCapability> & {
   filter(predicate: (capability: PlatformCapability) => boolean): PlatformCapability[]
@@ -50,5 +51,15 @@ export function createBrowserPlatformClient(_options: Record<string, unknown> = 
       importRemoteUrl: () => unsupported('asset-records.import-remote-url'),
       resolve: () => unsupported('asset-records.resolve'),
     },
+    collaboration: {
+      listProjects: () => unsupported('portal.projects.list'),
+      createProject: () => unsupported('portal.projects.create'),
+      saveProjectRevision: () => unsupported('portal.project-revisions.save'),
+      listReviewQueue: () => unsupported('portal.review-queue.list'),
+      decideApproval: () => unsupported('portal.approvals.decide'),
+      appendAuditEvent: () => unsupported('portal.audit-events.append'),
+    },
   }
 }
+
+export const BROWSER_PORTAL_CAPABILITIES = PORTAL_CAPABILITIES

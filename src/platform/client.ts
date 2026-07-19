@@ -2,6 +2,7 @@ import { getDesktopBridge, type DesktopBridge } from '../desktop/bridge'
 import type { AuthorizationCheckRequest, AuthorizationDecision, PlatformSession } from './authorization/contracts'
 import type { AssetRecordCapability, PlatformAssetRecords } from './assets/contracts'
 import { createBrowserPlatformClient } from './browserPlatformClient'
+import type { PlatformCollaboration, PortalCapability } from './collaboration/contracts'
 import { createElectronPlatformClient, type ElectronPlatformBridge } from './electronPlatformClient'
 
 export type PersistedAiMessage = { id: string; role: string; content: string }
@@ -45,6 +46,7 @@ export type PlatformCapability =
   | 'assets.import-file'
   | 'assets.import-remote-url'
   | AssetRecordCapability
+  | PortalCapability
 
 export type PlatformErrorCode =
   | 'UNSUPPORTED_CAPABILITY'
@@ -130,6 +132,7 @@ export type PlatformClient = {
   readonly conversations: PlatformConversations
   readonly assets: PlatformAssets
   readonly assetRecords: PlatformAssetRecords
+  readonly collaboration: PlatformCollaboration
 }
 
 export function adaptDesktopBridge(bridge: DesktopBridge): ElectronPlatformBridge {
