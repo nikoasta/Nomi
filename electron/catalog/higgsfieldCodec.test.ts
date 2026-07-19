@@ -22,4 +22,3 @@ describe("normalizeHiggsfieldOutput", () => {
     expect(normalized.remoteUrls).toEqual(["https://cdn.example.com/model.glb"]);
   });
 });
-
