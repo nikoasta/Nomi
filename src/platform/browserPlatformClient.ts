@@ -1,5 +1,4 @@
 import type { PlatformCapability, PlatformClient, PlatformResult } from './client'
-import { PORTAL_CAPABILITIES } from './collaboration/contracts'
 
 type FilterableCapabilitySet = ReadonlySet<PlatformCapability> & {
   filter(predicate: (capability: PlatformCapability) => boolean): PlatformCapability[]
@@ -59,7 +58,10 @@ export function createBrowserPlatformClient(_options: Record<string, unknown> = 
       decideApproval: () => unsupported('portal.approvals.decide'),
       appendAuditEvent: () => unsupported('portal.audit-events.append'),
     },
+    organizations: {
+      listOrganizations: () => unsupported('org.organizations.list'),
+      listWorkspaces: () => unsupported('org.workspaces.list'),
+      listMemberships: () => unsupported('org.memberships.list'),
+    },
   }
 }
-
-export const BROWSER_PORTAL_CAPABILITIES = PORTAL_CAPABILITIES

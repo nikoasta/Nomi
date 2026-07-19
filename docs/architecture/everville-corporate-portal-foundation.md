@@ -24,6 +24,8 @@ Code added in this slice:
 
 - `src/platform/collaboration/contracts.ts`
 - `src/platform/collaboration/contracts.test.ts`
+- `src/platform/organizations/contracts.ts`
+- `src/platform/organizations/contracts.test.ts`
 
 `PlatformClient` now has explicit portal collaboration capabilities:
 
@@ -49,6 +51,7 @@ closed until the backend exists.
 The first contract covers:
 
 - Organization and workspace scope.
+- Organization, workspace, and membership records.
 - Project records with classification and status.
 - Immutable project revision records with optimistic revision checks.
 - Approval gates bound to project, asset version, and policy snapshot digest.
@@ -121,6 +124,10 @@ may use only publishable Supabase keys.
 
 The first migration should be created with the Supabase CLI, not hand-named.
 This document is a model, not a migration.
+
+The reviewed auth/RLS draft now lives in:
+
+- `docs/architecture/everville-supabase-auth-rls-draft.md`
 
 ```sql
 create schema if not exists app;

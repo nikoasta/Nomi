@@ -20,7 +20,7 @@ function importSpecifiers(source: string): string[] {
 }
 
 describe('authorization public-module boundary', () => {
-  it.each(['./authorization/contracts.ts', './authorization/policy.ts'])(
+  it.each(['./authorization/contracts.ts', './authorization/policy.ts', './organizations/contracts.ts'])(
     '%s has no Node, Electron, DOM, provider, transport, or persistence dependency',
     async (path) => {
       const source = await readRequiredSource(path)

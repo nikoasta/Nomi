@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AssetId, AssetVersionId } from './assets/contracts'
 import type { PersistedConversationArea, PlatformCapability, PlatformClient } from './client'
 import { PORTAL_CAPABILITIES } from './collaboration/contracts'
+import { ORGANIZATION_CAPABILITIES } from './organizations/contracts'
 
 const CAPABILITIES = [
   'conversations.read',
@@ -17,6 +18,7 @@ const CAPABILITIES = [
   'asset-records.import-remote-url',
   'asset-records.resolve',
   ...PORTAL_CAPABILITIES,
+  ...ORGANIZATION_CAPABILITIES,
 ] as const satisfies readonly PlatformCapability[]
 
 const PROJECT_ID = 'project-browser-boundary'
@@ -131,6 +133,19 @@ async function invokeCapability(client: PlatformClient, capability: PlatformCapa
         targetId: PROJECT_ID,
         metadata: {},
         idempotencyKey: 'browser-audit-1',
+      })
+    case 'org.organizations.list':
+      return client.organizations.listOrganizations({ limit: 25 })
+    case 'org.workspaces.list':
+      return client.organizations.listWorkspaces({
+        organizationId: ORGANIZATION_ID,
+        limit: 25,
+      })
+    case 'org.memberships.list':
+      return client.organizations.listMemberships({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: 'workspace-browser-boundary',
+        limit: 25,
       })
   }
 }

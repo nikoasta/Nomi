@@ -30,6 +30,7 @@ import type {
 } from './client'
 import { PORTAL_CAPABILITIES } from './collaboration/contracts'
 import { createElectronPlatformClient } from './electronPlatformClient'
+import { ORGANIZATION_CAPABILITIES } from './organizations/contracts'
 import {
   clearActiveWorkbenchProjectSaveTarget,
   getActiveWorkbenchProjectId,
@@ -233,6 +234,27 @@ const operations: readonly Operation[] = [
         idempotencyKey: 'audit-alpha-1',
       }),
   },
+  {
+    capability: 'org.organizations.list',
+    invoke: (client) => client.organizations.listOrganizations({ limit: 25 }),
+  },
+  {
+    capability: 'org.workspaces.list',
+    invoke: (client) =>
+      client.organizations.listWorkspaces({
+        organizationId: ORGANIZATION_ID,
+        limit: 25,
+      }),
+  },
+  {
+    capability: 'org.memberships.list',
+    invoke: (client) =>
+      client.organizations.listMemberships({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: WORKSPACE_ID,
+        limit: 25,
+      }),
+  },
 ]
 
 if (
@@ -240,6 +262,13 @@ if (
   PORTAL_CAPABILITIES.length
 ) {
   throw new Error('PlatformClient contract test must cover every portal capability')
+}
+
+if (
+  operations.filter(({ capability }) => ORGANIZATION_CAPABILITIES.includes(capability as never)).length !==
+  ORGANIZATION_CAPABILITIES.length
+) {
+  throw new Error('PlatformClient contract test must cover every organization capability')
 }
 
 function asElectronBridge(bridge: unknown): Parameters<typeof createElectronPlatformClient>[0] {

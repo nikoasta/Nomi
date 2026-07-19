@@ -34,6 +34,7 @@ import type {
   PlatformResult,
   WorkbenchAssetDto,
 } from './client'
+import { ORGANIZATION_CAPABILITIES } from './organizations/contracts'
 
 type ElectronConversationReadRequest = { projectId: string }
 type ElectronConversationWriteRequest = PlatformConversationValue & { projectId: string }
@@ -103,6 +104,7 @@ const CAPABILITY_ORDER: readonly PlatformCapability[] = [
   'assets.import-remote-url',
   ...ASSET_RECORD_CAPABILITIES,
   ...PORTAL_CAPABILITIES,
+  ...ORGANIZATION_CAPABILITIES,
 ]
 
 const LOCAL_PRINCIPAL_ID = 'local-runtime:principal'
@@ -734,6 +736,11 @@ export function createElectronPlatformClient(
       listReviewQueue: () => Promise.resolve(unsupported('portal.review-queue.list')),
       decideApproval: () => Promise.resolve(unsupported('portal.approvals.decide')),
       appendAuditEvent: () => Promise.resolve(unsupported('portal.audit-events.append')),
+    },
+    organizations: {
+      listOrganizations: () => Promise.resolve(unsupported('org.organizations.list')),
+      listWorkspaces: () => Promise.resolve(unsupported('org.workspaces.list')),
+      listMemberships: () => Promise.resolve(unsupported('org.memberships.list')),
     },
   }
 }
