@@ -35,6 +35,8 @@ Supabase guidance checked on 2026-07-19:
   keys are backend-only because they bypass RLS.
 - The browser portal adapter accepts only `sb_publishable_*` API keys and a user
   bearer session; legacy JWT-shaped API keys are intentionally rejected.
+- Browser session wiring parses Supabase magic-link callback tokens from the URL
+  and removes those tokens from the visible URL after storing the local session.
 - Product tables exposed through the Data API need explicit privileges and RLS.
 - Policies should use `to authenticated` plus membership predicates, not
   `auth.role()` as an authorization shortcut.
@@ -289,4 +291,4 @@ workspace after it is created.
 - Generated migration file.
 - BFF route handlers and lazy server clients.
 - Storage buckets and signed URL resolver.
-- Auth UI and session refresh policy.
+- Auth UI, magic-link request surface, and session refresh rotation policy.

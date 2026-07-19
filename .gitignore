@@ -20,6 +20,7 @@ src/styles/tailwind.generated.css
 # Environment and local secrets
 .env
 .env.*
+!.env.example
 
 # Runtime data
 project-data/

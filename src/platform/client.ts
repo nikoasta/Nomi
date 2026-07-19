@@ -5,6 +5,7 @@ import { createBrowserPlatformClient } from './browserPlatformClient'
 import type { PlatformCollaboration, PortalCapability } from './collaboration/contracts'
 import { createElectronPlatformClient, type ElectronPlatformBridge } from './electronPlatformClient'
 import type { OrganizationCapability, PlatformOrganizations } from './organizations/contracts'
+import { getBrowserWebPortalClientConfig } from './webPortalSession'
 
 export type PersistedAiMessage = { id: string; role: string; content: string }
 
@@ -177,9 +178,13 @@ let cachedClient: PlatformClient | undefined
 
 export function getPlatformClient(): PlatformClient {
   const bridge = getDesktopBridge()
+  if (!bridge) {
+    const portal = getBrowserWebPortalClientConfig()
+    return createBrowserPlatformClient(portal ? { portal } : {})
+  }
   if (cachedClient && cachedBridge === bridge) return cachedClient
 
   cachedBridge = bridge
-  cachedClient = bridge ? createElectronPlatformClient(adaptDesktopBridge(bridge)) : createBrowserPlatformClient()
+  cachedClient = createElectronPlatformClient(adaptDesktopBridge(bridge))
   return cachedClient
 }

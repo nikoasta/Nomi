@@ -28,6 +28,8 @@ Code added in this slice:
 - `src/platform/organizations/contracts.test.ts`
 - `src/platform/webPortalClient.ts`
 - `src/platform/webPortalClient.test.ts`
+- `src/platform/webPortalSession.ts`
+- `src/platform/webPortalSession.test.ts`
 - `supabase/migrations/20260719141528_everville_portal_auth_rls.sql`
 
 `PlatformClient` now has explicit portal collaboration capabilities:
@@ -47,6 +49,11 @@ Current runtime behavior:
 - Web portal adapter: lists organizations, workspaces, and memberships through
   the Supabase Data API in the `app` schema using publishable browser headers
   plus a user bearer session.
+- Browser session wiring: reads `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_PUBLISHABLE_KEY`, parses Supabase magic-link callback tokens
+  from the URL hash/search, stores a bounded local session, cleans tokens from
+  the visible URL, and configures `getPlatformClient()` only while the user
+  session is current.
 - Future web backend/BFF: will implement write-side collaboration methods
   against Supabase and server-side workers.
 
@@ -204,6 +211,7 @@ approves cloud credential custody.
 Required checks:
 
 ```bash
+pnpm vitest run src/platform/webPortalSession.test.ts src/platform/webPortalClient.test.ts
 pnpm vitest run src/platform/webPortalClient.test.ts src/platform/supabaseRlsMigration.test.ts
 pnpm vitest run src/platform/collaboration/contracts.test.ts src/platform/platformClient.boundary.test.ts src/platform/platformClient.contract.test.ts
 pnpm exec tsc -p tsconfig.app.json --noEmit

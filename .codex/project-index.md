@@ -84,9 +84,10 @@ in `.codex/handoff.md`, Beads, and `.codex/stages/`, not here.
 - Future corporate collaboration enters through `src/platform/collaboration`;
   organization and workspace membership contracts live in
   `src/platform/organizations`; the browser web portal adapter lives in
-  `src/platform/webPortalClient.ts` and may use only a Supabase publishable key
-  plus a user bearer session. Electron and unconfigured browser runtimes fail
-  closed until a backend/session exists.
+  `src/platform/webPortalClient.ts`; browser callback/session wiring lives in
+  `src/platform/webPortalSession.ts`. Browser portal mode may use only public
+  Vite Supabase env vars plus a non-expired user bearer session. Electron and
+  unconfigured browser runtimes fail closed until a backend/session exists.
 - Beads is the only durable task ledger. Babysitter `.a5c/` journals are
   execution state only.
 

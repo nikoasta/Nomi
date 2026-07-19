@@ -11,10 +11,13 @@ import { NomiAppProviders } from './NomiAppProviders'
 import { NomiColorSchemeProvider } from './theme/NomiColorSchemeProvider'
 import { primeNomiColorScheme } from './theme/colorScheme'
 import { preloadRemoveBackground } from './lib/removeBackground'
+import { isDesktopRuntime } from './desktop/bridge'
+import { initializeWebPortalSessionFromLocation } from './platform/webPortalSession'
 
 // 预渲染钉死 color-scheme 属性（未手动选过时按本地时间「天黑自动暗」、之后用户存储），让
 // tailwind base 层的 [data-mantine-color-scheme="dark|light"] 选择器即刻命中，避免首帧主题闪烁。
 primeNomiColorScheme()
+if (!isDesktopRuntime()) initializeWebPortalSessionFromLocation()
 
 const container = document.getElementById('root')
 if (!container) throw new Error('Root container not found')
@@ -35,9 +38,7 @@ if (browserAssetOverlay) {
 root?.render(
   <React.StrictMode>
     <NomiColorSchemeProvider>
-      <NomiAppProviders>
-        {browserAssetOverlay ? <BrowserAssetOverlayApp /> : <NomiRouterApp />}
-      </NomiAppProviders>
+      <NomiAppProviders>{browserAssetOverlay ? <BrowserAssetOverlayApp /> : <NomiRouterApp />}</NomiAppProviders>
     </NomiColorSchemeProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 )

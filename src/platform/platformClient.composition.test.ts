@@ -1,11 +1,19 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const { getDesktopBridgeMock } = vi.hoisted(() => ({
   getDesktopBridgeMock: vi.fn(),
 }))
 
+const { getBrowserWebPortalClientConfigMock } = vi.hoisted(() => ({
+  getBrowserWebPortalClientConfigMock: vi.fn(() => null),
+}))
+
 vi.mock('../desktop/bridge', () => ({
   getDesktopBridge: getDesktopBridgeMock,
+}))
+
+vi.mock('./webPortalSession', () => ({
+  getBrowserWebPortalClientConfig: getBrowserWebPortalClientConfigMock,
 }))
 
 import { getPlatformClient, type PersistedConversationsV2, type WorkbenchAssetDto } from './client'
@@ -30,7 +38,39 @@ const asset: WorkbenchAssetDto = {
 }
 
 describe('getPlatformClient Electron composition', () => {
+  beforeEach(() => {
+    getDesktopBridgeMock.mockReset()
+    getBrowserWebPortalClientConfigMock.mockReset()
+    getBrowserWebPortalClientConfigMock.mockReturnValue(null)
+  })
+
+  it('keeps browser runtimes fail-closed until a current portal session config exists', () => {
+    getDesktopBridgeMock.mockReturnValue(null)
+    getBrowserWebPortalClientConfigMock.mockReturnValue(null)
+
+    const client = getPlatformClient()
+
+    expect([...client.capabilities]).toEqual(['identity.session.read'])
+    expect(client.supports('org.organizations.list')).toBe(false)
+  })
+
+  it('enables browser organization capabilities from a current portal session config', () => {
+    getDesktopBridgeMock.mockReturnValue(null)
+    getBrowserWebPortalClientConfigMock.mockReturnValue({
+      endpoint: 'https://project.supabase.co',
+      publishableKey: 'sb_publishable_live',
+      bearer: 'user-access-token',
+    })
+
+    const client = getPlatformClient()
+
+    expect(client.supports('org.organizations.list')).toBe(true)
+    expect(client.supports('org.workspaces.list')).toBe(true)
+    expect(client.supports('org.memberships.list')).toBe(true)
+  })
+
   it('adapts the real positional DesktopBridge conversation API and passes asset payloads unchanged', async () => {
+    getBrowserWebPortalClientConfigMock.mockReturnValue(null)
     const read = vi.fn(async () => ({ ok: true, conversations }))
     const write = vi.fn(async () => ({ ok: true }))
     const list = vi.fn(async () => ({ items: [asset], cursor: 'next-page' }))
