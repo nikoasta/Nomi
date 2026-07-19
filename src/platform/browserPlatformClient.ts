@@ -1,6 +1,17 @@
 import type { PlatformCapability, PlatformClient, PlatformResult } from './client'
 
-const BROWSER_CAPABILITIES: ReadonlySet<PlatformCapability> = new Set(['identity.session.read'])
+type FilterableCapabilitySet = ReadonlySet<PlatformCapability> & {
+  filter(predicate: (capability: PlatformCapability) => boolean): PlatformCapability[]
+}
+
+function filterableCapabilities(values: readonly PlatformCapability[]): FilterableCapabilitySet {
+  const capabilities = new Set<PlatformCapability>(values)
+  return Object.assign(capabilities, {
+    filter: (predicate: (capability: PlatformCapability) => boolean) => [...capabilities].filter(predicate),
+  })
+}
+
+const BROWSER_CAPABILITIES = filterableCapabilities(['identity.session.read'])
 
 function unsupported<T>(capability: PlatformCapability): Promise<PlatformResult<T>> {
   return Promise.resolve({
@@ -14,7 +25,7 @@ function unsupported<T>(capability: PlatformCapability): Promise<PlatformResult<
   })
 }
 
-export function createBrowserPlatformClient(): PlatformClient {
+export function createBrowserPlatformClient(_options: Record<string, unknown> = {}): PlatformClient {
   return {
     capabilities: BROWSER_CAPABILITIES,
     supports: (capability) => BROWSER_CAPABILITIES.has(capability),
@@ -32,6 +43,12 @@ export function createBrowserPlatformClient(): PlatformClient {
       list: () => unsupported('assets.list'),
       importFile: () => unsupported('assets.import-file'),
       importRemoteUrl: () => unsupported('assets.import-remote-url'),
+    },
+    assetRecords: {
+      list: () => unsupported('asset-records.list'),
+      importFile: () => unsupported('asset-records.import-file'),
+      importRemoteUrl: () => unsupported('asset-records.import-remote-url'),
+      resolve: () => unsupported('asset-records.resolve'),
     },
   }
 }

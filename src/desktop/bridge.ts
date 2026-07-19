@@ -1,5 +1,6 @@
 import type { ExportJobEvent, ExportJobSnapshot } from '../../electron/export/exportJobManager'
 import type { WorkspaceFileListResult } from '../../electron/workspace/workspaceFileIndex'
+import type { PlatformAssetRecords } from '../platform/assets/contracts'
 import type { ProviderKind } from './providerKind'
 
 export type { ProviderKind }
@@ -315,6 +316,7 @@ export type DesktopBridge = {
       suggestedName?: string
     }) => Promise<{ ok: boolean; canceled?: boolean; path?: string }>
   }
+  platformAssets?: Pick<PlatformAssetRecords, 'list' | 'importFile' | 'importRemoteUrl' | 'resolve'>
   browser?: {
     createView: (payload: { tabId: string; partition?: string }) => Promise<{ viewId: number }>
     destroyView: (payload: { viewId: number }) => void

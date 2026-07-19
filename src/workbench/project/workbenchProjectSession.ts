@@ -98,6 +98,7 @@ export function setActiveWorkbenchProjectSaveTarget(target: ActiveWorkbenchProje
 export function clearActiveWorkbenchProjectSaveTarget(projectId?: string): void {
   if (projectId && activeWorkbenchProjectSaveTarget?.projectId !== projectId) return
   activeWorkbenchProjectSaveTarget = null
+  getDesktopBridge()?.capability?.setActiveProject('')
 }
 
 /** 当前活动 workbench 项目 id（单一真相源）—— 抽帧落素材需要它，runner 作用域本身拿不到。 */

@@ -1,5 +1,21 @@
 import { describe, expect, it, vi } from 'vitest'
 
+const { getDesktopBridgeMock } = vi.hoisted(() => ({
+  getDesktopBridgeMock: vi.fn(),
+}))
+
+vi.mock('../desktop/bridge', () => ({
+  getDesktopBridge: getDesktopBridgeMock,
+}))
+
+import type {
+  AssetId,
+  AssetRecordImportFileRequest,
+  AssetRecordImportRemoteUrlRequest,
+  AssetRecordListRequest,
+  AssetResolveRequest,
+  AssetVersionId,
+} from './assets/contracts'
 import type {
   PersistedConversationArea,
   PersistedConversationsV2,
@@ -13,8 +29,16 @@ import type {
   WorkbenchAssetDto,
 } from './client'
 import { createElectronPlatformClient } from './electronPlatformClient'
+import {
+  clearActiveWorkbenchProjectSaveTarget,
+  getActiveWorkbenchProjectId,
+  setActiveWorkbenchProjectSaveTarget,
+} from '../workbench/project/workbenchProjectSession'
 
 const PROJECT_ID = 'project-alpha'
+const ORGANIZATION_ID = 'local-runtime:organization'
+const ASSET_ID = 'ast_123e4567-e89b-42d3-a456-426614174000' as AssetId
+const VERSION_ID = 'av_123e4567-e89b-42d3-a456-426614174000' as AssetVersionId
 
 const LOCAL_RUNTIME_CAPABILITIES = [
   'identity.session.read',
@@ -66,6 +90,41 @@ const remoteRequest = {
   ownerNodeId: 'node-1',
 } satisfies PlatformAssetImportRemoteUrlRequest
 
+const assetRecordListRequest = {
+  organizationId: ORGANIZATION_ID,
+  projectId: PROJECT_ID,
+  cursor: 'asset-record-cursor-1',
+  limit: 25,
+} satisfies AssetRecordListRequest
+
+const assetRecordFileRequest = {
+  organizationId: ORGANIZATION_ID,
+  projectId: PROJECT_ID,
+  fileName: 'frame.png',
+  claimedMediaType: 'image/png',
+  bytes,
+  classification: 'internal',
+  idempotencyKey: 'asset-record-file-1',
+} satisfies AssetRecordImportFileRequest
+
+const assetRecordRemoteRequest = {
+  organizationId: ORGANIZATION_ID,
+  projectId: PROJECT_ID,
+  url: 'https://assets.example.test/frame.png',
+  fileName: 'remote-frame.png',
+  claimedMediaType: 'image/png',
+  classification: 'internal',
+  idempotencyKey: 'asset-record-remote-1',
+} satisfies AssetRecordImportRemoteUrlRequest
+
+const assetResolveRequest = {
+  organizationId: ORGANIZATION_ID,
+  projectId: PROJECT_ID,
+  assetId: ASSET_ID,
+  versionId: VERSION_ID,
+  purpose: 'display',
+} satisfies AssetResolveRequest
+
 type Operation = {
   capability: PlatformCapability
   invoke(client: PlatformClient): Promise<PlatformResult<unknown>>
@@ -91,6 +150,22 @@ const operations: readonly Operation[] = [
   {
     capability: 'assets.import-remote-url',
     invoke: (client) => client.assets.importRemoteUrl(remoteRequest),
+  },
+  {
+    capability: 'asset-records.list',
+    invoke: (client) => client.assetRecords.list(assetRecordListRequest),
+  },
+  {
+    capability: 'asset-records.import-file',
+    invoke: (client) => client.assetRecords.importFile(assetRecordFileRequest),
+  },
+  {
+    capability: 'asset-records.import-remote-url',
+    invoke: (client) => client.assetRecords.importRemoteUrl(assetRecordRemoteRequest),
+  },
+  {
+    capability: 'asset-records.resolve',
+    invoke: (client) => client.assetRecords.resolve(assetResolveRequest),
   },
 ]
 
@@ -132,6 +207,29 @@ function expectFailure(result: PlatformResult<unknown>, capability: PlatformCapa
 }
 
 describe('PlatformClient contract', () => {
+  it('[asset-records][project-close] clears main-process active project binding', () => {
+    const setActiveProject = vi.fn()
+    getDesktopBridgeMock.mockReset()
+    getDesktopBridgeMock.mockReturnValue({ capability: { setActiveProject } })
+
+    setActiveWorkbenchProjectSaveTarget({
+      projectId: PROJECT_ID,
+      projectName: 'Project Alpha',
+      canPersist: () => true,
+      saveProject: vi.fn(),
+      onSaved: vi.fn(),
+    })
+    expect(setActiveProject).toHaveBeenCalledWith(PROJECT_ID)
+
+    clearActiveWorkbenchProjectSaveTarget('different-project')
+    expect(getActiveWorkbenchProjectId()).toBe(PROJECT_ID)
+    expect(setActiveProject).not.toHaveBeenCalledWith('')
+
+    clearActiveWorkbenchProjectSaveTarget(PROJECT_ID)
+    expect(getActiveWorkbenchProjectId()).toBeNull()
+    expect(setActiveProject).toHaveBeenLastCalledWith('')
+  })
+
   it('delegates all five capabilities through Electron with exact DesktopBridge payloads', async () => {
     const read = vi.fn(async () => ({ ok: true, conversations }))
     const write = vi.fn(async () => ({ ok: true }))

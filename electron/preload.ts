@@ -83,6 +83,12 @@ contextBridge.exposeInMainWorld("nomiDesktop", {
         path?: string;
       }>,
   },
+  platformAssets: {
+    list: (payload: unknown) => ipcRenderer.invoke("nomi:platform-assets:list", payload),
+    importFile: (payload: unknown) => ipcRenderer.invoke("nomi:platform-assets:import-file", payload),
+    importRemoteUrl: (payload: unknown) => ipcRenderer.invoke("nomi:platform-assets:import-remote-url", payload),
+    resolve: (payload: unknown) => ipcRenderer.invoke("nomi:platform-assets:resolve", payload),
+  },
   browser: {
     createView: (payload: unknown) => ipcRenderer.invoke("browser:view:create", payload) as Promise<{ viewId: number }>,
     destroyView: (payload: unknown) => ipcRenderer.send("browser:view:destroy", payload),

@@ -1,5 +1,6 @@
 import { getDesktopBridge, type DesktopBridge } from '../desktop/bridge'
 import type { AuthorizationCheckRequest, AuthorizationDecision, PlatformSession } from './authorization/contracts'
+import type { AssetRecordCapability, PlatformAssetRecords } from './assets/contracts'
 import { createBrowserPlatformClient } from './browserPlatformClient'
 import { createElectronPlatformClient, type ElectronPlatformBridge } from './electronPlatformClient'
 
@@ -43,6 +44,7 @@ export type PlatformCapability =
   | 'assets.list'
   | 'assets.import-file'
   | 'assets.import-remote-url'
+  | AssetRecordCapability
 
 export type PlatformErrorCode =
   | 'UNSUPPORTED_CAPABILITY'
@@ -54,6 +56,7 @@ export type PlatformErrorCode =
   | 'NETWORK_ERROR'
   | 'IO_ERROR'
   | 'ABORTED'
+  | 'INTEGRITY_ERROR'
   | 'INTERNAL'
 
 export type PlatformError = {
@@ -126,12 +129,13 @@ export type PlatformClient = {
   readonly authorization: PlatformAuthorization
   readonly conversations: PlatformConversations
   readonly assets: PlatformAssets
+  readonly assetRecords: PlatformAssetRecords
 }
 
-function adaptDesktopBridge(bridge: DesktopBridge): ElectronPlatformBridge {
+export function adaptDesktopBridge(bridge: DesktopBridge): ElectronPlatformBridge {
   const conversations = bridge.conversations
   const assets = bridge.assets
-
+  const platformAssets = bridge.platformAssets
   return {
     conversations: conversations
       ? {
@@ -149,6 +153,14 @@ function adaptDesktopBridge(bridge: DesktopBridge): ElectronPlatformBridge {
           list: (request) => assets.list(request),
           importFile: (request) => assets.importFile(request),
           importRemoteUrl: (request) => assets.importRemoteUrl(request),
+        }
+      : undefined,
+    assetRecords: platformAssets
+      ? {
+          list: (request) => platformAssets.list(request),
+          importFile: (request) => platformAssets.importFile(request),
+          importRemoteUrl: (request) => platformAssets.importRemoteUrl(request),
+          resolve: (request) => platformAssets.resolve(request),
         }
       : undefined,
   }

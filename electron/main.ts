@@ -48,7 +48,6 @@ import { installMainWindowInteractions } from "./mainWindowInteractions";
 import { registerMcpStdioGuiRelaunch } from "./mcpStdioGuiRelaunch";
 // 尽早安装：捕获引导阶段起的 uncaughtException / unhandledRejection，落盘到 app logs（P0-8）。
 installCrashHandlers();
-
 const configuredUserDataDir = String(process.env.NOMI_ELECTRON_USER_DATA_DIR || "").trim();
 if (configuredUserDataDir) {
   // dev-electron.mjs 会按 renderer 端口分配独立 profile；这里若不真正切到该目录，
@@ -56,7 +55,6 @@ if (configuredUserDataDir) {
   // 「主界面加载失败但纯 Vite 页面正常」这类很像灵异事件的缓存串味。
   app.setPath("userData", configuredUserDataDir);
 }
-
 // 单实例锁（能力核前提，docs/plan/2026-06-20）：保证同一 user-data 只有一个 app 实例 = 工程文件的
 // 唯一写者，外部 CLI/MCP 才能安全地「app 开着走 RPC、关着走 headless」。隔离实例（eval/promo 用独立
 // --user-data-dir）拿到的是各自的锁，不受影响。拿不到锁 = 已有实例在跑 → 让出（聚焦老窗后退出）。
@@ -91,7 +89,6 @@ if (isMcpStdio) {
       app.exit(1);
     });
 }
-
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "nomi-local",
@@ -104,7 +101,6 @@ protocol.registerSchemesAsPrivileged([
     },
   },
 ]);
-
 const isDev = Boolean(process.env.VITE_DEV_SERVER_URL || process.env.NOMI_DESKTOP_DEV);
 const devRemoteDebuggingPort = process.env.NOMI_DESKTOP_REMOTE_DEBUGGING_PORT;
 const DEV_RENDERER_LOAD_ATTEMPTS = 20;
@@ -118,13 +114,12 @@ let runtimeModulePromise: Promise<typeof import("./runtime")> | null = null;
 let capabilityCoreModule: typeof import("./capabilityCore/appIntegration") | null = null;
 let capabilityCoreModulePromise: Promise<typeof import("./capabilityCore/appIntegration")> | null = null;
 let activeCapabilityProjectId = "";
+const activeProjectByRenderer = new WeakMap<WebContents, string>();
 let capabilityPortCache: number | null = null;
-
 function loadRuntimeModule(): Promise<typeof import("./runtime")> {
   runtimeModulePromise ??= import("./runtime");
   return runtimeModulePromise;
 }
-
 async function loadCapabilityCoreModule(): Promise<typeof import("./capabilityCore/appIntegration")> {
   if (capabilityCoreModule) return capabilityCoreModule;
   capabilityCoreModulePromise ??= import("./capabilityCore/appIntegration").then((module) => {
@@ -133,16 +128,13 @@ async function loadCapabilityCoreModule(): Promise<typeof import("./capabilityCo
   });
   return capabilityCoreModulePromise;
 }
-
 function setActiveCapabilityProject(projectId: string): void {
   activeCapabilityProjectId = String(projectId || "").trim();
   if (capabilityCoreModule) capabilityCoreModule.setOpenProjectId(activeCapabilityProjectId);
 }
-
 function getActiveCapabilityPort(): number | null {
   return capabilityPortCache;
 }
-
 async function startDesktopCapabilityCore(): Promise<void> {
   const core = await loadCapabilityCoreModule();
   core.setOpenProjectId(activeCapabilityProjectId);
@@ -158,12 +150,10 @@ async function startDesktopCapabilityCore(): Promise<void> {
   );
   capabilityPortCache = core.getCapabilityPort();
 }
-
 function stopDesktopCapabilityCore(): void {
   capabilityCoreModule?.stopCapabilityCore();
   capabilityPortCache = null;
 }
-
 if (devRemoteDebuggingPort) {
   app.commandLine.appendSwitch("remote-debugging-port", devRemoteDebuggingPort);
 }
@@ -188,15 +178,12 @@ if (lowMemoryMode || process.env.NOMI_DISABLE_V8_JIT === "1") {
 } else if (process.env.NOMI_V8_FLAGS) {
   app.commandLine.appendSwitch("js-flags", process.env.NOMI_V8_FLAGS);
 }
-
 function registerDevDiagnostics(mainWindow: BrowserWindow, rendererUrl: string): void {
   if (!isDev) return;
-
   console.log(`[nomi:desktop] loading renderer: ${rendererUrl}`);
   if (configuredUserDataDir) {
     console.log(`[nomi:desktop] userData dir: ${configuredUserDataDir}`);
   }
-
   mainWindow.webContents.on("did-fail-load", (_event, errorCode, errorDescription, validatedURL) => {
     console.error(`[nomi:desktop] renderer load failed (${errorCode}): ${errorDescription} ${validatedURL}`);
   });
@@ -217,14 +204,12 @@ function registerDevDiagnostics(mainWindow: BrowserWindow, rendererUrl: string):
     method(`[nomi:renderer:${level}] ${message} (${sourceId}:${line})`);
   });
 }
-
 function getRendererUrl(): string {
   const explicit = process.env.VITE_DEV_SERVER_URL || process.env.NOMI_RENDERER_URL;
   if (explicit) return explicit;
   if (isDev) return "http://127.0.0.1:5273";
   return pathToFileURL(path.join(__dirname, "../dist/index.html")).toString();
 }
-
 function getRendererUrlWithRoute(currentUrl?: string): string {
   const rendererUrl = getRendererUrl();
   if (!currentUrl) return rendererUrl;
@@ -243,7 +228,6 @@ function getRendererUrlWithRoute(currentUrl?: string): string {
     return rendererUrl;
   }
 }
-
 function isRendererEntryUrl(url: string, rendererUrl: string): boolean {
   try {
     const actual = new URL(url);
@@ -255,15 +239,12 @@ function isRendererEntryUrl(url: string, rendererUrl: string): boolean {
     return url === rendererUrl;
   }
 }
-
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-
 async function loadRendererWithRetry(mainWindow: BrowserWindow, rendererUrl: string): Promise<void> {
   const attempts = isDev ? DEV_RENDERER_LOAD_ATTEMPTS : 1;
   let lastError: unknown;
-
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
       await mainWindow.loadURL(rendererUrl);
@@ -276,10 +257,8 @@ async function loadRendererWithRetry(mainWindow: BrowserWindow, rendererUrl: str
       await wait(DEV_RENDERER_LOAD_RETRY_MS);
     }
   }
-
   throw lastError instanceof Error ? lastError : new Error(String(lastError));
 }
-
 async function createWindow(
   options: { bounds?: Rectangle; maximize?: boolean; rendererUrl?: string } = {},
 ): Promise<BrowserWindow> {
@@ -307,11 +286,9 @@ async function createWindow(
   mainWindow.on("closed", () => {
     if (mainWindowRef === mainWindow) mainWindowRef = null;
   });
-
   // Windows 自绘标题栏需要知道最大化态来切「最大化/还原」图标。窗口级监听随窗口销毁回收（无泄漏）。
   mainWindow.on("maximize", () => mainWindow.webContents.send("nomi:window:maximized", true));
   mainWindow.on("unmaximize", () => mainWindow.webContents.send("nomi:window:maximized", false));
-
   // External http(s) links (e.g. the "get your API key" link → provider console)
   // open in the user's real browser, never as a new in-app Electron window.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
@@ -320,9 +297,7 @@ async function createWindow(
     }
     return { action: "deny" };
   });
-
   const rendererUrl = options.rendererUrl || getRendererUrl();
-
   // 纵深防御：setWindowOpenHandler 只拦新窗口，拦不住顶层框架自身被诱导导航
   // （window.location = 'http://evil'）。一旦发生，整个 app 会变成加载远端页面的浏览器。
   // 这里把任何「离开本地渲染入口」的顶层导航一律拦下；外链改走系统浏览器。
@@ -331,7 +306,6 @@ async function createWindow(
     event.preventDefault();
     if (/^https?:\/\//i.test(url)) void shell.openExternal(url);
   });
-
   // 能力核 A 模式实时桥：登记当前窗口 webContents，让主进程把外部 MCP 的画布改动/付费确认
   // 转发进运行中的渲染层（所见即所得）。窗口销毁即清除，避免向死窗口发送。
   setRendererTarget(mainWindow.webContents);
@@ -340,7 +314,6 @@ async function createWindow(
       setRendererTarget(null);
     }
   });
-
   registerDevDiagnostics(mainWindow, rendererUrl);
   if (isDev) {
     try {
@@ -350,15 +323,12 @@ async function createWindow(
     }
   }
   await loadRendererWithRetry(mainWindow, rendererUrl);
-
   if (options.maximize) mainWindow.maximize();
-
   if (isDev && process.env.NOMI_E2E !== "1") {
     mainWindow.webContents.openDevTools({ mode: "detach" });
   }
   return mainWindow;
 }
-
 function recreateMainWindowFromSender(sender: WebContents, options: { preserveRoute: boolean; reason: string }): void {
   if (isRecreatingMainWindow) return;
   const oldWindow = BrowserWindow.fromWebContents(sender);
@@ -382,7 +352,6 @@ function recreateMainWindowFromSender(sender: WebContents, options: { preserveRo
       isRecreatingMainWindow = false;
     });
 }
-
 function registerSyncIpc<TArgs extends unknown[], TResult>(
   channel: string,
   handler: (...args: TArgs) => TResult,
@@ -398,7 +367,6 @@ function registerSyncIpc<TArgs extends unknown[], TResult>(
     }
   });
 }
-
 // S4-2:VendorRequestError 的 structured 经 base64 标记穿 IPC(rejection 只剩 message 字符串);
 // 顺带补「创建即失败」的 vendor.call.completed(failed) 事件(成功/轮询终态在 runtime 内记)。
 async function runTaskIpcGuard<T>(payload: unknown, thunk: () => Promise<T>): Promise<T> {
@@ -421,7 +389,6 @@ async function runTaskIpcGuard<T>(payload: unknown, thunk: () => Promise<T>): Pr
     throw error;
   }
 }
-
 function registerIpc(): void {
   const selectedWorkspaceRoots = new Set<string>();
   // 渲染层崩溃（RootErrorBoundary）也落到同一崩溃日志（P0-8）。
@@ -485,7 +452,6 @@ function registerIpc(): void {
   // 本地 ComfyUI 自定义 workflow 导入（S3）：analyze 识别可绑定节点、import 落库为用户自有 model+mapping。
   registerSyncIpc("nomi:model-catalog:comfyui:analyze-workflow", (text: unknown) => analyzeComfyWorkflowText(text));
   registerSyncIpc("nomi:model-catalog:comfyui:import-workflow", (payload: unknown) => importComfyWorkflowToCatalog(payload));
-
   // Skill / Playbook 域（业务函数在 electron/skills/*，这里只接同步 IPC 管道）。
   registerSyncIpc("nomi:skill:list", () => {
     const { listSkillsForRenderer } = require("./skills/skillIpc") as typeof import("./skills/skillIpc");
@@ -503,7 +469,6 @@ function registerIpc(): void {
     const { deleteUserSkill } = require("./skills/skillPackage") as typeof import("./skills/skillPackage");
     return deleteUserSkill(String(dirName || ""));
   });
-
   ipcMain.handle("nomi:model-catalog:docs:fetch", async (_event, payload) => {
     const { fetchModelCatalogDocs } = await import("./catalog/catalogCommit");
     return fetchModelCatalogDocs(payload);
@@ -610,6 +575,22 @@ function registerIpc(): void {
     const { downloadAssetToDisk } = await import("./assets/downloadAsset");
     return downloadAssetToDisk(payload);
   });
+  ipcMain.handle("nomi:platform-assets:list", async (event, payload) => {
+    const { listPlatformAssetRecords } = await import("./assets/projectAssetStore");
+    return listPlatformAssetRecords(payload, activeProjectByRenderer.get(event.sender));
+  });
+  ipcMain.handle("nomi:platform-assets:import-file", async (event, payload) => {
+    const { importPlatformAssetRecordFile } = await import("./assets/projectAssetStore");
+    return importPlatformAssetRecordFile(payload, activeProjectByRenderer.get(event.sender));
+  });
+  ipcMain.handle("nomi:platform-assets:import-remote-url", async (event, payload) => {
+    const { importPlatformAssetRecordRemoteUrl } = await import("./assets/projectAssetStore");
+    return importPlatformAssetRecordRemoteUrl(payload, activeProjectByRenderer.get(event.sender));
+  });
+  ipcMain.handle("nomi:platform-assets:resolve", async (event, payload) => {
+    const { resolvePlatformAssetRecord } = await import("./assets/projectAssetStore");
+    return resolvePlatformAssetRecord(payload, activeProjectByRenderer.get(event.sender));
+  });
   ipcMain.handle("nomi:video:extract-frame", async (_event, payload) => {
     const { extractVideoFrameToAsset } = await import("./video/extractVideoFrame");
     return extractVideoFrameToAsset(payload);
@@ -646,9 +627,12 @@ function registerIpc(): void {
   );
   // 能力核 A/B 守卫：renderer 在打开/切换/关闭项目时上报当前打开的 projectId，
   // 让外部调用拒绝直写「正在窗口里编辑」的工程（防内存 store 回盘覆盖，见 capabilityCore/rpcServer）。
-  ipcMain.on("nomi:capability:active-project", (_event, projectId: unknown) =>
-    setActiveCapabilityProject(String(projectId || "")),
-  );
+  ipcMain.on("nomi:capability:active-project", (event, projectId: unknown) => {
+    const selectedProjectId = String(projectId || "").trim();
+    if (selectedProjectId && readProject(selectedProjectId)) activeProjectByRenderer.set(event.sender, selectedProjectId);
+    else activeProjectByRenderer.delete(event.sender);
+    setActiveCapabilityProject(selectedProjectId);
+  });
   // 「接入 AI 编程助手」卡：读接入状态/配置片段 + 一键写入/撤销 ~/.claude.json 的 mcpServers.nomi。
   registerSyncIpc("nomi:capability:mcp-info", () => readMcpInfo(getActiveCapabilityPort()));
   registerSyncIpc("nomi:capability:mcp-install", installMcp);
@@ -667,7 +651,6 @@ function registerIpc(): void {
   // S4-1 评测安全铁律:事件落盘前,已配置的 vendor key 精确匹配脱敏(形态兜底之外的地基)。
   setEventLogSecretsProvider(catalogSecretsProvider);
 }
-
 // 纵深防御：渲染层此前在「无 CSP」环境运行，contextIsolation 是唯一防线。
 // 注入严格 CSP，让任何被注入的脚本/远端内容无法自由 eval、连外站、加外部资源。
 // dev/prod 分治：dev 下 vite HMR 需要 unsafe-eval + inline + ws 回连，故放宽；
@@ -703,7 +686,6 @@ function buildContentSecurityPolicy(): string {
     "connect-src 'self' nomi-local: https: blob:",
   ].join("; ");
 }
-
 // COOP/COEP 开 cross-origin isolation（ONNX 的 SharedArrayBuffer 需要），但有两类桌面场景必须跳过：
 // 1) Playwright/E2E：CDP target 握手会卡死（_electron.launch / connectOverCDP 都连不上）。
 // 2) Windows frame:false 自绘标题栏：Electron 31/Chromium 在 COOP/COEP 下会把
@@ -711,7 +693,6 @@ function buildContentSecurityPolicy(): string {
 // 注：只关 isolation，CSP 仍照常注入（安全基线不降）。相关 WASM/ONNX 能力在这些场景退到非 SAB 路径。
 const SKIP_CROSS_ORIGIN_ISOLATION = process.env.NOMI_E2E === "1";
 const SKIP_CROSS_ORIGIN_ISOLATION_FOR_WINDOWS_FRAMELESS = process.platform === "win32";
-
 function installContentSecurityPolicy(targetSession: Electron.Session): void {
   const csp = buildContentSecurityPolicy();
   const crossOriginIsolationDisabled =
@@ -734,7 +715,6 @@ function installContentSecurityPolicy(targetSession: Electron.Session): void {
     });
   });
 }
-
 // 非主实例（没拿到单实例锁）不启动 UI / RPC——已让出给老实例（second-instance 已聚焦它）。
 // 单实例锁本身在文件顶部定义（main 与本批独立都加了同一锁，合并去重，根治全局 index 并发覆盖）。
 if (hasSingleInstanceLock)
@@ -770,7 +750,6 @@ if (hasSingleInstanceLock)
         },
         lowMemoryMode ? 15000 : 3000,
       );
-
       app.on("activate", () => {
         if (BrowserWindow.getAllWindows().length === 0) {
           void createWindow().catch((error) => {
@@ -783,12 +762,10 @@ if (hasSingleInstanceLock)
       console.error("[nomi:desktop] failed to start:", error);
       app.quit();
     });
-
 app.on("window-all-closed", () => {
   if (isRecreatingMainWindow) return;
   if (process.platform !== "darwin") app.quit();
 });
-
 // 退出时中止所有在跑导出，否则 ffmpeg 子进程会变孤儿（继续占 CPU/写文件，直到自己跑完）。
 // abort → ffmpegRunner 监听 abort 后 kill 子进程。同步、不抛，绝不拖住退出。
 app.on("before-quit", () => {

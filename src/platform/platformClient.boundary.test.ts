@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs'
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import type { AssetId, AssetVersionId } from './assets/contracts'
 import type { PersistedConversationArea, PlatformCapability, PlatformClient } from './client'
 
 const CAPABILITIES = [
@@ -10,9 +11,16 @@ const CAPABILITIES = [
   'assets.list',
   'assets.import-file',
   'assets.import-remote-url',
+  'asset-records.list',
+  'asset-records.import-file',
+  'asset-records.import-remote-url',
+  'asset-records.resolve',
 ] as const satisfies readonly PlatformCapability[]
 
 const PROJECT_ID = 'project-browser-boundary'
+const ORGANIZATION_ID = 'organization-browser-boundary'
+const ASSET_ID = 'ast_123e4567-e89b-42d3-a456-426614174000' as AssetId
+const VERSION_ID = 'av_123e4567-e89b-42d3-a456-426614174000' as AssetVersionId
 const EMPTY_CONVERSATION_AREA = Object.freeze({}) as PersistedConversationArea
 
 async function invokeCapability(client: PlatformClient, capability: PlatformCapability) {
@@ -38,6 +46,39 @@ async function invokeCapability(client: PlatformClient, capability: PlatformCapa
         projectId: PROJECT_ID,
         url: 'https://assets.example.test/browser-frame.png',
       })
+    case 'asset-records.list':
+      return client.assetRecords.list({
+        organizationId: ORGANIZATION_ID,
+        projectId: PROJECT_ID,
+      })
+    case 'asset-records.import-file':
+      return client.assetRecords.importFile({
+        organizationId: ORGANIZATION_ID,
+        projectId: PROJECT_ID,
+        fileName: 'browser-frame.png',
+        claimedMediaType: 'image/png',
+        bytes: new Uint8Array([1, 2, 3]).buffer,
+        classification: 'internal',
+        idempotencyKey: 'browser-file-import-1',
+      })
+    case 'asset-records.import-remote-url':
+      return client.assetRecords.importRemoteUrl({
+        organizationId: ORGANIZATION_ID,
+        projectId: PROJECT_ID,
+        url: 'https://assets.example.test/browser-frame.png',
+        fileName: 'browser-frame.png',
+        claimedMediaType: 'image/png',
+        classification: 'internal',
+        idempotencyKey: 'browser-remote-import-1',
+      })
+    case 'asset-records.resolve':
+      return client.assetRecords.resolve({
+        organizationId: ORGANIZATION_ID,
+        projectId: PROJECT_ID,
+        assetId: ASSET_ID,
+        versionId: VERSION_ID,
+        purpose: 'display',
+      })
   }
 }
 
@@ -47,7 +88,7 @@ afterEach(() => {
 })
 
 describe('PlatformClient runtime boundary', () => {
-  it('imports the browser adapter with no window or desktop bridge load and returns five typed unsupported results', async () => {
+  it('imports the browser adapter with no window or desktop bridge load and returns nine typed unsupported results', async () => {
     const previousWindow = Object.getOwnPropertyDescriptor(globalThis, 'window')
     const desktopBridgeLoaded = vi.fn()
 
