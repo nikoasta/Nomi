@@ -1,10 +1,10 @@
 # Everville Supabase Auth And RLS Draft
 
-Status: implementation draft, not applied to a live database
+Status: generated migration present, not applied to a live database
 
 Date: 2026-07-19
 
-Beads task: `evmedia-r20.9.2`
+Beads tasks: `evmedia-r20.9.2`, `evmedia-r20.9.3`
 
 ## Purpose
 
@@ -13,14 +13,19 @@ corporate media portal. It backs the runtime-neutral contracts in
 `src/platform/organizations` and the collaboration contracts in
 `src/platform/collaboration`.
 
-This is not a production migration. The live migration must be created with:
+The first migration was generated with the Supabase CLI:
 
 ```bash
 supabase migration new everville_portal_auth_rls
 ```
 
-Then copy the reviewed SQL shape into the generated file, run local RLS tests,
-run Supabase advisors, and only then apply it to the target project.
+Generated migration file:
+
+- `supabase/migrations/20260719141528_everville_portal_auth_rls.sql`
+
+It is committed as an implementation slice, but it has not been applied to a
+live Supabase project. Before applying it, link the target project, run
+Supabase advisors, and execute live two-organization/two-user RLS probes.
 
 ## Current Docs Check
 
@@ -28,6 +33,8 @@ Supabase guidance checked on 2026-07-19:
 
 - Browser applications use a publishable key plus RLS; secret and service-role
   keys are backend-only because they bypass RLS.
+- The browser portal adapter accepts only `sb_publishable_*` API keys and a user
+  bearer session; legacy JWT-shaped API keys are intentionally rejected.
 - Product tables exposed through the Data API need explicit privileges and RLS.
 - Policies should use `to authenticated` plus membership predicates, not
   `auth.role()` as an authorization shortcut.
@@ -142,8 +149,11 @@ create table app.project_memberships (
 
 ## Private Helpers
 
-Helpers stay in `app_private`, outside exposed schemas. They use `security
-invoker` by default and are granted only when needed.
+Helpers stay in `app_private`, outside exposed schemas. The generated migration
+uses tightly scoped `security definer` helpers to avoid recursive RLS lookups on
+membership tables; each helper sets an empty search path, checks
+`(select auth.uid())`, revokes default public execute privileges, and grants
+execute only to `authenticated`.
 
 ```sql
 create or replace function app_private.has_workspace_permission(
@@ -154,7 +164,7 @@ create or replace function app_private.has_workspace_permission(
 returns boolean
 language sql
 stable
-security invoker
+security definer
 set search_path = ''
 as $$
   select exists (
@@ -179,7 +189,7 @@ create or replace function app_private.has_project_permission(
 returns boolean
 language sql
 stable
-security invoker
+security definer
 set search_path = ''
 as $$
   select exists (

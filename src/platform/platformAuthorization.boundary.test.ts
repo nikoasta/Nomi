@@ -71,7 +71,8 @@ describe('authorization public-module boundary', () => {
 })
 
 describe('authorization repository boundary', () => {
-  it('does not modify tracked frozen RFC drafts or introduce production migrations', async () => {
+  it('does not modify tracked frozen RFC drafts or introduce untracked production migrations', async () => {
+    const allowedMigrationPaths = new Set(['supabase/migrations/20260719141528_everville_portal_auth_rls.sql'])
     let changedEntries: Array<{ status: string; path: string }> = []
     let gitError: unknown
 
@@ -94,7 +95,10 @@ describe('authorization repository boundary', () => {
       changedEntries.filter(({ status, path }) => status !== '??' && /everville-media-platform-.*\.md$/i.test(path)),
     ).toEqual([])
     expect(
-      changedEntries.filter(({ path }) => /(?:^|\/)(?:migrations?|schema\/migrations?)(?:\/|$)|\.sql$/i.test(path)),
+      changedEntries.filter(
+        ({ path }) =>
+          /(?:^|\/)(?:migrations?|schema\/migrations?)(?:\/|$)|\.sql$/i.test(path) && !allowedMigrationPaths.has(path),
+      ),
     ).toEqual([])
   })
 })

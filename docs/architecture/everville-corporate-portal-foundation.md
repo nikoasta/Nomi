@@ -26,6 +26,9 @@ Code added in this slice:
 - `src/platform/collaboration/contracts.test.ts`
 - `src/platform/organizations/contracts.ts`
 - `src/platform/organizations/contracts.test.ts`
+- `src/platform/webPortalClient.ts`
+- `src/platform/webPortalClient.test.ts`
+- `supabase/migrations/20260719141528_everville_portal_auth_rls.sql`
 
 `PlatformClient` now has explicit portal collaboration capabilities:
 
@@ -38,10 +41,14 @@ Code added in this slice:
 
 Current runtime behavior:
 
-- Browser static shell: typed `UNSUPPORTED_CAPABILITY`.
+- Browser static shell: typed `UNSUPPORTED_CAPABILITY` until configured with a
+  Supabase endpoint, publishable key, and user bearer session.
 - Electron runtime: typed `UNSUPPORTED_CAPABILITY`.
-- Future web backend/BFF: will implement these methods against Supabase and
-  server-side workers.
+- Web portal adapter: lists organizations, workspaces, and memberships through
+  the Supabase Data API in the `app` schema using publishable browser headers
+  plus a user bearer session.
+- Future web backend/BFF: will implement write-side collaboration methods
+  against Supabase and server-side workers.
 
 This is intentional. The app now has a safe contract shape while still failing
 closed until the backend exists.
@@ -118,12 +125,17 @@ Every exposed table must have:
 - no authorization decisions based on user-editable metadata.
 
 Service-role keys and provider credentials are server/worker-only. Browser code
-may use only publishable Supabase keys.
+may use only `sb_publishable_*` Supabase keys plus a user bearer session; legacy
+JWT-shaped API keys are rejected by the web portal adapter.
 
 ## RLS Pattern Draft
 
-The first migration should be created with the Supabase CLI, not hand-named.
-This document is a model, not a migration.
+The first migration was created with the Supabase CLI, not hand-named:
+
+- `supabase/migrations/20260719141528_everville_portal_auth_rls.sql`
+
+This document is still the architecture model; the migration file is the
+reviewable implementation artifact.
 
 The reviewed auth/RLS draft now lives in:
 
@@ -192,6 +204,7 @@ approves cloud credential custody.
 Required checks:
 
 ```bash
+pnpm vitest run src/platform/webPortalClient.test.ts src/platform/supabaseRlsMigration.test.ts
 pnpm vitest run src/platform/collaboration/contracts.test.ts src/platform/platformClient.boundary.test.ts src/platform/platformClient.contract.test.ts
 pnpm exec tsc -p tsconfig.app.json --noEmit
 pnpm run check:i18n
@@ -200,10 +213,9 @@ pnpm run build:renderer
 curl -I https://cut.eva.mba
 ```
 
-Before any live Supabase migration:
+Before applying the generated migration to a live Supabase project:
 
 - run current Supabase docs/changelog review;
-- create migration with `supabase migration new`;
 - test two organizations and two users for cross-tenant denial;
 - test `anon` denial and scoped `authenticated` access;
 - test Storage object RLS and signed URL resolution;

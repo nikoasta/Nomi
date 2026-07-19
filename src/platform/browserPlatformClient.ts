@@ -1,4 +1,9 @@
 import type { PlatformCapability, PlatformClient, PlatformResult } from './client'
+import {
+  createUnsupportedWebPortalServices,
+  createWebPortalServices,
+  type WebPortalClientConfig,
+} from './webPortalClient'
 
 type FilterableCapabilitySet = ReadonlySet<PlatformCapability> & {
   filter(predicate: (capability: PlatformCapability) => boolean): PlatformCapability[]
@@ -12,6 +17,16 @@ function filterableCapabilities(values: readonly PlatformCapability[]): Filterab
 }
 
 const BROWSER_CAPABILITIES = filterableCapabilities(['identity.session.read'])
+const AUTHENTICATED_PORTAL_CAPABILITIES = filterableCapabilities([
+  'identity.session.read',
+  'org.organizations.list',
+  'org.workspaces.list',
+  'org.memberships.list',
+])
+
+type BrowserPlatformClientOptions = {
+  portal?: WebPortalClientConfig | null
+}
 
 function unsupported<T>(capability: PlatformCapability): Promise<PlatformResult<T>> {
   return Promise.resolve({
@@ -25,13 +40,24 @@ function unsupported<T>(capability: PlatformCapability): Promise<PlatformResult<
   })
 }
 
-export function createBrowserPlatformClient(_options: Record<string, unknown> = {}): PlatformClient {
+function browserPortalServices(options: BrowserPlatformClientOptions) {
+  if (!options.portal) return null
+  try {
+    return createWebPortalServices(options.portal)
+  } catch {
+    return null
+  }
+}
+
+export function createBrowserPlatformClient(options: BrowserPlatformClientOptions = {}): PlatformClient {
+  const portal = browserPortalServices(options)
+  const portalFallback = portal ?? createUnsupportedWebPortalServices()
+  const capabilities = portal ? AUTHENTICATED_PORTAL_CAPABILITIES : BROWSER_CAPABILITIES
+
   return {
-    capabilities: BROWSER_CAPABILITIES,
-    supports: (capability) => BROWSER_CAPABILITIES.has(capability),
-    identity: {
-      getSession: () => Promise.resolve({ ok: true, value: { state: 'unauthenticated' } }),
-    },
+    capabilities,
+    supports: (capability) => capabilities.has(capability),
+    identity: portalFallback.identity,
     authorization: {
       check: () => unsupported('authorization.check'),
     },
@@ -58,10 +84,6 @@ export function createBrowserPlatformClient(_options: Record<string, unknown> = 
       decideApproval: () => unsupported('portal.approvals.decide'),
       appendAuditEvent: () => unsupported('portal.audit-events.append'),
     },
-    organizations: {
-      listOrganizations: () => unsupported('org.organizations.list'),
-      listWorkspaces: () => unsupported('org.workspaces.list'),
-      listMemberships: () => unsupported('org.memberships.list'),
-    },
+    organizations: portalFallback.organizations,
   }
 }
