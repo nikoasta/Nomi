@@ -1,7 +1,7 @@
 # cut.eva.mba Launch Runbook
 
-Status: live static browser shell, not a full collaborative media platform
-backend.
+Status: live static browser shell with a browser-only portal auth UI, not a
+full collaborative media platform backend.
 
 Date: 2026-07-19
 
@@ -20,10 +20,10 @@ Final launch state:
 - Team: `Everville_Ecosystem` / `everville`
 - Production hostname: `https://cut.eva.mba`
 - Primary app route: `https://cut.eva.mba/#/studio`
-- Deployment: `dpl_8NvTGebS7DnbxW4yjScqdTpNbcfB`
-- Deployment URL: `https://everville-pithg9zzw-everville.vercel.app`
+- Deployment: `dpl_69PNszKSJ5GPaRb69nKZuN2p34YT`
+- Deployment URL: `https://everville-25txag4cx-everville.vercel.app`
 - Public Vercel alias: `https://everville-cut.vercel.app`
-- Inspector: `https://vercel.com/everville/everville-cut/8NvTGebS7DnbxW4yjScqdTpNbcfB`
+- Inspector: `https://vercel.com/everville/everville-cut/69PNszKSJ5GPaRb69nKZuN2p34YT`
 
 ## Launch Goal
 
@@ -33,8 +33,9 @@ Serve the Nomi/Everville media workbench as a company web portal shell at
 This launch does not claim that cloud generation, shared project persistence,
 Supabase tenancy, asset storage, review/approval workflows, or Higgsfield cloud
 execution are complete. Browser runtime must remain fail-closed for desktop-only
-capabilities until the platform backend exists. Access control/auth is a
-follow-up platform task; this first launch is a public static shell.
+capabilities until the platform backend exists. The browser auth UI can request
+Supabase magic links once Vercel public env vars and Supabase redirect URLs are
+configured.
 
 ## Verified Local Web Readiness
 
@@ -171,11 +172,17 @@ Browser smoke result:
 - Status: `200`
 - Page title: `Nomi`
 - Rendered Project Library shell
+- Portal auth control visible
 - Console/page errors: `0`
-- Screenshot: `/tmp/cut-eva-mba-live.png`
+- Screenshot: `/tmp/cut-eva-portal-auth-smoke.png`
 
 Remaining manual smoke before team rollout:
 
+- Configure Vercel env: `VITE_SUPABASE_URL` and
+  `VITE_SUPABASE_PUBLISHABLE_KEY`.
+- Configure Supabase Auth redirect allowlist: `https://cut.eva.mba/`.
+- Request a magic link from the Project Library and confirm callback returns to
+  `https://cut.eva.mba/#/studio` with no tokens left in the visible URL.
 - Switch language English/Russian/Chinese.
 - Open Model setup and confirm browser-only unsupported paths do not expose
   local credentials.

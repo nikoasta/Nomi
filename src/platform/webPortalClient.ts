@@ -81,14 +81,19 @@ function normalizeEndpoint(endpoint: string): string {
   return parsed.toString().replace(/\/+$/, '')
 }
 
+export function isWebPortalPublishableKey(value: string): boolean {
+  const key = value.trim()
+  return Boolean(
+    key &&
+      key.startsWith('sb_publishable_') &&
+      !/(?:^|[^a-z0-9])(?:service[_-]?role|secret)(?=$|[^a-z0-9])/i.test(key) &&
+      !/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(key),
+  )
+}
+
 function assertPublishableKey(value: string): string {
   const key = value.trim()
-  if (
-    !key ||
-    !key.startsWith('sb_publishable_') ||
-    /(?:^|[^a-z0-9])(?:service[_-]?role|secret)(?=$|[^a-z0-9])/i.test(key) ||
-    /^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(key)
-  ) {
+  if (!isWebPortalPublishableKey(key)) {
     throw new TypeError('Portal browser config requires a publishable key')
   }
   return key

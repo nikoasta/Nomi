@@ -30,6 +30,7 @@ Code added in this slice:
 - `src/platform/webPortalClient.test.ts`
 - `src/platform/webPortalSession.ts`
 - `src/platform/webPortalSession.test.ts`
+- `src/ui/app-shell/PortalAuthControl.tsx`
 - `supabase/migrations/20260719141528_everville_portal_auth_rls.sql`
 
 `PlatformClient` now has explicit portal collaboration capabilities:
@@ -54,6 +55,10 @@ Current runtime behavior:
   from the URL hash/search, stores a bounded local session, cleans tokens from
   the visible URL, and configures `getPlatformClient()` only while the user
   session is current.
+- Browser auth UI: shows a portal account control in the Project Library and
+  Studio app bar, requests Supabase email magic links with the publishable key
+  only, uses `create_user: false` for invite-only behavior, maps provider
+  errors to safe UI copy, and keeps Electron unchanged.
 - Future web backend/BFF: will implement write-side collaboration methods
   against Supabase and server-side workers.
 
@@ -211,7 +216,7 @@ approves cloud credential custody.
 Required checks:
 
 ```bash
-pnpm vitest run src/platform/webPortalSession.test.ts src/platform/webPortalClient.test.ts
+pnpm vitest run src/platform/webPortalSession.test.ts src/platform/webPortalClient.test.ts src/platform/platformClient.composition.test.ts
 pnpm vitest run src/platform/webPortalClient.test.ts src/platform/supabaseRlsMigration.test.ts
 pnpm vitest run src/platform/collaboration/contracts.test.ts src/platform/platformClient.boundary.test.ts src/platform/platformClient.contract.test.ts
 pnpm exec tsc -p tsconfig.app.json --noEmit
@@ -224,6 +229,8 @@ curl -I https://cut.eva.mba
 Before applying the generated migration to a live Supabase project:
 
 - run current Supabase docs/changelog review;
+- set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` in Vercel;
+- allow `https://cut.eva.mba/` as an Auth redirect URL in Supabase;
 - test two organizations and two users for cross-tenant denial;
 - test `anon` denial and scoped `authenticated` access;
 - test Storage object RLS and signed URL resolution;
@@ -232,7 +239,8 @@ Before applying the generated migration to a live Supabase project:
 ## Explicit Defers
 
 - Live Supabase project creation/linking and migration application.
-- Auth UI and magic-link/OAuth route.
+- Session refresh rotation policy and OAuth/SSO providers beyond email magic
+  link.
 - Server/BFF implementation.
 - Cloud storage upload and signed URL resolver.
 - Durable generation worker and Higgsfield cloud custody.

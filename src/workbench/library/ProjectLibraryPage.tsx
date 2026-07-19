@@ -16,6 +16,7 @@ import { ActionCard, NomiLogoMark, NomiWordmark, DesignEmptyState, DesignSearchI
 import { NomiImage } from '../../design/media'
 import { ThemeToggleButton } from '../../ui/theme/ThemeToggleButton'
 import { WindowControls } from '../../ui/app-shell/WindowControls'
+import { PortalAuthControl } from '../../ui/app-shell/PortalAuthControl'
 import { handleWindowTitlebarDoubleClick } from '../../ui/app-shell/windowTitlebarDoubleClick'
 import { dispatchGlobalAssetPopoverOpen, getGlobalAssetPopoverAnchorRect } from '../../ui/browser/overlay/globalAssetPopoverEvents'
 import { useGlobalBrowserAssetCount } from '../../ui/browser/assets/useGlobalBrowserAssets'
@@ -175,20 +176,21 @@ export default function ProjectLibraryPage({
           'inline-flex items-center gap-1.5 h-7 px-2 rounded-pill border-0 bg-transparent cursor-pointer font-inherit',
           'text-caption text-nomi-ink-60 transition-colors hover:text-nomi-ink',
         )}
-        aria-label="打开素材盒"
-        title="素材盒"
+        aria-label={t('library.actions.openAssetBox')}
+        title={t('library.actions.assetBoxTitle')}
       >
         <IconBox size={14} stroke={1.7} aria-hidden="true" />
-        素材盒
+        {t('library.actions.openAssetBox')}
         {assetCount > 0 ? (
           <span
             className="inline-flex h-[16px] min-w-[16px] items-center justify-center rounded-pill bg-nomi-accent-soft px-1.5 text-micro font-semibold leading-none text-nomi-accent"
-            aria-label={`${assetCount} 个素材`}
+            aria-label={t('library.actions.assetCount', { count: assetCount })}
           >
             {assetCount > 99 ? '99+' : assetCount}
           </span>
         ) : null}
       </button>
+      <PortalAuthControl />
       <ThemeToggleButton className="size-7 rounded-pill" />
     </div>
   )

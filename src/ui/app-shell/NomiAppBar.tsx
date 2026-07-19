@@ -10,6 +10,7 @@ import { dispatchGlobalAssetPopoverOpen, getGlobalAssetPopoverAnchorRect } from 
 import { useGlobalBrowserAssetCount } from '../browser/assets/useGlobalBrowserAssets'
 import { LanguageSwitcher } from '../../i18n/LanguageSwitcher'
 import { useI18n } from '../../i18n/i18nContext'
+import { PortalAuthControl } from './PortalAuthControl'
 
 // 平台分流：win32 下品牌/关于 + 上手清单都让位给 WorkbenchShell 的自绘标题栏（windowbar），
 // 本栏不重复渲染；非 win32（mac/Linux）保持原生窗口，品牌与清单仍住这里——两平台都有家、不丢失、不重复。
@@ -281,6 +282,7 @@ export default function NomiAppBar({
           <IconPlugConnected size={15} stroke={1.8} />
           <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('studio.appbar.modelSetup')}</span>
         </WorkbenchButton>
+        <PortalAuthControl />
         <LanguageSwitcher className="h-[30px]" />
         <WorkbenchButton
           className={cn(
