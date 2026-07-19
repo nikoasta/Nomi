@@ -1,28 +1,40 @@
 # cut.eva.mba Launch Runbook
 
-Status: ready for a static browser-shell deployment, not a full collaborative
-media platform backend.
+Status: live static browser shell, not a full collaborative media platform
+backend.
 
 Date: 2026-07-19
 
 Target hostname: `cut.eva.mba`
 
-Current observation:
+Initial observation:
 
 - `cut.eva.mba` resolves to Vercel IPs.
 - `https://cut.eva.mba` returns Vercel `DEPLOYMENT_NOT_FOUND`.
 - That means DNS is already pointed at Vercel, but no Vercel project/deployment
   is currently serving this hostname.
 
+Final launch state:
+
+- Vercel project: `everville-cut`
+- Team: `Everville_Ecosystem` / `everville`
+- Production hostname: `https://cut.eva.mba`
+- Primary app route: `https://cut.eva.mba/#/studio`
+- Deployment: `dpl_8NvTGebS7DnbxW4yjScqdTpNbcfB`
+- Deployment URL: `https://everville-pithg9zzw-everville.vercel.app`
+- Public Vercel alias: `https://everville-cut.vercel.app`
+- Inspector: `https://vercel.com/everville/everville-cut/8NvTGebS7DnbxW4yjScqdTpNbcfB`
+
 ## Launch Goal
 
-Serve the Nomi/Everville media workbench as a private company web portal shell
-at `cut.eva.mba`.
+Serve the Nomi/Everville media workbench as a company web portal shell at
+`cut.eva.mba`.
 
 This launch does not claim that cloud generation, shared project persistence,
 Supabase tenancy, asset storage, review/approval workflows, or Higgsfield cloud
 execution are complete. Browser runtime must remain fail-closed for desktop-only
-capabilities until the platform backend exists.
+capabilities until the platform backend exists. Access control/auth is a
+follow-up platform task; this first launch is a public static shell.
 
 ## Verified Local Web Readiness
 
@@ -99,54 +111,76 @@ Reason:
 
 ## Domain Attachment
 
-Attach this hostname to the dedicated Vercel project:
+Attached this hostname to the dedicated Vercel project:
 
 `cut.eva.mba`
 
-Because DNS already points to Vercel, the domain should begin serving once the
-hostname is assigned to the correct project and a production deployment exists.
+Verification result:
+
+```bash
+pnpm dlx vercel@latest domains verify cut.eva.mba --scope everville --non-interactive
+```
+
+Result:
+
+- `status`: `ok`
+- `domainStatus`: `configured-correctly`
+- `configurationStatus`: `configured-correctly`
+- `project.attached`: `true`
+- `project.verified`: `true`
+- `issues`: `[]`
 
 ## Deploy Commands
 
-With Vercel CLI access:
+Actual setup/deploy flow:
 
 ```bash
-pnpm dlx vercel@latest link --yes --project everville-cut --scope everville
-pnpm dlx vercel@latest build --prod
-pnpm dlx vercel@latest deploy --prebuilt --prod
+pnpm dlx vercel@latest project add everville-cut --scope everville --non-interactive
+pnpm dlx vercel@latest link --yes --team everville --project everville-cut
+pnpm dlx vercel@latest deploy --yes --scope everville --project everville-cut --logs
+pnpm dlx vercel@latest domains add cut.eva.mba everville-cut --scope everville --non-interactive
+pnpm dlx vercel@latest domains verify cut.eva.mba --scope everville --non-interactive
 ```
 
-If the project does not exist yet, create it in Vercel first or run the
-equivalent Vercel dashboard/API flow, then link non-interactively.
-
-After deployment, attach the domain:
+For future production redeploys from a clean linked checkout:
 
 ```bash
-pnpm dlx vercel@latest domains inspect cut.eva.mba
+pnpm dlx vercel@latest deploy --yes --prod --scope everville --project everville-cut --logs
 ```
 
-If the domain is not assigned to `everville-cut`, add it through the Vercel
-dashboard or API for the Everville team.
+The local `.vercel/project.json` link file is intentionally ignored and should
+not be committed.
 
 ## Production Smoke
 
-After Vercel reports the production deployment is ready:
+HTTP smoke:
 
 ```bash
 curl -I https://cut.eva.mba
-curl -I https://cut.eva.mba/assets/
 ```
 
-Browser smoke:
+Result:
 
-- Open `https://cut.eva.mba`
-- Confirm redirect/render to `#/studio`
-- Confirm Project Library loads
-- Switch language English/Russian/Chinese
+- `HTTP/2 200`
+- `server: Vercel`
+- `content-type: text/html; charset=utf-8`
+
+Browser smoke result:
+
+- URL: `https://cut.eva.mba/#/studio`
+- Status: `200`
+- Page title: `Nomi`
+- Rendered Project Library shell
+- Console/page errors: `0`
+- Screenshot: `/tmp/cut-eva-mba-live.png`
+
+Remaining manual smoke before team rollout:
+
+- Switch language English/Russian/Chinese.
 - Open Model setup and confirm browser-only unsupported paths do not expose
-  local credentials
+  local credentials.
 - Confirm no provider API keys appear in page source, network requests, or
-  client bundle search
+  client bundle search.
 
 Suggested bundle search after deployment artifact is built:
 
