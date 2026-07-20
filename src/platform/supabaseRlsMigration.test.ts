@@ -6,6 +6,8 @@ const INDEX_MIGRATION = 'supabase/migrations/20260720014246_app_fk_indexes.sql'
 const REVISION_RPC_MIGRATION = 'supabase/migrations/20260720030000_portal_revision_rpc.sql'
 const APPROVAL_RPC_MIGRATION = 'supabase/migrations/20260720034022_portal_approval_rpc.sql'
 const PUBLIC_BFF_RPC_MIGRATION = 'supabase/migrations/20260720040006_portal_public_bff_rpc.sql'
+const DEFAULT_CREATOR_PERMISSIONS_MIGRATION =
+  'supabase/migrations/20260720154000_portal_default_creator_permissions.sql'
 
 function sql(): string {
   return readFileSync(MIGRATION, 'utf8')
@@ -25,6 +27,10 @@ function approvalRpcSql(): string {
 
 function publicBffRpcSql(): string {
   return readFileSync(PUBLIC_BFF_RPC_MIGRATION, 'utf8')
+}
+
+function defaultCreatorPermissionsSql(): string {
+  return readFileSync(DEFAULT_CREATOR_PERMISSIONS_MIGRATION, 'utf8')
 }
 
 describe('Everville Supabase auth/RLS migration', () => {
@@ -196,5 +202,25 @@ describe('Everville Supabase portal public BFF RPC migration', () => {
     expect(source).toContain("from public, anon, authenticated")
     expect(source).toContain('to authenticated')
     expect(source).not.toMatch(/grant\s+execute[^;]+to\s+anon/i)
+  })
+})
+
+describe('Everville Supabase portal default creator permissions migration', () => {
+  it('keeps Telegram-created members able to create shared projects without granting organization admin', () => {
+    const source = defaultCreatorPermissionsSql()
+
+    expect(source).toContain('create or replace function public.nomi_portal_find_or_create_member_by_telegram')
+    expect(source).toContain("array['creator']::text[]")
+    expect(source).toContain("'project.read'")
+    expect(source).toContain("'project.write'")
+    expect(source).toContain("'asset.read'")
+    expect(source).toContain("'asset.write'")
+    expect(source).toContain("'generation-job.create'")
+    expect(source).toContain("workspace.slug = 'content-studio'")
+    expect(source).toContain("not ('project.write' = any(membership.workspace_permissions))")
+    expect(source).toContain("grant execute on function public.nomi_portal_find_or_create_member_by_telegram")
+    expect(source).toContain('to service_role')
+    expect(source).not.toContain("'organization.admin'")
+    expect(source).not.toMatch(/grant\s+execute[^;]+to\s+(?:anon|authenticated)/i)
   })
 })
