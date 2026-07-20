@@ -12,6 +12,8 @@ import { migrateProjectRecord, type CategoryMigrationDiagnostic } from './projec
 import { migrateProjectV51ToV60 } from './projectV51ToV60Migration'
 import { backfillShotIndexes } from '../generationCanvas/model/shotNumbering'
 import { schedulePortalProjectRevisionSync } from './portalProjectSync'
+import { getRuntimeLocale } from '../../i18n/runtimeLocale'
+import { localizeDemoProjectRecord } from '../onboarding/demoProject'
 
 let lastCategoryMigrationDiagnostic: CategoryMigrationDiagnostic | null = null
 
@@ -155,7 +157,7 @@ export function createWorkbenchProjectPersistenceService(deps: Dependencies): Wo
     // 镜头编号存储身份化（审计 A2）：存量项目缺 shotIndex 的镜头节点按
     // (y, x, id) 确定性回填一次；此后编号不再随布局/添加节点漂移。
     const shotBackfill = backfillShotIndexes(assetUpgraded.payload.generationCanvas.nodes)
-    const upgraded = shotBackfill.changed
+    const structuralUpgraded = shotBackfill.changed
       ? {
           ...assetUpgraded,
           payload: {
@@ -167,6 +169,7 @@ export function createWorkbenchProjectPersistenceService(deps: Dependencies): Wo
           },
         }
       : assetUpgraded
+    const upgraded = localizeDemoProjectRecord(getRuntimeLocale(), structuralUpgraded)
     // 语义相等判定（不再用引用相等）：多道迁移即便换了顶层引用，只要落盘内容没变就
     // 不写盘、不 ++revision、不弹「已升级」toast。修 revision 单调漂移根因。
     const changed = migratedRecordNeedsPersist(project, upgraded)

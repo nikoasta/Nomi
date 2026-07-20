@@ -4,9 +4,12 @@ import {
   buildDemoStoryboardPlan,
   getDemoProjectName,
   getDemoStory,
+  localizeDemoProjectRecord,
   translateDemoProjectText,
 } from './demoProject'
 import { buildAnchorSheetPrompt, storyboardPlanToCreateNodesArgs } from '../generationCanvas/agent/storyboardPlan'
+import { createDefaultWorkbenchProjectPayload, type WorkbenchProjectRecordV1 } from '../project/projectRecordSchema'
+import { buildStoryDocument } from '../library/tryNowExamples'
 
 const CJK_RE = /[\u3400-\u9fff]/
 
@@ -47,5 +50,51 @@ describe('demo project localization', () => {
     expect(translateDemoProjectText('en', oldPrompt)).toContain('Little robot')
     expect(translateDemoProjectText('ru', oldPrompt)).toContain('Референс персонажа')
     expect(translateDemoProjectText('ru', oldPrompt)).not.toMatch(CJK_RE)
+  })
+
+  it('localizes an already persisted Chinese learning project payload on hydrate', () => {
+    const payload = createDefaultWorkbenchProjectPayload()
+    const record: WorkbenchProjectRecordV1 = {
+      id: 'project-demo',
+      name: DEMO_PROJECT_NAME,
+      version: 1,
+      createdAt: 1,
+      updatedAt: 1,
+      seedKey: 'example:robot-rescue',
+      payload: {
+        ...payload,
+        workbenchDocument: buildStoryDocument(getDemoStory('zh-CN'), DEMO_PROJECT_NAME),
+        storyboardPlan: buildDemoStoryboardPlan('zh-CN'),
+        generationCanvas: {
+          ...payload.generationCanvas,
+          nodes: [
+            {
+              id: 'shot-1',
+              kind: 'video',
+              title: '镜头 1',
+              prompt: buildDemoStoryboardPlan('zh-CN').shots[0]?.prompt,
+            },
+            {
+              id: 'robot',
+              kind: 'character',
+              title: '小机器人',
+              prompt: buildAnchorSheetPrompt(buildDemoStoryboardPlan('zh-CN').anchors[1]!, 'zh-CN'),
+            },
+          ],
+        },
+      },
+    }
+
+    const localized = localizeDemoProjectRecord('en', record)
+    const localizedSurface = JSON.stringify({
+      name: localized.name,
+      workbenchDocument: localized.payload.workbenchDocument,
+      storyboardPlan: localized.payload.storyboardPlan,
+      generationNodes: localized.payload.generationCanvas.nodes,
+    })
+
+    expect(localized.name).toBe('Example: Repairing a little robot')
+    expect(localized.payload.storyboardPlan?.title).toBe('Repairing a little robot')
+    expect(localizedSurface).not.toMatch(CJK_RE)
   })
 })

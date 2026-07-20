@@ -7,6 +7,7 @@
  */
 import { buildAnchorSheetPrompt, type StoryboardPlan } from '../generationCanvas/agent/storyboardPlan'
 import { SUPPORTED_LOCALES, type SupportedLocale } from '../../i18n/translations'
+import type { WorkbenchProjectRecordV1, WorkbenchProjectPayload } from '../project/projectRecordSchema'
 
 /** 示例项目名（带「示例：」前缀，和用户真项目一眼区分）。 */
 export const DEMO_PROJECT_NAME = '示例：修好一个小机器人'
@@ -185,6 +186,11 @@ function seedDemoTextTranslations(): void {
     en: DEMO_CONTENT.en.storyTitle,
     ru: DEMO_CONTENT.ru.storyTitle,
   })
+  rememberDemoText({
+    'zh-CN': zh.storyLines.join('\n'),
+    en: DEMO_CONTENT.en.storyLines.join('\n'),
+    ru: DEMO_CONTENT.ru.storyLines.join('\n'),
+  })
   zh.storyLines.forEach((line, index) => rememberDemoText({
     'zh-CN': line,
     en: DEMO_CONTENT.en.storyLines[index] ?? line,
@@ -217,7 +223,14 @@ function seedDemoTextTranslations(): void {
 }
 
 function translateDemoValue(locale: SupportedLocale, value: string): string {
-  return DEMO_TEXT_TRANSLATIONS.get(value)?.[locale] ?? value
+  const exact = DEMO_TEXT_TRANSLATIONS.get(value)?.[locale]
+  if (exact) return exact
+  const shotTitle = value.match(/^镜头\s*(\d+)$/u)
+  if (shotTitle) {
+    if (locale === 'ru') return `Кадр ${shotTitle[1]}`
+    if (locale === 'en') return `Shot ${shotTitle[1]}`
+  }
+  return value
 }
 
 seedDemoTextTranslations()
@@ -225,6 +238,53 @@ seedDemoTextTranslations()
 export function translateDemoProjectText(locale: SupportedLocale, value: unknown): string {
   const text = typeof value === 'string' ? value : String(value ?? '')
   return translateDemoValue(locale, text)
+}
+
+function isPlainRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function translateDemoPayloadValue(locale: SupportedLocale, value: unknown): { value: unknown; changed: boolean } {
+  if (typeof value === 'string') {
+    const translated = translateDemoProjectText(locale, value)
+    return { value: translated, changed: translated !== value }
+  }
+  if (Array.isArray(value)) {
+    let changed = false
+    const translated = value.map((item) => {
+      const next = translateDemoPayloadValue(locale, item)
+      changed ||= next.changed
+      return next.value
+    })
+    return { value: changed ? translated : value, changed }
+  }
+  if (isPlainRecord(value)) {
+    let changed = false
+    const translated: Record<string, unknown> = {}
+    for (const [key, item] of Object.entries(value)) {
+      const next = translateDemoPayloadValue(locale, item)
+      changed ||= next.changed
+      translated[key] = next.value
+    }
+    return { value: changed ? translated : value, changed }
+  }
+  return { value, changed: false }
+}
+
+export function localizeDemoProjectPayload(locale: SupportedLocale, payload: WorkbenchProjectPayload): WorkbenchProjectPayload {
+  const translated = translateDemoPayloadValue(locale, payload)
+  return translated.changed ? translated.value as WorkbenchProjectPayload : payload
+}
+
+export function localizeDemoProjectRecord(
+  locale: SupportedLocale,
+  record: WorkbenchProjectRecordV1,
+): WorkbenchProjectRecordV1 {
+  if (record.seedKey !== DEMO_PROJECT_SEED_KEY) return record
+  const name = translateDemoProjectText(locale, record.name)
+  const payload = localizeDemoProjectPayload(locale, record.payload)
+  if (name === record.name && payload === record.payload) return record
+  return { ...record, name, payload }
 }
 
 export function getDemoProjectName(locale: SupportedLocale): string {
