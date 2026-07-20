@@ -22,7 +22,8 @@ if (!isDesktopRuntime()) initializeWebPortalSessionFromLocation()
 const container = document.getElementById('root')
 if (!container) throw new Error('Root container not found')
 const root = container ? createRoot(container) : null
-const browserAssetOverlay = new URL(window.location.href).searchParams.get('nomiOverlay') === 'browserAsset'
+const browserAssetOverlay =
+  isDesktopRuntime() && new URL(window.location.href).searchParams.get('nomiOverlay') === 'browserAsset'
 if (!browserAssetOverlay) preloadRemoveBackground()
 if (browserAssetOverlay) {
   document.documentElement.dataset.nomiOverlay = 'browserAsset'

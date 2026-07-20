@@ -58,7 +58,7 @@ export function PortalAuthGate({ children }: { children: React.ReactNode }): JSX
       <section className="mx-auto flex min-h-screen w-full max-w-[440px] flex-col justify-center px-6 py-12">
         <div className="mb-8 flex items-center gap-3">
           <NomiLogoMark size={40} />
-          <div className="text-[28px] font-semibold leading-none tracking-normal">Nomi</div>
+          <div className="text-title font-semibold leading-none tracking-normal">Nomi</div>
         </div>
         <div className="grid gap-5">
           <div className="inline-flex w-fit items-center gap-2 rounded-[var(--nomi-radius-sm)] border border-workbench-border bg-workbench-surface px-3 py-1.5 text-caption text-[var(--nomi-ink-60)]">
@@ -66,7 +66,7 @@ export function PortalAuthGate({ children }: { children: React.ReactNode }): JSX
             {t('portal.auth.gateBadge')}
           </div>
           <div className="grid gap-3">
-            <h1 className="m-0 text-[34px] font-semibold leading-[1.08] tracking-normal text-[var(--nomi-ink)]">
+            <h1 className="m-0 text-display font-semibold leading-[1.08] tracking-normal text-[var(--nomi-ink)]">
               {t('portal.auth.gateTitle')}
             </h1>
             <p className="m-0 text-body-md leading-relaxed text-[var(--nomi-ink-60)]">
@@ -107,7 +107,7 @@ export function PortalAuthGate({ children }: { children: React.ReactNode }): JSX
               {submitting ? t('portal.auth.sending') : t('portal.auth.sendLink')}
             </WorkbenchButton>
           </form>
-          <p className="m-0 text-caption leading-relaxed text-[var(--nomi-ink-50)]">
+          <p className="m-0 text-caption leading-relaxed text-[var(--nomi-ink-60)]">
             {t('portal.auth.gateFootnote')}
           </p>
         </div>

@@ -31,11 +31,23 @@
         {
           "key": "X-Frame-Options",
           "value": "DENY"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; media-src 'self' data: blob: https:; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         }
       ]
     }
   ],
   "rewrites": [
+    {
+      "source": "/studio/assets/(.*)",
+      "destination": "/assets/$1"
+    },
+    {
+      "source": "/workspace/assets/(.*)",
+      "destination": "/assets/$1"
+    },
     {
       "source": "/studio/(.*)",
       "destination": "/index.html"

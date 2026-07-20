@@ -22,6 +22,9 @@ const AUTHENTICATED_PORTAL_CAPABILITIES = filterableCapabilities([
   'org.organizations.list',
   'org.workspaces.list',
   'org.memberships.list',
+  'portal.projects.list',
+  'portal.projects.create',
+  'portal.audit-events.append',
 ])
 
 type BrowserPlatformClientOptions = {
@@ -76,14 +79,7 @@ export function createBrowserPlatformClient(options: BrowserPlatformClientOption
       importRemoteUrl: () => unsupported('asset-records.import-remote-url'),
       resolve: () => unsupported('asset-records.resolve'),
     },
-    collaboration: {
-      listProjects: () => unsupported('portal.projects.list'),
-      createProject: () => unsupported('portal.projects.create'),
-      saveProjectRevision: () => unsupported('portal.project-revisions.save'),
-      listReviewQueue: () => unsupported('portal.review-queue.list'),
-      decideApproval: () => unsupported('portal.approvals.decide'),
-      appendAuditEvent: () => unsupported('portal.audit-events.append'),
-    },
+    collaboration: portalFallback.collaboration,
     organizations: portalFallback.organizations,
   }
 }

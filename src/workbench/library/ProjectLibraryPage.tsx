@@ -2,6 +2,7 @@ import React from 'react'
 import {
   IconBrowser,
   IconBox,
+  IconCloudDownload,
   IconFolderOpen,
   IconFolderShare,
   IconMovie,
@@ -24,6 +25,7 @@ import type { LocalProjectSummary } from './localProjectStore'
 import type { ProjectTemplateId } from './projectTemplates'
 import { useI18n } from '../../i18n/i18nContext'
 import type { TranslationKey } from '../../i18n/translations'
+import { usePortalWorkspace } from './usePortalWorkspace'
 
 type Props = {
   onOpenProject: (projectId: string) => void
@@ -92,6 +94,8 @@ export default function ProjectLibraryPage({
   const [query, setQuery] = React.useState('')
   const [sourceFilter, setSourceFilter] = React.useState<'all' | 'native' | 'folder'>('all')
   const assetCount = useGlobalBrowserAssetCount()
+  const [sharedProjectTitle, setSharedProjectTitle] = React.useState('')
+  const portalWorkspace = usePortalWorkspace()
   const normalizedQuery = query.trim().toLowerCase()
   const searchedProjects = normalizedQuery
     ? projects.filter((project) => project.name.toLowerCase().includes(normalizedQuery))
@@ -123,6 +127,14 @@ export default function ProjectLibraryPage({
   const openBrowser = React.useCallback(() => {
     window.dispatchEvent(new CustomEvent('nomi-open-browser'))
   }, [])
+  const createSharedProject = React.useCallback(
+    async (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault()
+      const ok = await portalWorkspace.createSharedProject(sharedProjectTitle)
+      if (ok) setSharedProjectTitle('')
+    },
+    [portalWorkspace, sharedProjectTitle],
+  )
 
   const libraryTopActions = (
     <div className="app-no-drag flex items-center gap-1">
@@ -279,6 +291,96 @@ export default function ProjectLibraryPage({
               >
                 {t('library.modelStatus.button')}
               </button>
+            </section>
+          ) : null}
+
+          {portalWorkspace.state.kind !== 'hidden' ? (
+            <section
+              className={cn(
+                'shrink-0 grid gap-3 rounded-nomi border border-nomi-line bg-nomi-paper px-4 py-3 shadow-nomi-sm',
+              )}
+              aria-label={t('library.portal.aria')}
+              data-portal-workspace="true"
+            >
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-body-sm font-semibold text-nomi-ink">
+                    <IconCloudDownload size={16} stroke={1.8} aria-hidden="true" />
+                    {t('library.portal.title')}
+                  </div>
+                  <div className="mt-0.5 text-caption text-nomi-ink-60">
+                    {portalWorkspace.state.kind === 'ready'
+                      ? t('library.portal.workspaceLine', {
+                          organization: portalWorkspace.state.organization.name,
+                          workspace: portalWorkspace.state.workspace.name,
+                        })
+                      : portalWorkspace.state.kind === 'loading'
+                        ? t('library.portal.loading')
+                        : portalWorkspace.state.kind === 'empty'
+                          ? t('library.portal.empty')
+                          : t('library.portal.error')}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={portalWorkspace.refresh}
+                  className={cn(
+                    'shrink-0 h-8 rounded-nomi-sm border border-nomi-line bg-nomi-paper px-3',
+                    'font-inherit text-caption font-medium text-nomi-ink-70 cursor-pointer',
+                    'transition-colors hover:bg-nomi-ink-05 hover:text-nomi-ink',
+                  )}
+                >
+                  {t('library.portal.refresh')}
+                </button>
+              </div>
+
+              {portalWorkspace.state.kind === 'ready' ? (
+                <>
+                  <div className="flex flex-wrap gap-2">
+                    {portalWorkspace.state.projects.length === 0 ? (
+                      <span className="text-caption text-nomi-ink-50">{t('library.portal.noProjects')}</span>
+                    ) : (
+                      portalWorkspace.state.projects.slice(0, 6).map((project) => (
+                        <span
+                          key={project.id}
+                          className="max-w-[220px] truncate rounded-pill bg-nomi-ink-05 px-3 py-1 text-caption text-nomi-ink-70"
+                          title={project.title}
+                        >
+                          {project.title}
+                        </span>
+                      ))
+                    )}
+                  </div>
+                  <form className="flex flex-wrap items-center gap-2" onSubmit={(event) => void createSharedProject(event)}>
+                    <input
+                      className={cn(
+                        'h-9 min-w-[240px] flex-1 rounded-nomi-sm border border-nomi-line bg-nomi-bg px-3',
+                        'font-inherit text-body-sm text-nomi-ink outline-none',
+                        'focus:border-nomi-accent focus:ring-2 focus:ring-[color-mix(in_oklch,var(--nomi-accent)_18%,transparent)]',
+                      )}
+                      value={sharedProjectTitle}
+                      maxLength={120}
+                      placeholder={t('library.portal.newPlaceholder')}
+                      onChange={(event) => setSharedProjectTitle(event.currentTarget.value)}
+                    />
+                    <button
+                      type="submit"
+                      disabled={portalWorkspace.state.creating || sharedProjectTitle.trim().length === 0}
+                      className={cn(
+                        'h-9 rounded-nomi-sm border-0 bg-nomi-ink px-4 font-inherit text-body-sm font-medium text-nomi-paper',
+                        'cursor-pointer transition-colors hover:bg-nomi-accent disabled:cursor-not-allowed disabled:opacity-45',
+                      )}
+                    >
+                      {portalWorkspace.state.creating ? t('library.portal.creating') : t('library.portal.create')}
+                    </button>
+                  </form>
+                  {portalWorkspace.state.error ? (
+                    <div className="text-caption text-workbench-danger">{portalWorkspace.state.error}</div>
+                  ) : null}
+                </>
+              ) : portalWorkspace.state.kind === 'error' ? (
+                <div className="text-caption text-workbench-danger">{portalWorkspace.state.message}</div>
+              ) : null}
             </section>
           ) : null}
 

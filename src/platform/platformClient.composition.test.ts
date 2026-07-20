@@ -54,7 +54,7 @@ describe('getPlatformClient Electron composition', () => {
     expect(client.supports('org.organizations.list')).toBe(false)
   })
 
-  it('enables browser organization capabilities from a current portal session config', () => {
+  it('enables browser organization and portal capabilities from a current portal session config', () => {
     getDesktopBridgeMock.mockReturnValue(null)
     getBrowserWebPortalClientConfigMock.mockReturnValue({
       endpoint: 'https://project.supabase.co',
@@ -67,6 +67,9 @@ describe('getPlatformClient Electron composition', () => {
     expect(client.supports('org.organizations.list')).toBe(true)
     expect(client.supports('org.workspaces.list')).toBe(true)
     expect(client.supports('org.memberships.list')).toBe(true)
+    expect(client.supports('portal.projects.list')).toBe(true)
+    expect(client.supports('portal.projects.create')).toBe(true)
+    expect(client.supports('portal.audit-events.append')).toBe(true)
   })
 
   it('adapts the real positional DesktopBridge conversation API and passes asset payloads unchanged', async () => {

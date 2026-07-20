@@ -31,7 +31,7 @@ describe('web portal PlatformClient adapter', () => {
     })
   })
 
-  it('advertises organization capabilities only with a valid publishable user session config', async () => {
+  it('advertises portal capabilities only with a valid publishable user session config', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url.endsWith('/auth/v1/user')) return response({ id: 'principal-1', email: 'team@example.test' })
       return response([])
@@ -50,8 +50,12 @@ describe('web portal PlatformClient adapter', () => {
       'org.organizations.list',
       'org.workspaces.list',
       'org.memberships.list',
+      'portal.projects.list',
+      'portal.projects.create',
+      'portal.audit-events.append',
     ])
     expect(client.supports('org.memberships.list')).toBe(true)
+    expect(client.supports('portal.projects.create')).toBe(true)
     await expect(client.identity.getSession()).resolves.toEqual({
       ok: true,
       value: {
@@ -191,6 +195,174 @@ describe('web portal PlatformClient adapter', () => {
           }),
         ],
         cursor: null,
+      },
+    })
+  })
+
+  it('lists and creates shared portal projects through the app schema', async () => {
+    const projectRow = {
+      id: 'project-cash-on-rails',
+      organization_id: 'org-everville',
+      workspace_id: 'workspace-content',
+      slug: 'cash-on-rails',
+      title: 'Cash on Rails',
+      classification: 'internal',
+      status: 'draft',
+      current_revision_id: null,
+      created_by_user_id: 'principal-niko',
+      created_at: NOW,
+      updated_at: NOW,
+    }
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/auth/v1/user')) return response({ id: 'principal-niko', email: 'niko@example.test' })
+      if (url.includes('/rest/v1/projects') && init?.method === 'POST') return response([projectRow])
+      if (url.includes('/rest/v1/projects')) return response([projectRow])
+      return response([], { status: 404 })
+    })
+    const services = createWebPortalServices({
+      endpoint: ENDPOINT,
+      publishableKey: PUBLISHABLE,
+      bearer: BEARER,
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+
+    await expect(
+      services.collaboration.listProjects({
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        limit: 12,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        items: [
+          {
+            schemaVersion: 'portal-project.v1',
+            id: 'project-cash-on-rails',
+            organizationId: 'org-everville',
+            workspaceId: 'workspace-content',
+            title: 'Cash on Rails',
+            slug: 'cash-on-rails',
+            classification: 'internal',
+            status: 'draft',
+            brandKitId: null,
+            knowledgePackId: null,
+            currentRevisionId: null,
+            createdAt: NOW,
+            updatedAt: NOW,
+            createdByPrincipalId: 'principal-niko',
+          },
+        ],
+        cursor: null,
+      },
+    })
+
+    await expect(
+      services.collaboration.createProject({
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        title: 'Cash on Rails',
+        slug: 'cash-on-rails',
+        classification: 'internal',
+        idempotencyKey: 'create-cash-on-rails',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: expect.objectContaining({
+        schemaVersion: 'portal-project.v1',
+        id: 'project-cash-on-rails',
+        title: 'Cash on Rails',
+      }),
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://project.supabase.co/rest/v1/projects?select=id%2Corganization_id%2Cworkspace_id%2Cslug%2Ctitle%2Cclassification%2Cstatus%2Ccurrent_revision_id%2Ccreated_by_user_id%2Ccreated_at%2Cupdated_at&organization_id=eq.org-everville&workspace_id=eq.workspace-content&order=updated_at.desc&limit=12',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          apikey: PUBLISHABLE,
+          authorization: `Bearer ${BEARER}`,
+          'accept-profile': 'app',
+          'content-profile': 'app',
+        }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://project.supabase.co/rest/v1/projects?select=id%2Corganization_id%2Cworkspace_id%2Cslug%2Ctitle%2Cclassification%2Cstatus%2Ccurrent_revision_id%2Ccreated_by_user_id%2Ccreated_at%2Cupdated_at',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          apikey: PUBLISHABLE,
+          authorization: `Bearer ${BEARER}`,
+          'content-profile': 'app',
+          prefer: 'return=representation',
+        }),
+        body: JSON.stringify({
+          organization_id: 'org-everville',
+          workspace_id: 'workspace-content',
+          slug: 'cash-on-rails',
+          title: 'Cash on Rails',
+          classification: 'internal',
+          status: 'draft',
+          created_by_user_id: 'principal-niko',
+        }),
+      }),
+    )
+  })
+
+  it('appends portal audit events with the authenticated principal', async () => {
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/auth/v1/user')) return response({ id: 'principal-niko', email: 'niko@example.test' })
+      if (url.includes('/rest/v1/audit_events')) {
+        return response([
+          {
+            id: 'audit-001',
+            organization_id: 'org-everville',
+            workspace_id: 'workspace-content',
+            project_id: 'project-cash-on-rails',
+            actor_user_id: 'principal-niko',
+            action: 'project.create',
+            target_type: 'project',
+            target_id: 'project-cash-on-rails',
+            metadata: { source: 'web-portal' },
+            created_at: NOW,
+          },
+        ])
+      }
+      return response([], { status: 404 })
+    })
+    const services = createWebPortalServices({
+      endpoint: ENDPOINT,
+      publishableKey: PUBLISHABLE,
+      bearer: BEARER,
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+
+    await expect(
+      services.collaboration.appendAuditEvent({
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        action: 'project.create',
+        targetType: 'project',
+        targetId: 'project-cash-on-rails',
+        metadata: { source: 'web-portal' },
+        idempotencyKey: 'audit-create-cash-on-rails',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        schemaVersion: 'portal-audit-event.v1',
+        id: 'audit-001',
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        actorPrincipalId: 'principal-niko',
+        action: 'project.create',
+        targetType: 'project',
+        targetId: 'project-cash-on-rails',
+        createdAt: NOW,
+        metadata: { source: 'web-portal' },
       },
     })
   })
