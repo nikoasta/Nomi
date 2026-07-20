@@ -202,6 +202,15 @@ const operations: readonly Operation[] = [
       }),
   },
   {
+    capability: 'portal.project-revisions.read-current',
+    invoke: (client) =>
+      client.collaboration.readCurrentProjectRevision({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: WORKSPACE_ID,
+        projectId: PROJECT_ID,
+      }),
+  },
+  {
     capability: 'portal.review-queue.list',
     invoke: (client) =>
       client.collaboration.listReviewQueue({ organizationId: ORGANIZATION_ID, workspaceId: WORKSPACE_ID }),

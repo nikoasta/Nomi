@@ -175,6 +175,12 @@ export function adaptDesktopBridge(bridge: DesktopBridge): ElectronPlatformBridg
 
 let cachedBridge: DesktopBridge | null | undefined
 let cachedClient: PlatformClient | undefined
+let cachedPortalKey: string | null = null
+
+function portalCacheKey(portal: ReturnType<typeof getBrowserWebPortalClientConfig>): string | null {
+  if (!portal) return null
+  return `${portal.apiBase || portal.endpoint}\u0000${portal.bearer}`
+}
 
 export function getPlatformClient(): PlatformClient {
   const bridge = getDesktopBridge()
@@ -182,9 +188,15 @@ export function getPlatformClient(): PlatformClient {
     const portal = getBrowserWebPortalClientConfig()
     return createBrowserPlatformClient(portal ? { portal } : {})
   }
-  if (cachedClient && cachedBridge === bridge) return cachedClient
+  const portal = getBrowserWebPortalClientConfig()
+  const nextPortalKey = portalCacheKey(portal)
+  if (cachedClient && cachedBridge === bridge && cachedPortalKey === nextPortalKey) return cachedClient
 
   cachedBridge = bridge
-  cachedClient = createElectronPlatformClient(adaptDesktopBridge(bridge))
+  cachedPortalKey = nextPortalKey
+  cachedClient = createElectronPlatformClient({
+    bridge: adaptDesktopBridge(bridge),
+    portal,
+  })
   return cachedClient
 }

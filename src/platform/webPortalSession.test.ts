@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   clearWebPortalSession,
+  createWebPortalDesktopSyncToken,
   getBrowserWebPortalClientConfig,
   initializeWebPortalSessionFromLocation,
   parseWebPortalSessionFromUrl,
@@ -10,6 +11,7 @@ import {
   requestWebPortalMagicLink,
   requestWebPortalTelegramLogin,
   storeWebPortalSession,
+  storeWebPortalDesktopSyncToken,
   WEB_PORTAL_SESSION_STORAGE_KEY,
   type WebPortalStoredSession,
 } from './webPortalSession'
@@ -268,6 +270,38 @@ describe('web portal browser session wiring', () => {
       apiBase: 'https://cut.eva.mba/api/portal',
       bearer: 'user-access-token',
     })
+  })
+
+  it('exports and imports a current desktop sync token', () => {
+    const webStorage = storageStub()
+    const desktopStorage = storageStub()
+    storeWebPortalSession(session(), webStorage)
+
+    const token = createWebPortalDesktopSyncToken(webStorage, NOW)
+
+    expect(token).toContain('nomi-desktop-portal-sync-token.v1')
+    expect(storeWebPortalDesktopSyncToken(token || '', desktopStorage, NOW)).toBe(true)
+    expect(readWebPortalSession(desktopStorage)).toEqual(expect.objectContaining({ accessToken: 'user-access-token' }))
+    expect(
+      getBrowserWebPortalClientConfig(
+        {
+          VITE_PORTAL_API_BASE: 'https://cut.eva.mba/api/portal',
+        },
+        desktopStorage,
+        NOW,
+      ),
+    ).toEqual(expect.objectContaining({ bearer: 'user-access-token' }))
+  })
+
+  it('rejects expired desktop sync tokens', () => {
+    const storage = storageStub()
+    const expired = JSON.stringify({
+      schemaVersion: 'nomi-desktop-portal-sync-token.v1',
+      session: session({ expiresAt: NOW - 1 }),
+    })
+
+    expect(storeWebPortalDesktopSyncToken(expired, storage, NOW)).toBe(false)
+    expect(readWebPortalSession(storage)).toBeNull()
   })
 
   it('clears expired sessions and fails closed', () => {

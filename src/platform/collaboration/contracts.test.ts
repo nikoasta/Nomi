@@ -91,6 +91,7 @@ describe('portal collaboration contracts', () => {
       'portal.projects.list',
       'portal.projects.create',
       'portal.project-revisions.save',
+      'portal.project-revisions.read-current',
       'portal.review-queue.list',
       'portal.approvals.decide',
       'portal.audit-events.append',

@@ -1,6 +1,12 @@
 import { getPlatformClient } from '../../platform/client'
-import type { PortalProjectRevisionRecord } from '../../platform/collaboration/contracts'
-import { updateLocalProjectPortalBinding } from '../library/localProjectStore'
+import type { PortalProjectRecord, PortalProjectRevisionRecord } from '../../platform/collaboration/contracts'
+import {
+  createLocalProject,
+  saveLocalProject,
+  updateLocalProjectPortalBinding,
+  type LocalProjectSummary,
+  type PortalProjectBinding,
+} from '../library/localProjectStore'
 import type { WorkbenchProjectRecordV1 } from './projectRecordSchema'
 
 type PortalProjectSnapshotV1 = {
@@ -52,6 +58,64 @@ export function createPortalProjectSnapshot(record: WorkbenchProjectRecordV1): P
     },
     payload: record.payload,
   }
+}
+
+function parsePortalProjectSnapshot(value: unknown): PortalProjectSnapshotV1 | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const raw = value as Partial<PortalProjectSnapshotV1>
+  if (raw.schemaVersion !== 'nomi-workbench-project-snapshot.v1') return null
+  if (!raw.project || typeof raw.project !== 'object') return null
+  if (!raw.payload || typeof raw.payload !== 'object') return null
+  const project = raw.project as Partial<PortalProjectSnapshotV1['project']>
+  if (typeof project.id !== 'string' || typeof project.name !== 'string') return null
+  if (typeof project.localRevision !== 'number' || typeof project.updatedAt !== 'number') return null
+  return raw as PortalProjectSnapshotV1
+}
+
+export async function readCurrentPortalProjectSnapshot(input: {
+  organizationId: string
+  workspaceId: string
+  projectId: string
+}): Promise<{ revision: PortalProjectRevisionRecord; snapshot: PortalProjectSnapshotV1 } | null> {
+  const client = getPlatformClient()
+  if (!client.supports('portal.project-revisions.read-current')) return null
+  const result = await client.collaboration.readCurrentProjectRevision(input)
+  if (!result.ok) throw new Error(`${result.error.code}: ${result.error.message}`)
+  if (!result.value) return null
+  const snapshot = parsePortalProjectSnapshot(result.value.snapshot)
+  if (!snapshot) throw new Error('INTEGRITY_ERROR: Portal project snapshot is invalid')
+  return { revision: result.value, snapshot }
+}
+
+export async function openLocalPortalProject(input: {
+  project: PortalProjectRecord
+  projects: LocalProjectSummary[]
+}): Promise<LocalProjectSummary> {
+  const { project, projects } = input
+  const portal: PortalProjectBinding = {
+    organizationId: project.organizationId,
+    workspaceId: project.workspaceId,
+    projectId: project.id,
+    currentRevisionId: project.currentRevisionId,
+  }
+  const remote = await readCurrentPortalProjectSnapshot({
+    organizationId: project.organizationId,
+    workspaceId: project.workspaceId,
+    projectId: project.id,
+  }).catch((error: unknown) => {
+    console.warn('portal project revision read failed', error)
+    return null
+  })
+  const binding = remote ? { ...portal, currentRevisionId: remote.revision.id } : portal
+  const existing = projects.find((item) => item.portalProjectId === project.id)
+  if (existing) {
+    if (remote) saveLocalProject(existing.id, remote.snapshot.payload, project.title)
+    updateLocalProjectPortalBinding(existing.id, binding)
+    return existing
+  }
+  const created = createLocalProject(project.title, undefined, { portal: binding })
+  if (remote) saveLocalProject(created.id, remote.snapshot.payload, project.title)
+  return created
 }
 
 export async function savePortalProjectRevision(record: WorkbenchProjectRecordV1): Promise<PortalProjectRevisionRecord | null> {

@@ -23,12 +23,14 @@ import {
   mapAuditEvent,
   mapProject,
   mapProjectRevision,
+  mapProjectRevisionSnapshot,
   normalizeSupabaseTimestamp,
   readRowField,
   type SupabaseApprovalGateRow,
   type SupabaseAuditEventRow,
   type SupabaseMembershipRow,
   type SupabaseOrganizationRow,
+  type SupabaseProjectRevisionSnapshotRow,
   type SupabaseProjectRevisionRow,
   type SupabaseProjectRow,
   type SupabaseWorkspaceRow,
@@ -604,6 +606,51 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
           }
         }
       },
+      readCurrentProjectRevision: async (input) => {
+        let row: SupabaseProjectRevisionSnapshotRow | null
+        if (apiBase) {
+          const result = await portalApi<SupabaseProjectRevisionSnapshotRow | null>(
+            'portal.project-revisions.read-current',
+            'project-revisions/current',
+            {
+              organizationId: input.organizationId,
+              workspaceId: input.workspaceId,
+              projectId: input.projectId,
+            },
+          )
+          if (!result.ok) return result
+          row = result.value
+        } else {
+          const result = await selectRows<SupabaseProjectRevisionSnapshotRow>('portal.project-revisions.read-current', {
+            table: 'project_revisions',
+            query: {
+              select:
+                'id,organization_id,workspace_id,project_id,revision_number,snapshot_digest,parent_revision_id,created_by_user_id,created_at,snapshot',
+              organization_id: `eq.${input.organizationId}`,
+              workspace_id: `eq.${input.workspaceId}`,
+              project_id: `eq.${input.projectId}`,
+              order: 'revision_number.desc',
+              limit: 1,
+            },
+          })
+          if (!result.ok) return result
+          row = result.value[0] ?? null
+        }
+        if (!row) return { ok: true, value: null }
+        try {
+          return { ok: true, value: mapProjectRevisionSnapshot(row) }
+        } catch {
+          return {
+            ok: false,
+            error: {
+              code: 'INTEGRITY_ERROR',
+              capability: 'portal.project-revisions.read-current',
+              message: 'Portal revision response is invalid',
+              retryable: false,
+            },
+          }
+        }
+      },
       listReviewQueue: async (input) => {
         const result = await selectRows<SupabaseApprovalGateRow>('portal.review-queue.list', {
           table: 'approval_gates',
@@ -734,6 +781,7 @@ export function createUnsupportedWebPortalServices(): {
       listProjects: () => Promise.resolve(unsupported('portal.projects.list')),
       createProject: () => Promise.resolve(unsupported('portal.projects.create')),
       saveProjectRevision: () => Promise.resolve(unsupported('portal.project-revisions.save')),
+      readCurrentProjectRevision: () => Promise.resolve(unsupported('portal.project-revisions.read-current')),
       listReviewQueue: () => Promise.resolve(unsupported('portal.review-queue.list')),
       decideApproval: () => Promise.resolve(unsupported('portal.approvals.decide')),
       appendAuditEvent: () => Promise.resolve(unsupported('portal.audit-events.append')),

@@ -21,6 +21,11 @@ import {
   type PlatformAssetRecords,
 } from './assets/contracts'
 import { PORTAL_CAPABILITIES } from './collaboration/contracts'
+import {
+  createUnsupportedWebPortalServices,
+  createWebPortalServices,
+  type WebPortalClientConfig,
+} from './webPortalClient'
 import type {
   PersistedConversationsV2,
   PlatformAssetImportFileRequest,
@@ -79,6 +84,7 @@ type ElectronPlatformClientOptions = {
   assetRecordAdapter?: AssetRecordAdapter
   authorization?: AssetRecordAuthorizationAdapter
   session?: unknown
+  portal?: WebPortalClientConfig | null
 }
 
 export type ElectronPlatformBridge = {
@@ -419,6 +425,8 @@ export function createElectronPlatformClient(
   const bridge = options.bridge
   const hostAssetRecordAdapter = bridge.assetRecords
   const assetRecordAdapter = options.assetRecordAdapter ?? hostAssetRecordAdapter
+  const portalServices = options.portal ? createWebPortalServices(options.portal) : null
+  const portalFallback = portalServices ?? createUnsupportedWebPortalServices()
   const hostAuthorizesGeneratedAssets = !options.assetRecordAdapter && Boolean(hostAssetRecordAdapter)
   const authorization =
     options.authorization ?? (hostAssetRecordAdapter ? createLocalAssetRecordAuthorization() : undefined)
@@ -437,6 +445,10 @@ export function createElectronPlatformClient(
   if (assetRecordAdapter?.importFile) available.add('asset-records.import-file')
   if (assetRecordAdapter?.importRemoteUrl) available.add('asset-records.import-remote-url')
   if (assetRecordAdapter?.resolve) available.add('asset-records.resolve')
+  if (portalServices) {
+    for (const capability of PORTAL_CAPABILITIES) available.add(capability)
+    for (const capability of ORGANIZATION_CAPABILITIES) available.add(capability)
+  }
 
   const capabilities = filterableCapabilities(CAPABILITY_ORDER.filter((capability) => available.has(capability)))
 
@@ -730,17 +742,18 @@ export function createElectronPlatformClient(
       },
     },
     collaboration: {
-      listProjects: () => Promise.resolve(unsupported('portal.projects.list')),
-      createProject: () => Promise.resolve(unsupported('portal.projects.create')),
-      saveProjectRevision: () => Promise.resolve(unsupported('portal.project-revisions.save')),
-      listReviewQueue: () => Promise.resolve(unsupported('portal.review-queue.list')),
-      decideApproval: () => Promise.resolve(unsupported('portal.approvals.decide')),
-      appendAuditEvent: () => Promise.resolve(unsupported('portal.audit-events.append')),
+      listProjects: (request) => portalFallback.collaboration.listProjects(request),
+      createProject: (request) => portalFallback.collaboration.createProject(request),
+      saveProjectRevision: (request) => portalFallback.collaboration.saveProjectRevision(request),
+      readCurrentProjectRevision: (request) => portalFallback.collaboration.readCurrentProjectRevision(request),
+      listReviewQueue: (request) => portalFallback.collaboration.listReviewQueue(request),
+      decideApproval: (request) => portalFallback.collaboration.decideApproval(request),
+      appendAuditEvent: (request) => portalFallback.collaboration.appendAuditEvent(request),
     },
     organizations: {
-      listOrganizations: () => Promise.resolve(unsupported('org.organizations.list')),
-      listWorkspaces: () => Promise.resolve(unsupported('org.workspaces.list')),
-      listMemberships: () => Promise.resolve(unsupported('org.memberships.list')),
+      listOrganizations: (request) => portalFallback.organizations.listOrganizations(request),
+      listWorkspaces: (request) => portalFallback.organizations.listWorkspaces(request),
+      listMemberships: (request) => portalFallback.organizations.listMemberships(request),
     },
   }
 }

@@ -366,6 +366,80 @@ describe('Vercel portal API handler', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
+  it('returns the current project revision snapshot through the authenticated portal RPC', async () => {
+    const snapshot = {
+      schemaVersion: 'nomi-workbench-project-snapshot.v1',
+      project: {
+        id: 'local-project-1',
+        name: 'Cash on Rails',
+        localRevision: 2,
+        updatedAt: 1784550000000,
+      },
+      payload: { generationCanvas: { nodes: [], edges: [] } },
+    }
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe('https://project.supabase.co/rest/v1/rpc/nomi_portal_get_current_project_revision')
+      expect(init?.headers).toEqual(
+        expect.objectContaining({
+          apikey: 'sb_publishable_live',
+          authorization: 'Bearer user-access-token',
+        }),
+      )
+      expect(JSON.parse(String(init?.body))).toEqual({
+        request_organization_id: 'org-everville',
+        request_workspace_id: 'workspace-content',
+        request_project_id: 'project-cash-on-rails',
+      })
+      return new Response(
+        JSON.stringify([
+          {
+            id: 'revision-current',
+            organization_id: 'org-everville',
+            workspace_id: 'workspace-content',
+            project_id: 'project-cash-on-rails',
+            revision_number: 2,
+            snapshot_digest: 'c'.repeat(64),
+            parent_revision_id: null,
+            created_by_user_id: 'principal-niko',
+            created_at: '2026-07-20T08:00:00.000Z',
+            snapshot,
+          },
+        ]),
+        { status: 200 },
+      )
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(
+      request(
+        'POST',
+        ['project-revisions', 'current'],
+        {
+          organizationId: 'org-everville',
+          workspaceId: 'workspace-content',
+          projectId: 'project-cash-on-rails',
+        },
+        { authorization: 'Bearer user-access-token' },
+      ),
+      res,
+    )
+
+    expect(res.statusCode).toBe(200)
+    expect(JSON.parse(res.body)).toEqual({
+      id: 'revision-current',
+      organization_id: 'org-everville',
+      workspace_id: 'workspace-content',
+      project_id: 'project-cash-on-rails',
+      revision_number: 2,
+      snapshot_digest: 'c'.repeat(64),
+      parent_revision_id: null,
+      created_by_user_id: 'principal-niko',
+      created_at: '2026-07-20T08:00:00.000Z',
+      snapshot,
+    })
+  })
+
   it('serves portal model catalog status from server-side provider env without exposing keys', async () => {
     process.env.KIE_API_KEY = 'kie-secret'
     process.env.DEEPSEEK_API_KEY = 'deepseek-secret'

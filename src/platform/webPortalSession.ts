@@ -3,6 +3,7 @@ import type { WebPortalClientConfig } from './webPortalClient'
 export const WEB_PORTAL_SESSION_STORAGE_KEY = 'nomi.portal.session.v1'
 export const WEB_PORTAL_SESSION_EXPIRY_SKEW_MS = 30_000
 export const WEB_PORTAL_AUTH_CHANGE_EVENT = 'nomi-web-portal-auth-change'
+export const WEB_PORTAL_DESKTOP_SYNC_TOKEN_VERSION = 'nomi-desktop-portal-sync-token.v1'
 
 type WebPortalEnv = {
   VITE_PORTAL_API_BASE?: string
@@ -32,6 +33,11 @@ export type WebPortalStoredSession = {
   refreshToken: string | null
   tokenType: string
   expiresAt: number
+}
+
+export type WebPortalDesktopSyncToken = {
+  schemaVersion: typeof WEB_PORTAL_DESKTOP_SYNC_TOKEN_VERSION
+  session: WebPortalStoredSession
 }
 
 export type WebPortalRuntimeEnv = {
@@ -428,6 +434,40 @@ export function parseWebPortalSessionFromUrl(href: string, now = Date.now()): We
 export function readWebPortalSession(storage: StorageLike | null = browserStorage()): WebPortalStoredSession | null {
   if (!storage) return null
   return parseStoredSession(storage.getItem(WEB_PORTAL_SESSION_STORAGE_KEY))
+}
+
+export function createWebPortalDesktopSyncToken(
+  storage: StorageLike | null = browserStorage(),
+  now = Date.now(),
+): string | null {
+  const session = readWebPortalSession(storage)
+  if (!session || !sessionIsCurrent(session, now)) return null
+  return JSON.stringify({
+    schemaVersion: WEB_PORTAL_DESKTOP_SYNC_TOKEN_VERSION,
+    session,
+  } satisfies WebPortalDesktopSyncToken)
+}
+
+export function storeWebPortalDesktopSyncToken(
+  value: string,
+  storage: StorageLike | null = browserStorage(),
+  now = Date.now(),
+): boolean {
+  const text = cleanString(value)
+  if (!text) return false
+  try {
+    const raw = JSON.parse(text) as Partial<WebPortalDesktopSyncToken> | Partial<WebPortalStoredSession>
+    const session =
+      raw.schemaVersion === WEB_PORTAL_DESKTOP_SYNC_TOKEN_VERSION && 'session' in raw
+        ? (raw.session as WebPortalStoredSession | null)
+        : (raw as WebPortalStoredSession)
+    const parsed = parseStoredSession(JSON.stringify(session))
+    if (!parsed || !sessionIsCurrent(parsed, now)) return false
+    storeWebPortalSession(parsed, storage)
+    return true
+  } catch {
+    return false
+  }
 }
 
 export function storeWebPortalSession(

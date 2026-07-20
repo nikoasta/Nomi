@@ -70,9 +70,27 @@ describe('getPlatformClient Electron composition', () => {
     expect(client.supports('portal.projects.list')).toBe(true)
     expect(client.supports('portal.projects.create')).toBe(true)
     expect(client.supports('portal.project-revisions.save')).toBe(true)
+    expect(client.supports('portal.project-revisions.read-current')).toBe(true)
     expect(client.supports('portal.review-queue.list')).toBe(true)
     expect(client.supports('portal.approvals.decide')).toBe(true)
     expect(client.supports('portal.audit-events.append')).toBe(true)
+  })
+
+  it('enables Electron portal capabilities when a desktop session token exists', () => {
+    getDesktopBridgeMock.mockReturnValue({ conversations: {} })
+    getBrowserWebPortalClientConfigMock.mockReturnValue({
+      endpoint: 'https://cut.eva.mba/api/portal',
+      apiBase: 'https://cut.eva.mba/api/portal',
+      bearer: 'desktop-user-access-token',
+    })
+
+    const client = getPlatformClient()
+
+    expect(client.supports('portal.projects.list')).toBe(true)
+    expect(client.supports('portal.projects.create')).toBe(true)
+    expect(client.supports('portal.project-revisions.save')).toBe(true)
+    expect(client.supports('portal.project-revisions.read-current')).toBe(true)
+    expect(client.supports('org.organizations.list')).toBe(true)
   })
 
   it('adapts the real positional DesktopBridge conversation API and passes asset payloads unchanged', async () => {

@@ -19,6 +19,7 @@ import { createLocalProject, readLocalProject } from '../library/localProjectSto
 import {
   __resetPortalProjectSyncForTests,
   createPortalProjectSnapshot,
+  readCurrentPortalProjectSnapshot,
   savePortalProjectRevision,
 } from './portalProjectSync'
 
@@ -40,9 +41,13 @@ function createMemoryStorage(): Storage {
   }
 }
 
-function makeClient(saveProjectRevision: PlatformClient['collaboration']['saveProjectRevision']): PlatformClient {
+function makeClient(
+  saveProjectRevision: PlatformClient['collaboration']['saveProjectRevision'],
+  readCurrentProjectRevision: PlatformClient['collaboration']['readCurrentProjectRevision'] = vi.fn(),
+): PlatformClient {
   const capabilities = new Set<PlatformClient['capabilities'] extends ReadonlySet<infer T> ? T : never>([
     'portal.project-revisions.save',
+    'portal.project-revisions.read-current',
   ])
   return {
     capabilities,
@@ -51,6 +56,7 @@ function makeClient(saveProjectRevision: PlatformClient['collaboration']['savePr
       saveProjectRevision,
       listProjects: vi.fn(),
       createProject: vi.fn(),
+      readCurrentProjectRevision,
       listReviewQueue: vi.fn(),
       decideApproval: vi.fn(),
       appendAuditEvent: vi.fn(),
@@ -121,5 +127,50 @@ describe('portal project sync', () => {
     await expect(savePortalProjectRevision(record)).resolves.toBeNull()
 
     expect(saveProjectRevision).not.toHaveBeenCalled()
+  })
+
+  it('reads the current portal project snapshot for local restoration', async () => {
+    const record = createLocalProject('Cash on Rails', undefined, {
+      portal: {
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        currentRevisionId: 'revision-1',
+      },
+    })
+    const snapshot = createPortalProjectSnapshot(record)
+    const readCurrentProjectRevision = vi.fn(async () => ({
+      ok: true as const,
+      value: {
+        schemaVersion: 'portal-project-revision.v1' as const,
+        id: 'revision-1',
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        revisionNumber: 1,
+        snapshotDigest: 'a'.repeat(64),
+        parentRevisionId: null,
+        createdAt: '2026-07-20T00:00:00.000Z',
+        createdByPrincipalId: 'principal-niko',
+        snapshot,
+      },
+    }))
+    harness.client = makeClient(vi.fn(), readCurrentProjectRevision)
+
+    await expect(
+      readCurrentPortalProjectSnapshot({
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+      }),
+    ).resolves.toEqual({
+      revision: expect.objectContaining({ id: 'revision-1' }),
+      snapshot,
+    })
+    expect(readCurrentProjectRevision).toHaveBeenCalledWith({
+      organizationId: 'org-everville',
+      workspaceId: 'workspace-content',
+      projectId: 'project-cash-on-rails',
+    })
   })
 })

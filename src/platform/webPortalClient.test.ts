@@ -54,6 +54,7 @@ describe('web portal PlatformClient adapter', () => {
       'portal.projects.list',
       'portal.projects.create',
       'portal.project-revisions.save',
+      'portal.project-revisions.read-current',
       'portal.review-queue.list',
       'portal.approvals.decide',
       'portal.audit-events.append',
@@ -61,6 +62,7 @@ describe('web portal PlatformClient adapter', () => {
     expect(client.supports('org.memberships.list')).toBe(true)
     expect(client.supports('portal.projects.create')).toBe(true)
     expect(client.supports('portal.project-revisions.save')).toBe(true)
+    expect(client.supports('portal.project-revisions.read-current')).toBe(true)
     expect(client.supports('portal.review-queue.list')).toBe(true)
     expect(client.supports('portal.approvals.decide')).toBe(true)
     await expect(client.identity.getSession()).resolves.toEqual({
@@ -545,6 +547,68 @@ describe('web portal PlatformClient adapter', () => {
         }),
       }),
     )
+  })
+
+  it('reads the current portal project revision snapshot through the BFF API', async () => {
+    const snapshot = {
+      schemaVersion: 'nomi-workbench-project-snapshot.v1',
+      project: {
+        id: 'local-project-1',
+        name: 'Cash on Rails',
+        localRevision: 4,
+        updatedAt: 1784550000000,
+      },
+      payload: {
+        workbenchDocument: { contentJson: null, updatedAt: 1784550000000 },
+        generationCanvas: { nodes: [], edges: [] },
+        timeline: { tracks: [] },
+      },
+    }
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe('https://cut.eva.mba/api/portal/project-revisions/current')
+      expect(init?.method).toBe('POST')
+      return response({
+        id: 'revision-current',
+        organization_id: 'org-everville',
+        workspace_id: 'workspace-content',
+        project_id: 'project-cash-on-rails',
+        revision_number: 4,
+        snapshot_digest: 'c'.repeat(64),
+        parent_revision_id: 'revision-previous',
+        created_by_user_id: 'principal-niko',
+        created_at: SUPABASE_NOW,
+        snapshot,
+      })
+    })
+    const services = createWebPortalServices({
+      endpoint: 'https://cut.eva.mba/api/portal',
+      apiBase: 'https://cut.eva.mba/api/portal',
+      bearer: BEARER,
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+
+    await expect(
+      services.collaboration.readCurrentProjectRevision({
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        schemaVersion: 'portal-project-revision.v1',
+        id: 'revision-current',
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        revisionNumber: 4,
+        snapshotDigest: 'c'.repeat(64),
+        parentRevisionId: 'revision-previous',
+        createdAt: NOW,
+        createdByPrincipalId: 'principal-niko',
+        snapshot,
+      },
+    })
   })
 
   it('lists approval gates and decides them through the approval RPC', async () => {

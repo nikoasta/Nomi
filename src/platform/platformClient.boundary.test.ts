@@ -107,6 +107,12 @@ async function invokeCapability(client: PlatformClient, capability: PlatformCapa
         snapshot: { schemaVersion: 'nomi-project.v1' },
         idempotencyKey: 'browser-revision-save-1',
       })
+    case 'portal.project-revisions.read-current':
+      return client.collaboration.readCurrentProjectRevision({
+        organizationId: ORGANIZATION_ID,
+        workspaceId: 'workspace-browser-boundary',
+        projectId: PROJECT_ID,
+      })
     case 'portal.review-queue.list':
       return client.collaboration.listReviewQueue({
         organizationId: ORGANIZATION_ID,

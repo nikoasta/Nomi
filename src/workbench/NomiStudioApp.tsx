@@ -5,7 +5,6 @@ import ProjectLibraryPage from './library/ProjectLibraryPage'
 import {
   createLocalProject,
   deleteLocalProject,
-  updateLocalProjectPortalBinding,
   useLocalProjects,
   type PortalProjectBinding,
   type LocalProjectSummary,
@@ -410,30 +409,18 @@ export default function NomiStudioApp(): JSX.Element {
 
   const openPortalProject = React.useCallback(
     (project: PortalProjectRecord) => {
-      const portal: PortalProjectBinding = {
-        organizationId: project.organizationId,
-        workspaceId: project.workspaceId,
-        projectId: project.id,
-        currentRevisionId: project.currentRevisionId,
-      }
-      const existing = projects.find((item) => item.portalProjectId === project.id)
-      if (existing) {
-        updateLocalProjectPortalBinding(existing.id, portal)
+      void (async () => {
+        const { openLocalPortalProject } = await import('./project/portalProjectSync')
+        const localProject = await openLocalPortalProject({ project, projects })
         refreshProjects()
         useWorkbenchStore.getState().setWorkspaceMode('generation')
-        void hydrateProject(existing.id)
-        return
-      }
-      void createAndOpenProject({
-        workspaceMode: 'generation',
-        name: project.title,
-        portal,
-      }).catch((error) => {
+        await hydrateProject(localProject.id)
+      })().catch((error) => {
         console.error('portal project open error', error)
         toast(t('app.project.newError'), 'error')
       })
     },
-    [createAndOpenProject, hydrateProject, projects, refreshProjects, t],
+    [hydrateProject, projects, refreshProjects, t],
   )
 
   const newProject = React.useCallback(() => {

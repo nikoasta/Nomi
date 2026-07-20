@@ -104,6 +104,10 @@ export type SupabaseProjectRevisionRow = {
   created_at: string
 }
 
+export type SupabaseProjectRevisionSnapshotRow = SupabaseProjectRevisionRow & {
+  snapshot: unknown
+}
+
 export type SupabaseApprovalGateRow = {
   id: string
   organization_id: string
@@ -169,6 +173,13 @@ export function mapProjectRevision(row: SupabaseProjectRevisionRow): PortalProje
     createdAt: rowTimestamp(row, 'created_at', 'createdAt'),
     createdByPrincipalId: readRowField(row, 'created_by_user_id', 'createdByUserId'),
   })
+}
+
+export function mapProjectRevisionSnapshot(row: SupabaseProjectRevisionSnapshotRow): PortalProjectRevisionRecord & { snapshot: unknown } {
+  return {
+    ...mapProjectRevision(row),
+    snapshot: readRowField(row, 'snapshot'),
+  }
 }
 
 export function mapApprovalGate(row: SupabaseApprovalGateRow): ApprovalGateRecord {

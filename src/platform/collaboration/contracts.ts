@@ -4,6 +4,7 @@ export const PORTAL_CAPABILITIES = [
   'portal.projects.list',
   'portal.projects.create',
   'portal.project-revisions.save',
+  'portal.project-revisions.read-current',
   'portal.review-queue.list',
   'portal.approvals.decide',
   'portal.audit-events.append',
@@ -45,6 +46,10 @@ export type PortalProjectRevisionRecord = PortalScope & {
   parentRevisionId: string | null
   createdAt: string
   createdByPrincipalId: string
+}
+
+export type PortalProjectRevisionSnapshotRecord = PortalProjectRevisionRecord & {
+  snapshot: unknown
 }
 
 export type ApprovalGateRecord = PortalScope & {
@@ -96,6 +101,10 @@ export type PortalProjectRevisionSaveRequest = PortalScope & {
   idempotencyKey: string
 }
 
+export type PortalProjectRevisionReadCurrentRequest = PortalScope & {
+  projectId: string
+}
+
 export type PortalReviewQueueListRequest = PortalScope & {
   projectId?: string
   cursor?: string | null
@@ -129,6 +138,9 @@ export type PlatformCollaboration = {
   >
   createProject(request: PortalProjectCreateRequest): Promise<PlatformResult<PortalProjectRecord>>
   saveProjectRevision(request: PortalProjectRevisionSaveRequest): Promise<PlatformResult<PortalProjectRevisionRecord>>
+  readCurrentProjectRevision(
+    request: PortalProjectRevisionReadCurrentRequest,
+  ): Promise<PlatformResult<PortalProjectRevisionSnapshotRecord | null>>
   listReviewQueue(request: PortalReviewQueueListRequest): Promise<
     PlatformResult<{
       items: ApprovalGateRecord[]

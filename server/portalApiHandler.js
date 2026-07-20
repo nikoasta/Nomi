@@ -9,6 +9,7 @@ const RPC_ALLOWLIST = new Set([
   'nomi_portal_list_projects',
   'nomi_portal_create_project',
   'nomi_portal_save_project_revision',
+  'nomi_portal_get_current_project_revision',
   'nomi_portal_list_review_queue',
   'nomi_portal_decide_approval_gate',
   'nomi_portal_append_audit_event',
@@ -83,6 +84,7 @@ const TABLE_INSERT_RPC = {
 
 const LEGACY_RPC = {
   save_project_revision: 'nomi_portal_save_project_revision',
+  get_current_project_revision: 'nomi_portal_get_current_project_revision',
   decide_approval_gate: 'nomi_portal_decide_approval_gate',
 }
 
@@ -882,6 +884,23 @@ export async function handlePortalRequest(req, res, pathInput = null) {
       if (req.method === 'GET' && path[1] === 'health') {
         return json(res, 200, portalCatalogHealth(catalog))
       }
+    }
+
+    if (req.method === 'POST' && path.join('/') === 'project-revisions/current') {
+      const body = await readJson(req)
+      const result = await callRpc({
+        env,
+        bearerToken: token,
+        functionName: 'nomi_portal_get_current_project_revision',
+        body: {
+          request_organization_id: body.organizationId,
+          request_workspace_id: body.workspaceId,
+          request_project_id: body.projectId,
+        },
+      })
+      if (!result.ok) return json(res, result.status, result.payload)
+      const row = Array.isArray(result.payload) ? result.payload[0] || null : null
+      return json(res, 200, row)
     }
 
     if (req.method === 'POST' && path.join('/') === 'tasks/run') {
