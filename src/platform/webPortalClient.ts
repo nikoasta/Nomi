@@ -1,14 +1,10 @@
 import type { PlatformCapability, PlatformIdentity, PlatformResult } from './client'
 import {
+  type ApprovalGateRecord,
   type PlatformCollaboration,
-  type PortalAuditEventRecord,
-  type PortalProjectRevisionRecord,
   type PortalProjectCreateRequest,
   type PortalProjectListRequest,
   type PortalProjectRecord,
-  parsePortalAuditEventRecord,
-  parsePortalProjectRecord,
-  parsePortalProjectRevisionRecord,
 } from './collaboration/contracts'
 import {
   type OrganizationListRequest,
@@ -22,87 +18,25 @@ import {
   type WorkspaceMembershipRecord,
   type WorkspaceRecord,
 } from './organizations/contracts'
+import {
+  mapApprovalGate,
+  mapAuditEvent,
+  mapProject,
+  mapProjectRevision,
+  type SupabaseApprovalGateRow,
+  type SupabaseAuditEventRow,
+  type SupabaseMembershipRow,
+  type SupabaseOrganizationRow,
+  type SupabaseProjectRevisionRow,
+  type SupabaseProjectRow,
+  type SupabaseWorkspaceRow,
+} from './webPortalRows'
 
 export type WebPortalClientConfig = {
   endpoint: string
   publishableKey: string
   bearer: string
   fetch?: typeof fetch
-}
-
-type SupabaseOrganizationRow = {
-  id: string
-  slug: string
-  name: string
-  status: string
-  created_at: string
-  updated_at: string
-}
-
-type SupabaseWorkspaceRow = {
-  id: string
-  organization_id: string
-  slug: string
-  name: string
-  status: string
-  created_at: string
-  updated_at: string
-}
-
-type SupabaseMembershipRow = {
-  id: string
-  organization_id: string
-  workspace_id: string
-  user_id: string
-  status: string
-  roles: string[]
-  organization_permissions: string[]
-  workspace_permissions: string[]
-  project_memberships?: Array<{
-    project_id: string
-    permissions: string[]
-  }>
-  created_at: string
-  updated_at: string
-}
-
-type SupabaseProjectRow = {
-  id: string
-  organization_id: string
-  workspace_id: string
-  slug: string
-  title: string
-  classification: string
-  status: string
-  current_revision_id: string | null
-  created_by_user_id: string
-  created_at: string
-  updated_at: string
-}
-
-type SupabaseAuditEventRow = {
-  id: string
-  organization_id: string
-  workspace_id: string
-  project_id: string | null
-  actor_user_id: string
-  action: string
-  target_type: string
-  target_id: string
-  metadata: Record<string, unknown>
-  created_at: string
-}
-
-type SupabaseProjectRevisionRow = {
-  id: string
-  organization_id: string
-  workspace_id: string
-  project_id: string
-  revision_number: number
-  snapshot_digest: string
-  parent_revision_id: string | null
-  created_by_user_id: string
-  created_at: string
 }
 
 type RequestOptions = {
@@ -398,56 +332,6 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
     }
   }
 
-  function mapProject(row: SupabaseProjectRow): PortalProjectRecord {
-    return parsePortalProjectRecord({
-      schemaVersion: 'portal-project.v1',
-      id: row.id,
-      organizationId: row.organization_id,
-      workspaceId: row.workspace_id,
-      title: row.title,
-      slug: row.slug,
-      classification: row.classification,
-      status: row.status,
-      brandKitId: null,
-      knowledgePackId: null,
-      currentRevisionId: row.current_revision_id,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      createdByPrincipalId: row.created_by_user_id,
-    })
-  }
-
-  function mapAuditEvent(row: SupabaseAuditEventRow): PortalAuditEventRecord {
-    return parsePortalAuditEventRecord({
-      schemaVersion: 'portal-audit-event.v1',
-      id: row.id,
-      organizationId: row.organization_id,
-      workspaceId: row.workspace_id,
-      projectId: row.project_id,
-      actorPrincipalId: row.actor_user_id,
-      action: row.action,
-      targetType: row.target_type,
-      targetId: row.target_id,
-      createdAt: row.created_at,
-      metadata: row.metadata,
-    })
-  }
-
-  function mapProjectRevision(row: SupabaseProjectRevisionRow): PortalProjectRevisionRecord {
-    return parsePortalProjectRevisionRecord({
-      schemaVersion: 'portal-project-revision.v1',
-      id: row.id,
-      organizationId: row.organization_id,
-      workspaceId: row.workspace_id,
-      projectId: row.project_id,
-      revisionNumber: row.revision_number,
-      snapshotDigest: row.snapshot_digest,
-      parentRevisionId: row.parent_revision_id,
-      createdAt: row.created_at,
-      createdByPrincipalId: row.created_by_user_id,
-    })
-  }
-
   return {
     identity: {
       getSession: async () => {
@@ -705,8 +589,76 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
           }
         }
       },
-      listReviewQueue: () => Promise.resolve(unsupported('portal.review-queue.list')),
-      decideApproval: () => Promise.resolve(unsupported('portal.approvals.decide')),
+      listReviewQueue: async (input) => {
+        const result = await selectRows<SupabaseApprovalGateRow>('portal.review-queue.list', {
+          table: 'approval_gates',
+          query: {
+            select:
+              'id,organization_id,workspace_id,project_id,kind,required_role,required,policy_snapshot_digest,asset_version_id,decision,decided_by_user_id,decided_at,created_at,updated_at',
+            organization_id: `eq.${input.organizationId}`,
+            workspace_id: `eq.${input.workspaceId}`,
+            ...(input.projectId ? { project_id: `eq.${input.projectId}` } : {}),
+            order: 'updated_at.desc',
+            limit: input.limit,
+          },
+        })
+        if (!result.ok) return result
+        const items: ApprovalGateRecord[] = []
+        try {
+          for (const row of result.value) items.push(mapApprovalGate(row))
+        } catch {
+          return {
+            ok: false,
+            error: {
+              code: 'INTEGRITY_ERROR',
+              capability: 'portal.review-queue.list',
+              message: 'Portal review queue rows are invalid',
+              retryable: false,
+            },
+          }
+        }
+        return { ok: true, value: { items, cursor: null } }
+      },
+      decideApproval: async (input) => {
+        const result = await callRpc<SupabaseApprovalGateRow>('portal.approvals.decide', {
+          functionName: 'decide_approval_gate',
+          body: {
+            request_organization_id: input.organizationId,
+            request_workspace_id: input.workspaceId,
+            request_project_id: input.projectId,
+            request_approval_gate_id: input.approvalGateId,
+            request_decision: input.decision,
+            request_expected_policy_snapshot_digest: input.expectedPolicySnapshotDigest,
+            request_comment: input.comment,
+          },
+        })
+        if (!result.ok) return result
+        const row = result.value[0]
+        if (!row) {
+          return {
+            ok: false,
+            error: {
+              code: 'INTEGRITY_ERROR',
+              capability: 'portal.approvals.decide',
+              message: 'Portal approval RPC returned no approval row',
+              retryable: false,
+            },
+          }
+        }
+        try {
+          return { ok: true, value: mapApprovalGate(row) }
+        } catch {
+          return {
+            ok: false,
+            error: {
+              code: 'INTEGRITY_ERROR',
+              capability: 'portal.approvals.decide',
+              message: 'Portal approval RPC returned invalid rows',
+              retryable: false,
+            },
+          }
+        }
+      },
       appendAuditEvent: async (input) => {
         const user = await getUser()
         if (!user.ok) {

@@ -53,11 +53,15 @@ describe('web portal PlatformClient adapter', () => {
       'portal.projects.list',
       'portal.projects.create',
       'portal.project-revisions.save',
+      'portal.review-queue.list',
+      'portal.approvals.decide',
       'portal.audit-events.append',
     ])
     expect(client.supports('org.memberships.list')).toBe(true)
     expect(client.supports('portal.projects.create')).toBe(true)
     expect(client.supports('portal.project-revisions.save')).toBe(true)
+    expect(client.supports('portal.review-queue.list')).toBe(true)
+    expect(client.supports('portal.approvals.decide')).toBe(true)
     await expect(client.identity.getSession()).resolves.toEqual({
       ok: true,
       value: {
@@ -438,6 +442,139 @@ describe('web portal PlatformClient adapter', () => {
           request_expected_current_revision_id: null,
           request_snapshot_digest: 'a'.repeat(64),
           request_snapshot: { schemaVersion: 'nomi-project.v1', title: 'Cash on Rails' },
+        }),
+      }),
+    )
+  })
+
+  it('lists approval gates and decides them through the approval RPC', async () => {
+    const gateRow = {
+      id: 'approval-brand-001',
+      organization_id: 'org-everville',
+      workspace_id: 'workspace-content',
+      project_id: 'project-cash-on-rails',
+      kind: 'brand-approval',
+      required_role: 'admin',
+      required: true,
+      policy_snapshot_digest: 'b'.repeat(64),
+      asset_version_id: null,
+      decision: null,
+      decided_by_user_id: null,
+      decided_at: null,
+      created_at: NOW,
+      updated_at: NOW,
+    }
+    const decidedRow = {
+      ...gateRow,
+      decision: 'approved',
+      decided_by_user_id: 'principal-niko',
+      decided_at: NOW,
+    }
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/rest/v1/rpc/decide_approval_gate') && init?.method === 'POST') {
+        return response([decidedRow])
+      }
+      if (url.includes('/rest/v1/approval_gates') && init?.method === 'GET') return response([gateRow])
+      return response([], { status: 404 })
+    })
+    const services = createWebPortalServices({
+      endpoint: ENDPOINT,
+      publishableKey: PUBLISHABLE,
+      bearer: BEARER,
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+
+    await expect(
+      services.collaboration.listReviewQueue({
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        limit: 20,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        items: [
+          {
+            schemaVersion: 'approval-gate.v1',
+            id: 'approval-brand-001',
+            organizationId: 'org-everville',
+            workspaceId: 'workspace-content',
+            projectId: 'project-cash-on-rails',
+            kind: 'brand-approval',
+            requiredRole: 'admin',
+            required: true,
+            decidedByPrincipalId: null,
+            decision: null,
+            decidedAt: null,
+            assetVersionId: null,
+            policySnapshotDigest: 'b'.repeat(64),
+          },
+        ],
+        cursor: null,
+      },
+    })
+
+    await expect(
+      services.collaboration.decideApproval({
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        approvalGateId: 'approval-brand-001',
+        decision: 'approved',
+        comment: 'Ready for publishing',
+        expectedPolicySnapshotDigest: 'b'.repeat(64),
+        idempotencyKey: 'approval-brand-001-approved',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        schemaVersion: 'approval-gate.v1',
+        id: 'approval-brand-001',
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        kind: 'brand-approval',
+        requiredRole: 'admin',
+        required: true,
+        decidedByPrincipalId: 'principal-niko',
+        decision: 'approved',
+        decidedAt: NOW,
+        assetVersionId: null,
+        policySnapshotDigest: 'b'.repeat(64),
+      },
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://project.supabase.co/rest/v1/approval_gates?select=id%2Corganization_id%2Cworkspace_id%2Cproject_id%2Ckind%2Crequired_role%2Crequired%2Cpolicy_snapshot_digest%2Casset_version_id%2Cdecision%2Cdecided_by_user_id%2Cdecided_at%2Ccreated_at%2Cupdated_at&organization_id=eq.org-everville&workspace_id=eq.workspace-content&project_id=eq.project-cash-on-rails&order=updated_at.desc&limit=20',
+      expect.objectContaining({
+        method: 'GET',
+        headers: expect.objectContaining({
+          apikey: PUBLISHABLE,
+          authorization: `Bearer ${BEARER}`,
+          'accept-profile': 'app',
+          'content-profile': 'app',
+        }),
+      }),
+    )
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://project.supabase.co/rest/v1/rpc/decide_approval_gate',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          apikey: PUBLISHABLE,
+          authorization: `Bearer ${BEARER}`,
+          'accept-profile': 'app',
+          'content-profile': 'app',
+        }),
+        body: JSON.stringify({
+          request_organization_id: 'org-everville',
+          request_workspace_id: 'workspace-content',
+          request_project_id: 'project-cash-on-rails',
+          request_approval_gate_id: 'approval-brand-001',
+          request_decision: 'approved',
+          request_expected_policy_snapshot_digest: 'b'.repeat(64),
+          request_comment: 'Ready for publishing',
         }),
       }),
     )

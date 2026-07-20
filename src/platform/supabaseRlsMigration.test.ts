@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 const MIGRATION = 'supabase/migrations/20260719141528_everville_portal_auth_rls.sql'
 const INDEX_MIGRATION = 'supabase/migrations/20260720014246_app_fk_indexes.sql'
 const REVISION_RPC_MIGRATION = 'supabase/migrations/20260720030000_portal_revision_rpc.sql'
+const APPROVAL_RPC_MIGRATION = 'supabase/migrations/20260720034022_portal_approval_rpc.sql'
 
 function sql(): string {
   return readFileSync(MIGRATION, 'utf8')
@@ -15,6 +16,10 @@ function indexSql(): string {
 
 function revisionRpcSql(): string {
   return readFileSync(REVISION_RPC_MIGRATION, 'utf8')
+}
+
+function approvalRpcSql(): string {
+  return readFileSync(APPROVAL_RPC_MIGRATION, 'utf8')
 }
 
 describe('Everville Supabase auth/RLS migration', () => {
@@ -130,6 +135,29 @@ describe('Everville Supabase portal revision RPC migration', () => {
     expect(source).toContain('revoke all on function app.save_project_revision')
     expect(source).toContain('from public, anon, authenticated')
     expect(source).toContain('grant execute on function app.save_project_revision')
+    expect(source).toContain('to authenticated')
+    expect(source).not.toMatch(/grant\s+execute[^;]+to\s+anon/i)
+  })
+})
+
+describe('Everville Supabase portal approval RPC migration', () => {
+  it('decides approval gates through an authenticated transactional RPC without public execute', () => {
+    const source = approvalRpcSql()
+
+    expect(source).toContain('add column if not exists required_role')
+    expect(source).toContain('create or replace function app.decide_approval_gate')
+    expect(source).toContain('security definer')
+    expect(source).toContain("set search_path = ''")
+    expect(source).toContain('actor_id uuid := (select auth.uid())')
+    expect(source).toContain('for update;')
+    expect(source).toContain('locked_gate.policy_snapshot_digest is distinct from request_expected_policy_snapshot_digest')
+    expect(source).toContain('locked_gate.required_permission')
+    expect(source).toContain('decided_by_user_id = actor_id')
+    expect(source).toContain("action,\n    target_type")
+    expect(source).toContain("'approval.decide'")
+    expect(source).toContain('revoke all on function app.decide_approval_gate')
+    expect(source).toContain('from public, anon, authenticated')
+    expect(source).toContain('grant execute on function app.decide_approval_gate')
     expect(source).toContain('to authenticated')
     expect(source).not.toMatch(/grant\s+execute[^;]+to\s+anon/i)
   })
