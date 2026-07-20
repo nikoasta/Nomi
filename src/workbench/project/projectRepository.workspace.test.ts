@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createLocalProject, readLocalProject } from './projectRepository'
+import { createLocalProject, readLocalProject, saveLocalProject } from './projectRepository'
 import { migrateProjectRecord } from './projectCategoryMigration'
 import { getDesktopBridge } from '../../desktop/bridge'
 
@@ -9,9 +9,28 @@ vi.mock('../../desktop/bridge', () => ({
 
 const mockedGetDesktopBridge = vi.mocked(getDesktopBridge)
 
+function createMemoryStorage(): Storage {
+  const values = new Map<string, string>()
+  return {
+    get length() {
+      return values.size
+    },
+    clear: () => values.clear(),
+    getItem: (key) => values.get(key) ?? null,
+    key: (index) => Array.from(values.keys())[index] ?? null,
+    removeItem: (key) => {
+      values.delete(key)
+    },
+    setItem: (key, value) => {
+      values.set(key, String(value))
+    },
+  }
+}
+
 describe('projectRepository workspace project creation', () => {
   beforeEach(() => {
     mockedGetDesktopBridge.mockReset()
+    vi.stubGlobal('window', { localStorage: createMemoryStorage() })
   })
 
   it('desktop createLocalProject does not pass arbitrary rootPath through projects.create', () => {
@@ -40,6 +59,35 @@ describe('projectRepository workspace project creation', () => {
 
     expect(record).toMatchObject({ name: 'Browser Project', version: 1 })
     expect('rootPath' in record).toBe(false)
+  })
+
+  it('keeps portal bindings on browser projects and across local saves', () => {
+    mockedGetDesktopBridge.mockReturnValue(null)
+
+    const record = createLocalProject('Shared Campaign', undefined, {
+      portal: {
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        currentRevisionId: 'revision-1',
+      },
+    })
+
+    expect(record).toMatchObject({
+      portalOrganizationId: 'org-everville',
+      portalWorkspaceId: 'workspace-content',
+      portalProjectId: 'project-cash-on-rails',
+      portalCurrentRevisionId: 'revision-1',
+    })
+    expect('draft' in record).toBe(false)
+
+    const saved = saveLocalProject(record.id, record.payload, record.name)
+    expect(saved).toMatchObject({
+      portalOrganizationId: 'org-everville',
+      portalWorkspaceId: 'workspace-content',
+      portalProjectId: 'project-cash-on-rails',
+      portalCurrentRevisionId: 'revision-1',
+    })
   })
 
   it('stamps seedKey onto programmatically seeded projects (idempotent example seeding, audit A8)', () => {

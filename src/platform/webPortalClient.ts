@@ -2,11 +2,13 @@ import type { PlatformCapability, PlatformIdentity, PlatformResult } from './cli
 import {
   type PlatformCollaboration,
   type PortalAuditEventRecord,
+  type PortalProjectRevisionRecord,
   type PortalProjectCreateRequest,
   type PortalProjectListRequest,
   type PortalProjectRecord,
   parsePortalAuditEventRecord,
   parsePortalProjectRecord,
+  parsePortalProjectRevisionRecord,
 } from './collaboration/contracts'
 import {
   type OrganizationListRequest,
@@ -88,6 +90,18 @@ type SupabaseAuditEventRow = {
   target_type: string
   target_id: string
   metadata: Record<string, unknown>
+  created_at: string
+}
+
+type SupabaseProjectRevisionRow = {
+  id: string
+  organization_id: string
+  workspace_id: string
+  project_id: string
+  revision_number: number
+  snapshot_digest: string
+  parent_revision_id: string | null
+  created_by_user_id: string
   created_at: string
 }
 
@@ -342,6 +356,48 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
     }
   }
 
+  async function callRpc<T>(
+    capability: WebPortalCapability,
+    options: {
+      functionName: string
+      body: Readonly<Record<string, unknown>>
+    },
+  ): Promise<PlatformResult<T[]>> {
+    const url = `${endpoint}/rest/v1/rpc/${options.functionName}`
+    let response: Response
+    try {
+      response = await request(url, {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          apikey: publishableKey,
+          authorization: `Bearer ${bearer}`,
+          'accept-profile': 'app',
+          'content-profile': 'app',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(options.body),
+      })
+    } catch {
+      return mapFetchError(capability)
+    }
+    if (!response.ok) return mapResponseError(capability, response.status)
+    try {
+      const rows = (await response.json()) as T[]
+      return { ok: true, value: rows }
+    } catch {
+      return {
+        ok: false,
+        error: {
+          code: 'INTEGRITY_ERROR',
+          capability,
+          message: `${capability} returned invalid JSON`,
+          retryable: false,
+        },
+      }
+    }
+  }
+
   function mapProject(row: SupabaseProjectRow): PortalProjectRecord {
     return parsePortalProjectRecord({
       schemaVersion: 'portal-project.v1',
@@ -374,6 +430,21 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
       targetId: row.target_id,
       createdAt: row.created_at,
       metadata: row.metadata,
+    })
+  }
+
+  function mapProjectRevision(row: SupabaseProjectRevisionRow): PortalProjectRevisionRecord {
+    return parsePortalProjectRevisionRecord({
+      schemaVersion: 'portal-project-revision.v1',
+      id: row.id,
+      organizationId: row.organization_id,
+      workspaceId: row.workspace_id,
+      projectId: row.project_id,
+      revisionNumber: row.revision_number,
+      snapshotDigest: row.snapshot_digest,
+      parentRevisionId: row.parent_revision_id,
+      createdAt: row.created_at,
+      createdByPrincipalId: row.created_by_user_id,
     })
   }
 
@@ -595,7 +666,45 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
           }
         }
       },
-      saveProjectRevision: () => Promise.resolve(unsupported('portal.project-revisions.save')),
+      saveProjectRevision: async (input) => {
+        const result = await callRpc<SupabaseProjectRevisionRow>('portal.project-revisions.save', {
+          functionName: 'save_project_revision',
+          body: {
+            request_organization_id: input.organizationId,
+            request_workspace_id: input.workspaceId,
+            request_project_id: input.projectId,
+            request_expected_current_revision_id: input.expectedCurrentRevisionId,
+            request_snapshot_digest: input.snapshotDigest,
+            request_snapshot: input.snapshot,
+          },
+        })
+        if (!result.ok) return result
+        const row = result.value[0]
+        if (!row) {
+          return {
+            ok: false,
+            error: {
+              code: 'INTEGRITY_ERROR',
+              capability: 'portal.project-revisions.save',
+              message: 'Portal revision RPC returned no revision row',
+              retryable: false,
+            },
+          }
+        }
+        try {
+          return { ok: true, value: mapProjectRevision(row) }
+        } catch {
+          return {
+            ok: false,
+            error: {
+              code: 'INTEGRITY_ERROR',
+              capability: 'portal.project-revisions.save',
+              message: 'Portal revision RPC returned invalid rows',
+              retryable: false,
+            },
+          }
+        }
+      },
       listReviewQueue: () => Promise.resolve(unsupported('portal.review-queue.list')),
       decideApproval: () => Promise.resolve(unsupported('portal.approvals.decide')),
       appendAuditEvent: async (input) => {

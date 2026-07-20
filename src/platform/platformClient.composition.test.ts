@@ -69,6 +69,7 @@ describe('getPlatformClient Electron composition', () => {
     expect(client.supports('org.memberships.list')).toBe(true)
     expect(client.supports('portal.projects.list')).toBe(true)
     expect(client.supports('portal.projects.create')).toBe(true)
+    expect(client.supports('portal.project-revisions.save')).toBe(true)
     expect(client.supports('portal.audit-events.append')).toBe(true)
   })
 

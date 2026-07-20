@@ -7,6 +7,8 @@ import {
   readLocalProject,
   readLocalProjectAsync,
   saveLocalProject as saveProjectRecord,
+  updateLocalProjectPortalBinding as updateProjectPortalBinding,
+  type PortalProjectBinding,
 } from '../project/projectRepository'
 import type {
   WorkbenchProjectRecordV1 as LocalProjectRecord,
@@ -30,6 +32,10 @@ function toProjectSummary(record: LocalProjectRecord): LocalProjectSummary {
     thumbnail: record.thumbnail,
     thumbnailUrls: record.thumbnailUrls,
     seedKey: record.seedKey,
+    portalOrganizationId: record.portalOrganizationId,
+    portalWorkspaceId: record.portalWorkspaceId,
+    portalProjectId: record.portalProjectId,
+    portalCurrentRevisionId: record.portalCurrentRevisionId,
     source: record.source,
     rootPath: record.rootPath,
     missing: record.missing,
@@ -96,7 +102,11 @@ export function useLocalProjects(): {
   }
 }
 
-export function createLocalProject(name?: string, templateId?: string, options: { rootPath?: string; seedKey?: string } = {}): LocalProjectRecord {
+export function createLocalProject(
+  name?: string,
+  templateId?: string,
+  options: { rootPath?: string; seedKey?: string; portal?: PortalProjectBinding } = {},
+): LocalProjectRecord {
   const record = createProjectRecord(name, templateId, options)
   publishLocalProjectRecord(record)
   return record
@@ -123,7 +133,17 @@ export function deleteLocalProject(projectId: string): void {
   unpublishLocalProject(projectId)
 }
 
+export function updateLocalProjectPortalBinding(
+  projectId: string,
+  binding: PortalProjectBinding,
+): LocalProjectRecord | null {
+  const record = updateProjectPortalBinding(projectId, binding)
+  if (record) publishLocalProjectRecord(record)
+  return record
+}
+
 export type {
   LocalProjectRecord,
   LocalProjectSummary,
+  PortalProjectBinding,
 }

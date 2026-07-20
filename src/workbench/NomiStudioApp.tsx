@@ -5,7 +5,9 @@ import ProjectLibraryPage from './library/ProjectLibraryPage'
 import {
   createLocalProject,
   deleteLocalProject,
+  updateLocalProjectPortalBinding,
   useLocalProjects,
+  type PortalProjectBinding,
   type LocalProjectSummary,
 } from './library/localProjectStore'
 import type { WorkbenchProjectPersistenceService } from './project/projectPersistenceService'
@@ -36,6 +38,7 @@ import { useSpendConfirmStore } from './generationCanvas/spend/spendConfirm'
 import { useFilePreviewStore } from './explorer/useFilePreviewStore'
 import { dispatchGlobalAssetPopoverOpen } from '../ui/browser/overlay/globalAssetPopoverEvents'
 import { useI18n } from '../i18n/i18nContext'
+import type { PortalProjectRecord } from '../platform/collaboration/contracts'
 
 type AppView = 'library' | 'studio'
 
@@ -49,6 +52,8 @@ type ProjectCreationSpec = {
   templateId?: string
   /** 播种身份（如 example:xxx）；带 seedKey 的项目永不被空壳 GC 回收。*/
   seedKey?: string
+  /** Corporate web portal binding; bound projects autosync revisions to Supabase. */
+  portal?: PortalProjectBinding
 }
 type ProjectPersistenceModule = typeof import('./project/projectPersistenceService')
 
@@ -392,12 +397,43 @@ export default function NomiStudioApp(): JSX.Element {
   const createAndOpenProject = React.useCallback(
     async (spec: ProjectCreationSpec): Promise<{ projectId: string; opened: boolean }> => {
       useWorkbenchStore.getState().setWorkspaceMode(spec.workspaceMode)
-      const project = createLocalProject(spec.name, spec.templateId, spec.seedKey ? { seedKey: spec.seedKey } : {})
+      const project = createLocalProject(spec.name, spec.templateId, {
+        ...(spec.seedKey ? { seedKey: spec.seedKey } : {}),
+        ...(spec.portal ? { portal: spec.portal } : {}),
+      })
       refreshProjects()
       const opened = await hydrateProject(project.id)
       return { projectId: project.id, opened }
     },
     [hydrateProject, refreshProjects],
+  )
+
+  const openPortalProject = React.useCallback(
+    (project: PortalProjectRecord) => {
+      const portal: PortalProjectBinding = {
+        organizationId: project.organizationId,
+        workspaceId: project.workspaceId,
+        projectId: project.id,
+        currentRevisionId: project.currentRevisionId,
+      }
+      const existing = projects.find((item) => item.portalProjectId === project.id)
+      if (existing) {
+        updateLocalProjectPortalBinding(existing.id, portal)
+        refreshProjects()
+        useWorkbenchStore.getState().setWorkspaceMode('generation')
+        void hydrateProject(existing.id)
+        return
+      }
+      void createAndOpenProject({
+        workspaceMode: 'generation',
+        name: project.title,
+        portal,
+      }).catch((error) => {
+        console.error('portal project open error', error)
+        toast(t('app.project.newError'), 'error')
+      })
+    },
+    [createAndOpenProject, hydrateProject, projects, refreshProjects, t],
   )
 
   const newProject = React.useCallback(() => {
@@ -626,6 +662,7 @@ export default function NomiStudioApp(): JSX.Element {
           onOpenProject={openProject}
           onDeleteProject={deleteProject}
           onNewProject={() => void newProject()}
+          onOpenPortalProject={openPortalProject}
           onOpenFolder={() => void openWorkspaceFolder()}
           onRevealProjectFolder={revealProjectFolder}
           onOpenModelCatalog={() => setModelCatalogOpened(true)}

@@ -26,11 +26,13 @@ import type { ProjectTemplateId } from './projectTemplates'
 import { useI18n } from '../../i18n/i18nContext'
 import type { TranslationKey } from '../../i18n/translations'
 import { usePortalWorkspace } from './usePortalWorkspace'
+import type { PortalProjectRecord } from '../../platform/collaboration/contracts'
 
 type Props = {
   onOpenProject: (projectId: string) => void
   onDeleteProject: (project: LocalProjectSummary) => void
   onNewProject: (templateId?: ProjectTemplateId) => void
+  onOpenPortalProject?: (project: PortalProjectRecord) => void
   onOpenFolder?: () => void
   onRevealProjectFolder?: (projectId: string) => void
   onOpenModelCatalog?: () => void
@@ -81,6 +83,7 @@ export default function ProjectLibraryPage({
   onOpenProject,
   onDeleteProject,
   onNewProject,
+  onOpenPortalProject,
   onOpenFolder,
   onRevealProjectFolder,
   onOpenModelCatalog,
@@ -130,10 +133,13 @@ export default function ProjectLibraryPage({
   const createSharedProject = React.useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault()
-      const ok = await portalWorkspace.createSharedProject(sharedProjectTitle)
-      if (ok) setSharedProjectTitle('')
+      const project = await portalWorkspace.createSharedProject(sharedProjectTitle)
+      if (project) {
+        setSharedProjectTitle('')
+        onOpenPortalProject?.(project)
+      }
     },
-    [portalWorkspace, sharedProjectTitle],
+    [onOpenPortalProject, portalWorkspace, sharedProjectTitle],
   )
 
   const libraryTopActions = (
@@ -341,13 +347,19 @@ export default function ProjectLibraryPage({
                       <span className="text-caption text-nomi-ink-50">{t('library.portal.noProjects')}</span>
                     ) : (
                       portalWorkspace.state.projects.slice(0, 6).map((project) => (
-                        <span
+                        <button
                           key={project.id}
-                          className="max-w-[220px] truncate rounded-pill bg-nomi-ink-05 px-3 py-1 text-caption text-nomi-ink-70"
+                          type="button"
+                          className={cn(
+                            'max-w-[220px] truncate rounded-pill border-0 bg-nomi-ink-05 px-3 py-1',
+                            'font-inherit text-caption text-nomi-ink-70 cursor-pointer',
+                            'transition-colors hover:bg-nomi-ink-10 hover:text-nomi-ink',
+                          )}
                           title={project.title}
+                          onClick={() => onOpenPortalProject?.(project)}
                         >
                           {project.title}
-                        </span>
+                        </button>
                       ))
                     )}
                   </div>

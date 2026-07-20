@@ -47,6 +47,50 @@ function formatDefaultProjectName(): string {
     return `未命名项目 ${new Date().toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
 }
 
+export type PortalProjectBinding = {
+    organizationId: string;
+    workspaceId: string;
+    projectId: string;
+    currentRevisionId?: string | null;
+};
+
+function normalizePortalProjectBinding(value?: PortalProjectBinding | null): PortalProjectBinding | null {
+    const organizationId = String(value?.organizationId || "").trim();
+    const workspaceId = String(value?.workspaceId || "").trim();
+    const projectId = String(value?.projectId || "").trim();
+    if (!organizationId || !workspaceId || !projectId) return null;
+    const currentRevisionId =
+        value?.currentRevisionId === null ? null : String(value?.currentRevisionId || "").trim() || null;
+    return { organizationId, workspaceId, projectId, currentRevisionId };
+}
+
+function portalSummaryFields(value?: PortalProjectBinding | null): Partial<WorkbenchProjectSummary> {
+    const binding = normalizePortalProjectBinding(value);
+    if (!binding) return {};
+    return {
+        portalOrganizationId: binding.organizationId,
+        portalWorkspaceId: binding.workspaceId,
+        portalProjectId: binding.projectId,
+        portalCurrentRevisionId: binding.currentRevisionId,
+    };
+}
+
+function portalSummaryFieldsFromRaw(value: unknown): Partial<WorkbenchProjectSummary> {
+    if (!value || typeof value !== "object") return {};
+    const raw = value as Record<string, unknown>;
+    return portalSummaryFields({
+        organizationId: typeof raw.portalOrganizationId === "string" ? raw.portalOrganizationId : "",
+        workspaceId: typeof raw.portalWorkspaceId === "string" ? raw.portalWorkspaceId : "",
+        projectId: typeof raw.portalProjectId === "string" ? raw.portalProjectId : "",
+        currentRevisionId:
+            raw.portalCurrentRevisionId === null
+                ? null
+                : typeof raw.portalCurrentRevisionId === "string"
+                  ? raw.portalCurrentRevisionId
+                  : null,
+    });
+}
+
 function readIndex(): WorkbenchProjectSummary[] {
     const raw = readJson(PROJECT_INDEX_KEY);
     if (!Array.isArray(raw)) return [];
@@ -108,13 +152,13 @@ export function listLocalProjects(): WorkbenchProjectSummary[] {
 export function createLocalProject(
     name?: string,
     templateId?: string,
-    options: { rootPath?: string; seedKey?: string } = {},
+    options: { rootPath?: string; seedKey?: string; portal?: PortalProjectBinding } = {},
 ): WorkbenchProjectRecordV1 {
     const now = Date.now();
     const template = getProjectTemplate(templateId || null);
     // 草稿态：用户手动「新建空白」（无 seedKey 播种、无 rootPath 外部绑定）零编辑会被启动 GC 回收。
     // example（seedKey）/打开文件夹（rootPath）不打标记，永不被回收。
-    const isDraft = !options.seedKey?.trim() && !options.rootPath?.trim();
+    const isDraft = !options.seedKey?.trim() && !options.rootPath?.trim() && !normalizePortalProjectBinding(options.portal);
     const summary: WorkbenchProjectSummary = {
         id: createProjectId(),
         name:
@@ -127,6 +171,7 @@ export function createLocalProject(
         savedAt: now,
         ...(options.seedKey?.trim() ? { seedKey: options.seedKey.trim() } : {}),
         ...(isDraft ? { draft: true } : {}),
+        ...portalSummaryFields(options.portal),
     };
     const docDefaults = createDefaultWorkbenchDocument();
     const seededDocument = template.seedDocument
@@ -239,6 +284,8 @@ export function saveLocalProject(
         savedAt: now,
         ...(existing?.thumbStyle ? { thumbStyle: existing.thumbStyle } : {}),
         ...(existing?.seedKey ? { seedKey: existing.seedKey } : {}),
+        ...portalSummaryFieldsFromRaw(existingRecord),
+        ...portalSummaryFieldsFromRaw(existing),
         ...(thumbnail ? { thumbnail } : {}),
         ...(thumbnailUrls.length
             ? { thumbnailUrls }
@@ -264,6 +311,34 @@ export function saveLocalProject(
     writeJson(projectRecordKey(id), record);
     writeIndex(nextIndex);
     return record;
+}
+
+export function updateLocalProjectPortalBinding(
+    projectId: string,
+    binding: PortalProjectBinding,
+): WorkbenchProjectRecordV1 | null {
+    const id = String(projectId || "").trim();
+    if (!id) throw new Error("projectId is required");
+    const normalized = normalizePortalProjectBinding(binding);
+    if (!normalized) throw new Error("portal binding is required");
+    const desktop = getDesktopBridge();
+    const existingRecord = desktop
+        ? desktop.projects.read(id)
+        : readJson(projectRecordKey(id));
+    const summary = normalizeSummary(existingRecord);
+    if (!summary) return null;
+    const fields = portalSummaryFields(normalized);
+    const next: WorkbenchProjectRecordV1 = {
+        ...normalizeRecord({ ...summary, ...fields }, existingRecord),
+        ...fields,
+    };
+    if (desktop) {
+        if (!desktop.projects.save) return next;
+        return desktop.projects.save(id, next) as WorkbenchProjectRecordV1;
+    }
+    writeJson(projectRecordKey(id), next);
+    writeIndex(readMergedProjectSummaries().map((item) => (item.id === id ? { ...item, ...fields } : item)));
+    return next;
 }
 
 export function deleteLocalProject(projectId: string): void {

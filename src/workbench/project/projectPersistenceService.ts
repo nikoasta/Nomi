@@ -11,6 +11,7 @@ import type { WorkbenchProjectPayload, WorkbenchProjectRecordV1 } from './projec
 import { migrateProjectRecord, type CategoryMigrationDiagnostic } from './projectCategoryMigration'
 import { migrateProjectV51ToV60 } from './projectV51ToV60Migration'
 import { backfillShotIndexes } from '../generationCanvas/model/shotNumbering'
+import { schedulePortalProjectRevisionSync } from './portalProjectSync'
 
 let lastCategoryMigrationDiagnostic: CategoryMigrationDiagnostic | null = null
 
@@ -115,6 +116,7 @@ export function createWorkbenchProjectPersistenceService(deps: Dependencies): Wo
     const localSaved = saveLocalProject(project.id, payload, project.name)
     writeLastActiveProjectId(localSaved.id)
     deps.setActiveProject(localSaved)
+    schedulePortalProjectRevisionSync(localSaved)
     return localSaved
   }
 
@@ -133,6 +135,7 @@ export function createWorkbenchProjectPersistenceService(deps: Dependencies): Wo
       saveProject: async (_projectId, payload, _projectName) => {
         const localSaved = saveLocalProject(input.project.id, payload, input.project.name)
         writeLastActiveProjectId(localSaved.id)
+        schedulePortalProjectRevisionSync(localSaved)
         return localSaved
       },
       onSaved: input.onSaved,

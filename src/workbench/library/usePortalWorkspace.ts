@@ -37,7 +37,7 @@ function resultMessage(result: { error: { code: string; message: string } }): st
 export function usePortalWorkspace(): {
   state: PortalWorkspaceLoadState
   refresh: () => void
-  createSharedProject: (title: string) => Promise<boolean>
+  createSharedProject: (title: string) => Promise<PortalProjectRecord | null>
 } {
   const [state, setState] = React.useState<PortalWorkspaceLoadState>({ kind: 'hidden' })
   const [reloadToken, setReloadToken] = React.useState(0)
@@ -139,10 +139,10 @@ export function usePortalWorkspace(): {
   }, [refresh])
 
   const createSharedProject = React.useCallback(
-    async (title: string): Promise<boolean> => {
+    async (title: string): Promise<PortalProjectRecord | null> => {
       const scope = scopeRef.current
       const safeTitle = title.trim()
-      if (!scope || !safeTitle) return false
+      if (!scope || !safeTitle) return null
       const client = getPlatformClient()
       setState((current) => (current.kind === 'ready' ? { ...current, creating: true, error: null } : current))
       const project = await client.collaboration.createProject({
@@ -157,7 +157,7 @@ export function usePortalWorkspace(): {
         setState((current) =>
           current.kind === 'ready' ? { ...current, creating: false, error: resultMessage(project) } : current,
         )
-        return false
+        return null
       }
       void client.collaboration.appendAuditEvent({
         organizationId: scope.organizationId,
@@ -180,7 +180,7 @@ export function usePortalWorkspace(): {
           : current,
       )
       refresh()
-      return true
+      return project.value
     },
     [refresh],
   )

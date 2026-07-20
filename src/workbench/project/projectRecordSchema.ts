@@ -36,6 +36,10 @@ export const workbenchProjectSummarySchema = z.object({
   thumbnailUrls: z.array(z.string()).optional(),
   seedKey: z.string().min(1).optional(),
   draft: z.boolean().optional(),
+  portalOrganizationId: z.string().min(1).optional(),
+  portalWorkspaceId: z.string().min(1).optional(),
+  portalProjectId: z.string().min(1).optional(),
+  portalCurrentRevisionId: z.string().min(1).nullable().optional(),
 })
 
 export const workbenchProjectPayloadSchema = z.object({
@@ -92,6 +96,11 @@ export type WorkbenchProjectSummary = {
    * example（有 seedKey）/打开文件夹（有 rootPath）/老项目都无此字段，GC 永不碰。
    */
   draft?: boolean
+  /** Web portal team binding. Desktop projects can omit these and remain purely local. */
+  portalOrganizationId?: string
+  portalWorkspaceId?: string
+  portalProjectId?: string
+  portalCurrentRevisionId?: string | null
   /** 仅桌面端有；Web 端无文件夹概念，缺省按 native 处理。 */
   source?: WorkbenchProjectSource
   /** 仅桌面端有；项目真实根目录，用于打开 assets / exports 所在文件夹。 */

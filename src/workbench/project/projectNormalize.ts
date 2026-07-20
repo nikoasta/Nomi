@@ -103,6 +103,20 @@ export function normalizeSummary(input: unknown): WorkbenchProjectSummary | null
         ...(typeof raw.seedKey === "string" && raw.seedKey.trim()
             ? { seedKey: raw.seedKey.trim() }
             : {}),
+        ...(typeof raw.portalOrganizationId === "string" && raw.portalOrganizationId.trim()
+            ? { portalOrganizationId: raw.portalOrganizationId.trim() }
+            : {}),
+        ...(typeof raw.portalWorkspaceId === "string" && raw.portalWorkspaceId.trim()
+            ? { portalWorkspaceId: raw.portalWorkspaceId.trim() }
+            : {}),
+        ...(typeof raw.portalProjectId === "string" && raw.portalProjectId.trim()
+            ? { portalProjectId: raw.portalProjectId.trim() }
+            : {}),
+        ...(raw.portalCurrentRevisionId === null
+            ? { portalCurrentRevisionId: null }
+            : typeof raw.portalCurrentRevisionId === "string" && raw.portalCurrentRevisionId.trim()
+              ? { portalCurrentRevisionId: raw.portalCurrentRevisionId.trim() }
+              : {}),
         ...(raw.source === "native" || raw.source === "folder"
             ? { source: raw.source }
             : {}),

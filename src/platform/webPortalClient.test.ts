@@ -52,10 +52,12 @@ describe('web portal PlatformClient adapter', () => {
       'org.memberships.list',
       'portal.projects.list',
       'portal.projects.create',
+      'portal.project-revisions.save',
       'portal.audit-events.append',
     ])
     expect(client.supports('org.memberships.list')).toBe(true)
     expect(client.supports('portal.projects.create')).toBe(true)
+    expect(client.supports('portal.project-revisions.save')).toBe(true)
     await expect(client.identity.getSession()).resolves.toEqual({
       ok: true,
       value: {
@@ -365,6 +367,80 @@ describe('web portal PlatformClient adapter', () => {
         metadata: { source: 'web-portal' },
       },
     })
+  })
+
+  it('saves project revisions through the transactional portal RPC', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.includes('/rest/v1/rpc/save_project_revision') && init?.method === 'POST') {
+        return response([
+          {
+            id: 'revision-001',
+            organization_id: 'org-everville',
+            workspace_id: 'workspace-content',
+            project_id: 'project-cash-on-rails',
+            revision_number: 1,
+            snapshot_digest: 'a'.repeat(64),
+            parent_revision_id: null,
+            created_by_user_id: 'principal-niko',
+            created_at: NOW,
+          },
+        ])
+      }
+      return response([], { status: 404 })
+    })
+    const services = createWebPortalServices({
+      endpoint: ENDPOINT,
+      publishableKey: PUBLISHABLE,
+      bearer: BEARER,
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+
+    await expect(
+      services.collaboration.saveProjectRevision({
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        expectedCurrentRevisionId: null,
+        snapshotDigest: 'a'.repeat(64),
+        snapshot: { schemaVersion: 'nomi-project.v1', title: 'Cash on Rails' },
+        idempotencyKey: 'revision-cash-on-rails-1',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        schemaVersion: 'portal-project-revision.v1',
+        id: 'revision-001',
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        revisionNumber: 1,
+        snapshotDigest: 'a'.repeat(64),
+        parentRevisionId: null,
+        createdAt: NOW,
+        createdByPrincipalId: 'principal-niko',
+      },
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://project.supabase.co/rest/v1/rpc/save_project_revision',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          apikey: PUBLISHABLE,
+          authorization: `Bearer ${BEARER}`,
+          'accept-profile': 'app',
+          'content-profile': 'app',
+        }),
+        body: JSON.stringify({
+          request_organization_id: 'org-everville',
+          request_workspace_id: 'workspace-content',
+          request_project_id: 'project-cash-on-rails',
+          request_expected_current_revision_id: null,
+          request_snapshot_digest: 'a'.repeat(64),
+          request_snapshot: { schemaVersion: 'nomi-project.v1', title: 'Cash on Rails' },
+        }),
+      }),
+    )
   })
 
   it('rejects service-role shaped browser configuration before any network call', () => {

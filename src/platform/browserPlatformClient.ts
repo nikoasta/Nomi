@@ -24,6 +24,7 @@ const AUTHENTICATED_PORTAL_CAPABILITIES = filterableCapabilities([
   'org.memberships.list',
   'portal.projects.list',
   'portal.projects.create',
+  'portal.project-revisions.save',
   'portal.audit-events.append',
 ])
 

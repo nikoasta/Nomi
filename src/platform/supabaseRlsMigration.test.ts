@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 
 const MIGRATION = 'supabase/migrations/20260719141528_everville_portal_auth_rls.sql'
 const INDEX_MIGRATION = 'supabase/migrations/20260720014246_app_fk_indexes.sql'
+const REVISION_RPC_MIGRATION = 'supabase/migrations/20260720030000_portal_revision_rpc.sql'
 
 function sql(): string {
   return readFileSync(MIGRATION, 'utf8')
@@ -10,6 +11,10 @@ function sql(): string {
 
 function indexSql(): string {
   return readFileSync(INDEX_MIGRATION, 'utf8')
+}
+
+function revisionRpcSql(): string {
+  return readFileSync(REVISION_RPC_MIGRATION, 'utf8')
 }
 
 describe('Everville Supabase auth/RLS migration', () => {
@@ -107,5 +112,25 @@ describe('Everville Supabase app FK index migration', () => {
     ]) {
       expect(source).toContain(`create index if not exists ${expected}`)
     }
+  })
+})
+
+describe('Everville Supabase portal revision RPC migration', () => {
+  it('saves revisions through an authenticated transactional RPC without public execute', () => {
+    const source = revisionRpcSql()
+
+    expect(source).toContain('create or replace function app.save_project_revision')
+    expect(source).toContain('security definer')
+    expect(source).toContain("set search_path = ''")
+    expect(source).toContain('actor_id uuid := (select auth.uid())')
+    expect(source).toContain('for update;')
+    expect(source).toContain('locked_current_revision_id is distinct from request_expected_current_revision_id')
+    expect(source).toContain("app_private.has_project_permission(\n    request_organization_id")
+    expect(source).toContain("request_project_id,\n    'project.write'")
+    expect(source).toContain('revoke all on function app.save_project_revision')
+    expect(source).toContain('from public, anon, authenticated')
+    expect(source).toContain('grant execute on function app.save_project_revision')
+    expect(source).toContain('to authenticated')
+    expect(source).not.toMatch(/grant\s+execute[^;]+to\s+anon/i)
   })
 })
