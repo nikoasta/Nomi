@@ -54,6 +54,7 @@
   "portal.auth.sendLink": "发送登录链接",
   "portal.auth.sending": "发送中…",
   "portal.auth.linkSent": "Auth 已接受请求。请检查收件箱、垃圾邮件或企业隔离区中的登录链接。",
+  "portal.auth.linkSentByMailer": "Everville 已发送邮件。请打开收件箱中的安全链接继续。",
   "portal.auth.configMissing": "当前构建尚未配置门户登录。",
   "portal.auth.emailInvalid": "请输入有效的工作邮箱。",
   "portal.auth.rateLimited": "请稍等后再请求新的登录链接。",

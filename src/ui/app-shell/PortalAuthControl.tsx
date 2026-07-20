@@ -20,6 +20,7 @@ export function PortalAuthControl(): JSX.Element | null {
     | 'portal.auth.configMissing'
     | 'portal.auth.emailInvalid'
     | 'portal.auth.linkSent'
+    | 'portal.auth.linkSentByMailer'
     | 'portal.auth.rateLimited'
     | 'portal.auth.sendError'
     | null
@@ -43,7 +44,7 @@ export function PortalAuthControl(): JSX.Element | null {
     const result = await requestWebPortalMagicLink({ email })
     setSubmitting(false)
     if (result.ok) {
-      setMessageKey('portal.auth.linkSent')
+      setMessageKey(result.value.delivery === 'sent_by_everville_mailer' ? 'portal.auth.linkSentByMailer' : 'portal.auth.linkSent')
       return
     }
     if (result.error.code === 'INVALID_EMAIL') setMessageKey('portal.auth.emailInvalid')

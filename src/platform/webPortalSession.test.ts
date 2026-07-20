@@ -102,7 +102,7 @@ describe('web portal browser session wiring', () => {
   })
 
   it('requests invite-only magic links through the same-origin portal API', async () => {
-    const request = vi.fn(async () => new Response('{}', { status: 200 }))
+    const request = vi.fn(async () => new Response('{"delivery":"sent_by_everville_mailer"}', { status: 200 }))
 
     await expect(
       requestWebPortalMagicLink({
@@ -113,7 +113,14 @@ describe('web portal browser session wiring', () => {
         },
         fetch: request as unknown as typeof fetch,
       }),
-    ).resolves.toEqual({ ok: true, value: { email: 'user@everville.test', redirectTo: 'https://cut.eva.mba/' } })
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        email: 'user@everville.test',
+        redirectTo: 'https://cut.eva.mba/',
+        delivery: 'sent_by_everville_mailer',
+      },
+    })
 
     expect(request).toHaveBeenCalledWith('https://cut.eva.mba/api/portal/auth/magic-link', {
       method: 'POST',

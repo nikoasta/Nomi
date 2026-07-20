@@ -44,12 +44,15 @@ export type WebPortalAuthRequestOptions = {
   fetch?: typeof fetch
 }
 
+export type WebPortalAuthDelivery = 'accepted_by_auth_provider' | 'sent_by_everville_mailer' | 'not_sent_non_member'
+
 export type WebPortalAuthRequestResult =
   | {
       ok: true
       value: {
         email: string
         redirectTo: string
+        delivery: WebPortalAuthDelivery
       }
     }
   | {
@@ -136,6 +139,17 @@ function normalizePortalEmail(email: string): string | null {
 
 function authError(code: WebPortalAuthErrorCode, message: string, retryable: boolean): WebPortalAuthRequestResult {
   return { ok: false, error: { code, message, retryable } }
+}
+
+function authDelivery(value: unknown): WebPortalAuthDelivery {
+  if (
+    value === 'sent_by_everville_mailer' ||
+    value === 'not_sent_non_member' ||
+    value === 'accepted_by_auth_provider'
+  ) {
+    return value
+  }
+  return 'accepted_by_auth_provider'
 }
 
 function browserStorage(): StorageLike | null {
@@ -250,7 +264,13 @@ export async function requestWebPortalMagicLink({
     if (response.status === 401 || response.status === 403) return authError('PERMISSION_DENIED', 'Portal auth rejected this request', false)
     return authError('NETWORK_ERROR', `Portal auth returned HTTP ${response.status}`, response.status >= 500)
   }
-  return { ok: true, value: { email: safeEmail, redirectTo: safeRedirectTo } }
+  let delivery: unknown
+  try {
+    delivery = ((await response.json()) as { delivery?: unknown }).delivery
+  } catch {
+    delivery = undefined
+  }
+  return { ok: true, value: { email: safeEmail, redirectTo: safeRedirectTo, delivery: authDelivery(delivery) } }
 }
 
 export function parseWebPortalSessionFromUrl(href: string, now = Date.now()): WebPortalStoredSession | null {

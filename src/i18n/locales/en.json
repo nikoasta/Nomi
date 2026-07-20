@@ -54,6 +54,7 @@
   "portal.auth.sendLink": "Send magic link",
   "portal.auth.sending": "Sending...",
   "portal.auth.linkSent": "Auth accepted the request. Check inbox, spam, or corporate quarantine for the sign-in link.",
+  "portal.auth.linkSentByMailer": "Email sent from Everville. Open the secure link in your inbox to continue.",
   "portal.auth.configMissing": "Portal auth is not configured for this build.",
   "portal.auth.emailInvalid": "Enter a valid work email.",
   "portal.auth.rateLimited": "Please wait before requesting another link.",
