@@ -59,7 +59,11 @@ describe('Vercel portal API handler', () => {
     )
 
     expect(res.statusCode).toBe(200)
-    expect(JSON.parse(res.body)).toEqual({ email: 'user@everville.test', redirectTo: 'https://cut.eva.mba/' })
+    expect(JSON.parse(res.body)).toEqual({
+      email: 'user@everville.test',
+      redirectTo: 'https://cut.eva.mba/',
+      delivery: 'accepted_by_auth_provider',
+    })
     expect(fetchMock).toHaveBeenCalledWith(
       'https://project.supabase.co/auth/v1/otp',
       expect.objectContaining({

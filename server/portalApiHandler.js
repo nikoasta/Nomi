@@ -226,7 +226,7 @@ export async function handlePortalRequest(req, res, pathInput = null) {
         const code = result.status === 429 ? 'RATE_LIMITED' : result.status === 401 || result.status === 403 ? 'PERMISSION_DENIED' : 'NETWORK_ERROR'
         return json(res, result.status, { error: { code, message: 'Portal auth request failed' } })
       }
-      return json(res, 200, { email, redirectTo })
+      return json(res, 200, { email, redirectTo, delivery: 'accepted_by_auth_provider' })
     }
 
     const token = bearer(req)

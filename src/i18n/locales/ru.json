@@ -53,7 +53,7 @@
   "portal.auth.emailPlaceholder": "name@company.com",
   "portal.auth.sendLink": "Отправить magic link",
   "portal.auth.sending": "Отправляем...",
-  "portal.auth.linkSent": "Проверьте почту. Ссылка вернет вас в Nomi.",
+  "portal.auth.linkSent": "Auth принял запрос. Проверьте входящие, спам или корпоративный карантин.",
   "portal.auth.configMissing": "В этой сборке вход в портал не настроен.",
   "portal.auth.emailInvalid": "Введите корректную рабочую почту.",
   "portal.auth.rateLimited": "Подождите перед новым запросом ссылки.",

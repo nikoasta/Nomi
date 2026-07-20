@@ -53,7 +53,7 @@
   "portal.auth.emailPlaceholder": "name@company.com",
   "portal.auth.sendLink": "发送登录链接",
   "portal.auth.sending": "发送中…",
-  "portal.auth.linkSent": "请检查邮箱，登录链接会带你回到 Nomi。",
+  "portal.auth.linkSent": "Auth 已接受请求。请检查收件箱、垃圾邮件或企业隔离区中的登录链接。",
   "portal.auth.configMissing": "当前构建尚未配置门户登录。",
   "portal.auth.emailInvalid": "请输入有效的工作邮箱。",
   "portal.auth.rateLimited": "请稍等后再请求新的登录链接。",
