@@ -1,6 +1,7 @@
 import React from 'react'
 import { IconCheck, IconFileText, IconFolder, IconPhoto, IconPlayerPlayFilled, IconPlus, IconVideo } from '../../../vendor/tablerIcons'
 import { cn } from '../../../utils/cn'
+import { useI18n } from '../../../i18n/i18nContext'
 import type { NomiBrowserAsset, NomiBrowserAssetTab, NomiBrowserAssetTabDefinition } from '../assets/browserAssetData'
 import { browserAssetDisplaySubtitle, isBrowserAssetDraggable } from './browserAssetPopoverUtils'
 
@@ -403,6 +404,7 @@ export const BrowserAssetFilterPopover = React.memo(function BrowserAssetFilterP
   onSelectTab,
   onShowAll,
 }: FilterPopoverProps): JSX.Element {
+  const { t } = useI18n()
   return (
     <div
       ref={setNodeRef}
@@ -411,10 +413,10 @@ export const BrowserAssetFilterPopover = React.memo(function BrowserAssetFilterP
         'bg-nomi-paper p-2 shadow-nomi-lg',
       )}
       role="dialog"
-      aria-label="素材分类筛选"
+      aria-label={t('browserAsset.filter.dialog')}
     >
       <div className="mb-1 flex h-7 items-center justify-between px-1.5">
-        <span className="text-micro font-semibold uppercase text-nomi-ink-40">显示</span>
+        <span className="text-micro font-semibold uppercase text-nomi-ink-40">{t('browserAsset.filter.show')}</span>
         <button
           type="button"
           className={cn(
@@ -423,10 +425,10 @@ export const BrowserAssetFilterPopover = React.memo(function BrowserAssetFilterP
           )}
           onClick={onShowAll}
         >
-          显示全部
+          {t('browserAsset.filter.showAll')}
         </button>
       </div>
-      <div className="grid gap-0.5" role="listbox" aria-label="素材分类">
+      <div className="grid gap-0.5" role="listbox" aria-label={t('browserAsset.filter.categoryAria')}>
         {tabs
           .filter((tab) => tab.key !== 'all' && tab.key !== 'prompt')
           .map((tab) => {
@@ -482,6 +484,7 @@ export const BrowserPromptCategoryFilterPopover = React.memo(function BrowserPro
   onAddCategory,
   onShowAll,
 }: PromptCategoryFilterPopoverProps): JSX.Element {
+  const { t } = useI18n()
   const [draft, setDraft] = React.useState('')
   const [adding, setAdding] = React.useState(false)
   const inputRef = React.useRef<HTMLInputElement | null>(null)
@@ -508,10 +511,10 @@ export const BrowserPromptCategoryFilterPopover = React.memo(function BrowserPro
         'bg-nomi-paper p-2 shadow-nomi-lg',
       )}
       role="dialog"
-      aria-label="提示词分类筛选"
+      aria-label={t('browserAsset.promptCategory.dialog')}
     >
       <div className="mb-1 flex h-7 items-center justify-between px-1.5">
-        <span className="text-micro font-semibold uppercase text-nomi-ink-40">提示词分类</span>
+        <span className="text-micro font-semibold uppercase text-nomi-ink-40">{t('browserAsset.promptCategory.title')}</span>
         <button
           type="button"
           className={cn(
@@ -520,10 +523,10 @@ export const BrowserPromptCategoryFilterPopover = React.memo(function BrowserPro
           )}
           onClick={onShowAll}
         >
-          显示全部
+          {t('browserAsset.filter.showAll')}
         </button>
       </div>
-      <div className="grid gap-0.5" role="listbox" aria-label="提示词分类">
+      <div className="grid gap-0.5" role="listbox" aria-label={t('browserAsset.promptCategory.aria')}>
         {categories.map((category) => {
           const count = counts.get(category.id) ?? 0
           const active = activeCategoryId === category.id
@@ -569,7 +572,7 @@ export const BrowserPromptCategoryFilterPopover = React.memo(function BrowserPro
             ref={inputRef}
             className="min-w-0 flex-1 rounded-nomi-sm border border-nomi-line bg-nomi-bg px-2 py-1 text-caption text-nomi-ink outline-none"
             value={draft}
-            placeholder="输入分类名称"
+            placeholder={t('browserAsset.promptCategory.placeholder')}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key !== 'Escape') return
@@ -581,7 +584,7 @@ export const BrowserPromptCategoryFilterPopover = React.memo(function BrowserPro
           <button
             type="submit"
             className="grid size-7 place-items-center rounded-nomi-sm border-0 bg-nomi-ink-05 text-nomi-ink-60 hover:bg-nomi-accent-soft hover:text-nomi-accent"
-            aria-label="确认添加提示词分类"
+            aria-label={t('browserAsset.promptCategory.confirm')}
           >
             <IconPlus size={15} stroke={1.8} aria-hidden="true" />
           </button>
@@ -597,7 +600,7 @@ export const BrowserPromptCategoryFilterPopover = React.memo(function BrowserPro
           onClick={() => setAdding(true)}
         >
           <IconPlus size={15} stroke={1.8} aria-hidden="true" />
-          <span>添加分类</span>
+          <span>{t('browserAsset.promptCategory.add')}</span>
         </button>
       )}
     </div>

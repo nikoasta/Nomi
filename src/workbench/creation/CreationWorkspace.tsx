@@ -47,12 +47,12 @@ export default function CreationWorkspace(): JSX.Element {
           <div
             className="h-9 shrink-0 flex items-center justify-between gap-3 p-0.5 border border-nomi-line rounded-nomi bg-nomi-paper"
             role="tablist"
-            aria-label="创作工作面"
+            aria-label={t('creation.surfaceAria')}
           >
             <div className="flex items-center gap-0.5">
               {([
-                { label: '原稿', active: !storyboardEditorOpen, open: false },
-                { label: '分镜方案', active: storyboardEditorOpen, open: true },
+                { label: t('creation.sourceTab'), active: !storyboardEditorOpen, open: false },
+                { label: t('creation.storyboardTab'), active: storyboardEditorOpen, open: true },
               ] as const).map((tab) => (
                 <button
                   key={tab.label}
@@ -76,7 +76,7 @@ export default function CreationWorkspace(): JSX.Element {
               'mr-2 text-micro',
               storyboardPlanCommitted ? 'text-workbench-success' : 'text-nomi-accent',
             )}>
-              {storyboardPlanCommitted ? '已落画布' : '草稿 · 尚未落画布'}
+              {storyboardPlanCommitted ? t('creation.status.committed') : t('creation.status.draft')}
             </span>
           </div>
         ) : null}

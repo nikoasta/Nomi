@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { motion } from 'framer-motion'
 import { IconCheck, IconFolderPlus, IconTrash, IconX } from '../../../vendor/tablerIcons'
 import { cn } from '../../../utils/cn'
-import { BROWSER_PROMPT_EXTRACTION_MODE_LABELS, type BrowserPromptExtractionMode } from './browserPromptExtraction'
+import type { BrowserPromptExtractionMode } from './browserPromptExtraction'
 import { TOOL_BUTTON_CLASS } from '../popover/browserAssetPopoverConstants'
 import type { BrowserPromptExtractionTemplate, BrowserPromptExtractionTemplateSettings } from '../popover/browserAssetPopoverTypes'
 import {
@@ -11,6 +11,7 @@ import {
   defaultBrowserPromptTemplateId,
   normalizeBrowserPromptExtractionTemplateSettings,
 } from './browserPromptExtractionSettings'
+import { useI18n } from '../../../i18n/i18nContext'
 
 type BrowserPromptExtractionSettingsModalProps = {
   settings: BrowserPromptExtractionTemplateSettings
@@ -56,6 +57,7 @@ export function BrowserPromptExtractionSettingsModal({
   onSave,
   onClose,
 }: BrowserPromptExtractionSettingsModalProps): JSX.Element {
+  const { t } = useI18n()
   const [draft, setDraft] = React.useState(() => normalizeBrowserPromptExtractionTemplateSettings(settings))
   const [mode, setMode] = React.useState<BrowserPromptExtractionMode>('replicate')
   const defaultId = defaultBrowserPromptTemplateId(mode)
@@ -80,7 +82,9 @@ export function BrowserPromptExtractionSettingsModal({
     const id = `custom:${mode}:${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
     const template: BrowserPromptExtractionTemplate = {
       id,
-      title: `自定义${BROWSER_PROMPT_EXTRACTION_MODE_LABELS[mode]}`,
+      title: t('browserPrompt.settings.customTemplateTitle', {
+        mode: mode === 'style' ? t('browserPrompt.mode.style') : t('browserPrompt.mode.replicate'),
+      }),
       prompt: selectedTemplate.prompt,
       createdAt: now,
       updatedAt: now,
@@ -90,7 +94,7 @@ export function BrowserPromptExtractionSettingsModal({
       selectedTemplateIds: { ...current.selectedTemplateIds, [mode]: id },
       customTemplates: { ...current.customTemplates, [mode]: [template, ...(current.customTemplates[mode] ?? [])] },
     }))
-  }, [mode, selectedTemplate.prompt])
+  }, [mode, selectedTemplate.prompt, t])
 
   const deleteSelectedTemplate = React.useCallback((): void => {
     if (isDefaultTemplate) return
@@ -116,14 +120,14 @@ export function BrowserPromptExtractionSettingsModal({
   }, [isDefaultTemplate, mode])
 
   const dialog = (
-    <div className="fixed inset-0 z-[3400] grid place-items-center bg-nomi-ink/38 p-5 font-nomi-sans text-nomi-ink backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="提示词提取设置" data-nomi-prompt-extraction-settings-dialog="true" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="fixed inset-0 z-[3400] grid place-items-center bg-nomi-ink/38 p-5 font-nomi-sans text-nomi-ink backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label={t('browserPrompt.settings.aria')} data-nomi-prompt-extraction-settings-dialog="true" onMouseDown={(event) => event.stopPropagation()}>
       <motion.div className="flex h-[min(720px,calc(100vh-40px))] w-[min(920px,calc(100vw-40px))] flex-col overflow-hidden rounded-nomi-lg border border-nomi-line bg-nomi-paper shadow-nomi-lg" initial={{ opacity: 0, scale: 0.985, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.16, ease: 'easeOut' }}>
         <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-nomi-line-soft px-4">
           <div className="min-w-0">
-            <div className="truncate text-body-sm font-bold text-nomi-ink">提示词提取设置</div>
-            <div className="mt-0.5 truncate text-micro text-nomi-ink-40">保存到当前项目 .nomi/browser-prompt-extraction.json</div>
+            <div className="truncate text-body-sm font-bold text-nomi-ink">{t('browserPrompt.settings.title')}</div>
+            <div className="mt-0.5 truncate text-micro text-nomi-ink-40">{t('browserPrompt.settings.subtitle')}</div>
           </div>
-          <button type="button" className={TOOL_BUTTON_CLASS} aria-label="关闭提示词提取设置" onClick={onClose}>
+          <button type="button" className={TOOL_BUTTON_CLASS} aria-label={t('browserPrompt.settings.close')} onClick={onClose}>
             <IconX size={17} stroke={1.8} aria-hidden="true" />
           </button>
         </div>
@@ -132,7 +136,7 @@ export function BrowserPromptExtractionSettingsModal({
             <div className="grid grid-cols-2 gap-1 rounded-nomi bg-nomi-ink-05 p-1">
               {(['replicate', 'style'] as const).map((item) => (
                 <button key={item} type="button" className={cn('h-8 rounded-nomi-sm border-0 bg-transparent px-2 text-caption font-semibold', 'cursor-pointer transition-colors duration-[var(--nomi-transition-fast)]', mode === item ? 'bg-nomi-paper text-nomi-ink shadow-nomi-sm' : 'text-nomi-ink-55 hover:text-nomi-ink')} onClick={() => setMode(item)}>
-                  {BROWSER_PROMPT_EXTRACTION_MODE_LABELS[item]}
+                  {item === 'style' ? t('browserPrompt.mode.style') : t('browserPrompt.mode.replicate')}
                 </button>
               ))}
             </div>
@@ -142,40 +146,40 @@ export function BrowserPromptExtractionSettingsModal({
                 return (
                   <button key={template.id} type="button" className={cn('min-h-10 rounded-nomi border px-3 py-2 text-left text-caption font-semibold', 'cursor-pointer transition-colors duration-[var(--nomi-transition-fast)]', active ? 'border-nomi-accent bg-nomi-accent-soft text-nomi-accent' : 'border-nomi-line bg-nomi-paper text-nomi-ink-65 hover:bg-nomi-ink-05 hover:text-nomi-ink')} onClick={() => selectTemplate(template.id)}>
                     <span className="block truncate">{template.title}</span>
-                    {template.builtin ? <span className="mt-0.5 block text-micro text-nomi-ink-40">默认</span> : null}
+                    {template.builtin ? <span className="mt-0.5 block text-micro text-nomi-ink-40">{t('browserPrompt.settings.default')}</span> : null}
                   </button>
                 )
               })}
             </div>
             <button type="button" className="inline-flex h-9 items-center justify-center gap-2 rounded-nomi border border-nomi-line bg-nomi-paper px-3 text-caption font-semibold text-nomi-ink-80 hover:bg-nomi-ink-05" onClick={addCustomTemplate}>
               <IconFolderPlus size={15} stroke={1.8} aria-hidden="true" />
-              添加自定义
+              {t('browserPrompt.settings.addCustom')}
             </button>
           </section>
           <section className="flex min-h-0 flex-col gap-3">
             <label className="grid gap-1.5">
-              <span className="text-caption font-semibold text-nomi-ink-65">名称</span>
+              <span className="text-caption font-semibold text-nomi-ink-65">{t('browserPrompt.settings.name')}</span>
               <input value={selectedTemplate.title} className="h-9 rounded-nomi border border-nomi-line bg-nomi-bg px-3 text-body-sm text-nomi-ink outline-none focus:border-nomi-accent" onChange={(event) => updateTemplate({ title: event.target.value })} />
             </label>
             <label className="flex min-h-0 flex-1 flex-col gap-1.5">
-              <span className="text-caption font-semibold text-nomi-ink-65">提示词</span>
+              <span className="text-caption font-semibold text-nomi-ink-65">{t('browserPrompt.settings.prompt')}</span>
               <textarea value={selectedTemplate.prompt} className="min-h-[340px] flex-1 resize-none rounded-nomi border border-nomi-line bg-nomi-bg p-3 text-body-sm leading-relaxed text-nomi-ink outline-none focus:border-nomi-accent" onChange={(event) => updateTemplate({ prompt: event.target.value })} />
             </label>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="text-caption text-nomi-ink-40">{projectAvailable ? '设置会随项目文件夹迁移' : '当前项目目录不可用，保存会失败'}</div>
+              <div className="text-caption text-nomi-ink-40">{projectAvailable ? t('browserPrompt.settings.projectAvailable') : t('browserPrompt.settings.projectUnavailable')}</div>
               <div className="flex items-center gap-2">
                 {isDefaultTemplate ? (
-                  <button type="button" className="inline-flex h-9 items-center rounded-nomi border border-nomi-line bg-nomi-paper px-3 text-caption font-semibold text-nomi-ink-60 hover:bg-nomi-ink-05" onClick={resetDefaultTemplate}>恢复默认</button>
+                  <button type="button" className="inline-flex h-9 items-center rounded-nomi border border-nomi-line bg-nomi-paper px-3 text-caption font-semibold text-nomi-ink-60 hover:bg-nomi-ink-05" onClick={resetDefaultTemplate}>{t('browserPrompt.settings.resetDefault')}</button>
                 ) : (
                   <button type="button" className="inline-flex h-9 items-center gap-2 rounded-nomi border border-workbench-danger/35 bg-nomi-paper px-3 text-caption font-semibold text-workbench-danger hover:bg-workbench-danger-soft" onClick={deleteSelectedTemplate}>
                     <IconTrash size={15} stroke={1.8} aria-hidden="true" />
-                    删除
+                    {t('browserPrompt.settings.delete')}
                   </button>
                 )}
-                <button type="button" className="inline-flex h-9 items-center rounded-nomi border border-nomi-line bg-nomi-paper px-3 text-caption font-semibold text-nomi-ink-80 hover:bg-nomi-ink-05" onClick={onClose}>取消</button>
+                <button type="button" className="inline-flex h-9 items-center rounded-nomi border border-nomi-line bg-nomi-paper px-3 text-caption font-semibold text-nomi-ink-80 hover:bg-nomi-ink-05" onClick={onClose}>{t('browserPrompt.settings.cancel')}</button>
                 <button type="button" className="inline-flex h-9 items-center gap-2 rounded-nomi border-0 bg-nomi-ink px-4 text-caption font-semibold text-nomi-paper hover:bg-nomi-accent" onClick={() => onSave(normalizeBrowserPromptExtractionTemplateSettings(draft))}>
                   <IconCheck size={15} stroke={2} aria-hidden="true" />
-                  保存
+                  {t('browserPrompt.settings.save')}
                 </button>
               </div>
             </div>

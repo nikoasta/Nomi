@@ -3,6 +3,7 @@ import { IconArrowRight, IconCircleCheck, IconMovie } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
 import { WorkbenchButton, confirmDialog } from '../../../design'
 import { useWorkbenchStore } from '../../workbenchStore'
+import { useI18n } from '../../../i18n/i18nContext'
 
 /**
  * 分镜方案卡片（回看链路）：拆镜头的产出在创作区对话流里的可收起/可重开卡片。
@@ -11,6 +12,7 @@ import { useWorkbenchStore } from '../../workbenchStore'
  * 编辑仍走主列全宽 StoryboardPlanEditor（卡片只做摘要+状态+入口）。
  */
 export default function StoryboardPlanCard(): JSX.Element | null {
+  const { t } = useI18n()
   const plan = useWorkbenchStore((s) => s.storyboardPlan)
   const committed = useWorkbenchStore((s) => s.storyboardPlanCommitted)
   const editorOpen = useWorkbenchStore((s) => s.storyboardEditorOpen)
@@ -20,18 +22,22 @@ export default function StoryboardPlanCard(): JSX.Element | null {
 
   if (!plan) return null
 
-  const title = plan.title.trim() || '分镜方案'
+  const title = plan.title.trim() || t('storyboard.plan.defaultTitle')
   const shotCount = plan.shots.length
   const anchorCount = plan.anchors.length
   // 图片分镜（全镜 durationSec=0）没有总时长——只报「图片分镜」，别显示误导的「约 0s」。
   const totalSec = Math.round(plan.shots.reduce((sum, shot) => sum + (shot.shotKind === 'image' ? 0 : shot.durationSec || 0), 0))
-  const meta = `${shotCount} 个镜头 · ${anchorCount} 个参考锚 · ${totalSec > 0 ? `约 ${totalSec}s` : '图片分镜'}`
+  const meta = t('storyboard.plan.meta', {
+    shots: shotCount,
+    anchors: anchorCount,
+    tail: totalSec > 0 ? t('storyboard.plan.duration', { seconds: totalSec }) : t('storyboard.plan.imageMode'),
+  })
 
   const onDiscard = async () => {
     const ok = await confirmDialog({
-      title: '丢弃这份方案？',
-      message: '方案和你的修改会清空，可以重新让 AI 拆镜头。',
-      confirmLabel: '丢弃',
+      title: t('storyboard.plan.discardTitle'),
+      message: t('storyboard.plan.discardMessage'),
+      confirmLabel: t('storyboard.plan.discardConfirm'),
       danger: true,
     })
     if (ok) discardStoryboardPlan()
@@ -40,10 +46,10 @@ export default function StoryboardPlanCard(): JSX.Element | null {
   // 状态徽标用 Nomi 品牌色(草稿/编辑=暖 accent、已落=success)。StatusBadge 是 Mantine
   // gray/blue/green，非品牌色 → 这里保留手写品牌 chip(2026-06-22 回归核对:别让品牌色被压成通用灰蓝)。
   const badge = editorOpen
-    ? { label: '编辑中', cls: 'bg-nomi-accent-soft text-nomi-accent' }
+    ? { label: t('storyboard.plan.status.editing'), cls: 'bg-nomi-accent-soft text-nomi-accent' }
     : committed
-      ? { label: '已落画布', cls: 'bg-workbench-success-soft text-workbench-success' }
-      : { label: '草稿', cls: 'bg-nomi-accent-soft text-nomi-accent' }
+      ? { label: t('storyboard.plan.status.committed'), cls: 'bg-workbench-success-soft text-workbench-success' }
+      : { label: t('storyboard.plan.status.draft'), cls: 'bg-nomi-accent-soft text-nomi-accent' }
 
   return (
     <div
@@ -63,19 +69,19 @@ export default function StoryboardPlanCard(): JSX.Element | null {
 
       {editorOpen ? (
         <>
-          <span className="text-caption text-nomi-ink-60">正在左侧编辑器中修改 · {shotCount} 个镜头</span>
+          <span className="text-caption text-nomi-ink-60">{t('storyboard.plan.editingSummary', { count: shotCount })}</span>
           <div className="flex items-center gap-2">
-            <WorkbenchButton variant="default" size="sm" onClick={() => setStoryboardEditorOpen(false)}>返回原稿</WorkbenchButton>
-            <span className="ml-auto text-caption text-nomi-ink-40">在编辑器里确认即落画布</span>
+            <WorkbenchButton variant="default" size="sm" onClick={() => setStoryboardEditorOpen(false)}>{t('storyboard.plan.collapseCard')}</WorkbenchButton>
+            <span className="ml-auto text-caption text-nomi-ink-40">{t('storyboard.plan.confirmInEditor')}</span>
           </div>
         </>
       ) : committed ? (
         <>
-          <span className="text-caption text-nomi-ink-60">{shotCount} 个镜头已建成画布节点</span>
+          <span className="text-caption text-nomi-ink-60">{t('storyboard.plan.committedSummary', { count: shotCount })}</span>
           <div className="flex items-center gap-2">
-            <WorkbenchButton variant="default" size="sm" onClick={() => setStoryboardEditorOpen(true)}>再次编辑</WorkbenchButton>
+            <WorkbenchButton variant="default" size="sm" onClick={() => setStoryboardEditorOpen(true)}>{t('storyboard.plan.editAgain')}</WorkbenchButton>
             <WorkbenchButton variant="default" size="sm" className="ml-auto" onClick={() => setWorkspaceMode('generation')}>
-              去生成区<IconArrowRight size={13} stroke={1.6} />
+              {t('storyboard.plan.goGeneration')}<IconArrowRight size={13} stroke={1.6} />
             </WorkbenchButton>
           </div>
         </>
@@ -86,23 +92,23 @@ export default function StoryboardPlanCard(): JSX.Element | null {
             {plan.shots.slice(0, 2).map((shot) => (
               <div key={shot.index} className="flex gap-2 py-1 border-t border-nomi-line-soft text-caption text-nomi-ink-60">
                 <span className="shrink-0 tabular-nums text-nomi-ink-40">{String(shot.index).padStart(2, '0')}</span>
-                <span className="min-w-0 flex-1 truncate">{shot.prompt.trim() || '（未写提示词）'}</span>
+                <span className="min-w-0 flex-1 truncate">{shot.prompt.trim() || t('storyboard.plan.emptyPrompt')}</span>
               </div>
             ))}
             {shotCount > 2 ? (
               <div className="flex gap-2 py-1 border-t border-nomi-line-soft text-caption text-nomi-ink-40">
-                <span className="shrink-0">···</span><span>还有 {shotCount - 2} 个镜头</span>
+                <span className="shrink-0">...</span><span>{t('storyboard.plan.moreShots', { count: shotCount - 2 })}</span>
               </div>
             ) : null}
           </div>
           <div className="flex items-center gap-2">
-            <WorkbenchButton variant="primary" size="sm" onClick={() => setStoryboardEditorOpen(true)}>打开编辑</WorkbenchButton>
+            <WorkbenchButton variant="primary" size="sm" onClick={() => setStoryboardEditorOpen(true)}>{t('storyboard.plan.openEdit')}</WorkbenchButton>
             <button
               type="button"
               onClick={onDiscard}
               className="ml-auto text-caption text-nomi-ink-40 hover:text-workbench-danger"
             >
-              丢弃
+              {t('storyboard.plan.discard')}
             </button>
           </div>
         </>

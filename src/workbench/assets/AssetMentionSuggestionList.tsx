@@ -1,5 +1,6 @@
 import React from 'react'
 import { cn } from '../../utils/cn'
+import { useI18n } from '../../i18n/i18nContext'
 
 // @ suggestion 下拉(样张 v4 态②.atPicker):列出当前可引用的 image 参考缩略图,选一个插入 chip。
 // 键盘:↑↓←→ 移动、Enter 选、Esc 关(Esc 在扩展层处理)。空态:无参考时显「先加参考图」(规范 §4)。
@@ -11,6 +12,7 @@ export type MentionSuggestionListRef = { onKeyDown: (args: { event: KeyboardEven
 type Props = { items: MentionSuggestionItem[]; command: (item: MentionSuggestionItem) => void }
 
 const AssetMentionSuggestionList = React.forwardRef<MentionSuggestionListRef, Props>(({ items, command }, ref) => {
+  const { t } = useI18n()
   const [selected, setSelected] = React.useState(0)
   React.useEffect(() => { setSelected(0) }, [items])
 
@@ -27,7 +29,7 @@ const AssetMentionSuggestionList = React.forwardRef<MentionSuggestionListRef, Pr
   if (!items.length) {
     return (
       <div className={cn('inline-flex items-center px-[8px] h-[30px] rounded-nomi-sm border border-nomi-line bg-nomi-paper shadow-nomi-sm text-nomi-ink-40 text-micro')}>
-        先加参考图
+        {t('assetMention.empty')}
       </div>
     )
   }
@@ -36,12 +38,12 @@ const AssetMentionSuggestionList = React.forwardRef<MentionSuggestionListRef, Pr
       className={cn('flex flex-wrap items-center gap-[6px] p-[6px] rounded-nomi-sm border border-nomi-line bg-nomi-paper shadow-nomi-sm')}
       style={{ maxWidth: 'min(520px, calc(100vw - 16px))' }}
     >
-      <span className={cn('text-nomi-ink-40 text-micro px-[2px]')}>引用</span>
+      <span className={cn('text-nomi-ink-40 text-micro px-[2px]')}>{t('assetMention.reference')}</span>
       {items.map((item, i) => (
         <button
           key={item.url}
           type="button"
-          aria-label={`插入图片${item.index + 1}`}
+          aria-label={t('assetMention.insertReference', { index: item.index + 1 })}
           onMouseEnter={() => setSelected(i)}
           onClick={() => command(item)}
           className={cn(
@@ -50,7 +52,9 @@ const AssetMentionSuggestionList = React.forwardRef<MentionSuggestionListRef, Pr
           )}
         >
           <img src={item.url} alt="" draggable={false} className={cn('w-[34px] h-[34px] object-cover select-none shrink-0')} />
-          <span className={cn('text-micro font-medium leading-none text-nomi-ink-70 whitespace-nowrap')}>图片{item.index + 1}</span>
+          <span className={cn('text-micro font-medium leading-none text-nomi-ink-70 whitespace-nowrap')}>
+            {t('assetMention.imageLabel', { index: item.index + 1 })}
+          </span>
         </button>
       ))}
     </div>

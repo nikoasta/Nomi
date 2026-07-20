@@ -6,8 +6,10 @@ import { cn } from '../../../utils/cn'
 import type { NomiBrowserAsset } from '../assets/browserAssetData'
 import { isBrowserAssetDraggable } from '../popover/browserAssetPopoverUtils'
 import { promptTypeLabel as getBrowserPromptTypeLabel } from '../assets/browserAssetLibraryStorage'
-import { BROWSER_PROMPT_EXTRACTION_MODE_LABELS, type BrowserPromptExtractionMode } from './browserPromptExtraction'
+import type { BrowserPromptExtractionMode } from './browserPromptExtraction'
 import { TOOL_BUTTON_CLASS } from '../popover/browserAssetPopoverConstants'
+import { useI18n } from '../../../i18n/i18nContext'
+import type { TranslationKey } from '../../../i18n/translations'
 
 type BrowserPromptAssetTileProps = {
   asset: NomiBrowserAsset
@@ -29,8 +31,9 @@ export function promptExtractionModeFromAsset(asset: NomiBrowserAsset): BrowserP
   return asset.promptCard?.extractionMode === 'style' ? 'style' : 'replicate'
 }
 
-export function promptExtractionModeLabel(mode: BrowserPromptExtractionMode): string {
-  return BROWSER_PROMPT_EXTRACTION_MODE_LABELS[mode]
+export function promptExtractionModeLabel(mode: BrowserPromptExtractionMode, t?: (key: TranslationKey) => string): string {
+  const key: TranslationKey = mode === 'style' ? 'browserPrompt.mode.style' : 'browserPrompt.mode.replicate'
+  return t ? t(key) : mode
 }
 
 function promptPreviewUrl(asset: NomiBrowserAsset): string {
@@ -40,17 +43,18 @@ function promptPreviewUrl(asset: NomiBrowserAsset): string {
 function promptTypeLabel(
   asset: NomiBrowserAsset,
   categories: readonly { id: string; label: string }[],
+  t: (key: TranslationKey) => string,
 ): string {
   const promptType = asset.promptCard?.promptType || 'image'
-  return `${promptExtractionModeLabel(promptExtractionModeFromAsset(asset))} · ${getBrowserPromptTypeLabel(promptType, categories)}`
+  return `${promptExtractionModeLabel(promptExtractionModeFromAsset(asset), t)} · ${getBrowserPromptTypeLabel(promptType, categories)}`
 }
 
-export function promptCardText(asset: NomiBrowserAsset): string {
+export function promptCardText(asset: NomiBrowserAsset, t?: (key: TranslationKey) => string): string {
   const prompt = asset.promptCard?.prompt.trim()
   if (prompt) return prompt
-  if (asset.status === 'loading') return '正在分析参考图并提取提示词...'
-  if (asset.status === 'error') return '提示词提取失败'
-  return '暂无提示词'
+  if (asset.status === 'loading') return t ? t('browserPrompt.card.extracting') : ''
+  if (asset.status === 'error') return t ? t('browserPrompt.card.extractFailed') : ''
+  return t ? t('browserPrompt.card.empty') : ''
 }
 
 export const BrowserPromptAssetTile = React.memo(function BrowserPromptAssetTile({
@@ -62,10 +66,11 @@ export const BrowserPromptAssetTile = React.memo(function BrowserPromptAssetTile
   onContextMenu,
   onDragStart,
 }: BrowserPromptAssetTileProps): JSX.Element {
+  const { t } = useI18n()
   const previewUrl = promptPreviewUrl(asset)
   const loading = asset.status === 'loading'
   const failed = asset.status === 'error'
-  const prompt = promptCardText(asset)
+  const prompt = promptCardText(asset, t)
 
   return (
     <div
@@ -145,10 +150,11 @@ export function BrowserPromptDetailModal({
   promptCategories,
   onClose,
 }: BrowserPromptDetailModalProps): JSX.Element {
+  const { t } = useI18n()
   const [copied, setCopied] = React.useState(false)
   const references = asset.promptCard?.referenceImages ?? []
   const previewUrl = promptPreviewUrl(asset)
-  const prompt = promptCardText(asset)
+  const prompt = promptCardText(asset, t)
   const loading = asset.status === 'loading'
   const canUsePrompt = asset.status !== 'loading' && Boolean(asset.promptCard?.prompt.trim())
 
@@ -164,20 +170,20 @@ export function BrowserPromptDetailModal({
   }, [asset.promptCard?.prompt, canUsePrompt])
 
   return (
-    <div className="absolute inset-0 z-[20] grid place-items-center bg-nomi-ink/38 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label="提示词详情" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="absolute inset-0 z-[20] grid place-items-center bg-nomi-ink/38 p-4 backdrop-blur-[2px]" role="dialog" aria-modal="true" aria-label={t('browserPrompt.detail.aria')} onMouseDown={(event) => event.stopPropagation()}>
       <motion.div className="flex max-h-full w-full max-w-[840px] flex-col overflow-hidden rounded-nomi-lg border border-nomi-line bg-nomi-paper shadow-nomi-lg" initial={{ opacity: 0, scale: 0.985, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} transition={{ duration: 0.16, ease: 'easeOut' }}>
         <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-nomi-line-soft px-4">
           <div className="min-w-0">
-            <div className="truncate text-body-sm font-bold text-nomi-ink">提示词详情</div>
+            <div className="truncate text-body-sm font-bold text-nomi-ink">{t('browserPrompt.detail.title')}</div>
             <div className="mt-0.5 truncate text-micro text-nomi-ink-40">{asset.title}</div>
           </div>
-          <button type="button" className={TOOL_BUTTON_CLASS} aria-label="关闭提示词详情" onClick={onClose}>
+          <button type="button" className={TOOL_BUTTON_CLASS} aria-label={t('browserPrompt.detail.close')} onClick={onClose}>
             <IconX size={17} stroke={1.8} aria-hidden="true" />
           </button>
         </div>
         <div className="grid min-h-0 flex-1 gap-4 overflow-auto p-4 md:grid-cols-[minmax(0,1fr)_minmax(280px,0.9fr)]">
           <section className="grid min-h-0 gap-2">
-            <div className="text-caption font-semibold text-nomi-ink-80">参考图片</div>
+            <div className="text-caption font-semibold text-nomi-ink-80">{t('browserPrompt.detail.referenceImages')}</div>
             <div className="relative min-h-[260px] overflow-hidden rounded-nomi border border-nomi-line bg-nomi-bg">
               {previewUrl ? <img src={previewUrl} alt="" draggable={false} className="block size-full object-contain" /> : (
                 <div className="grid size-full min-h-[260px] place-items-center text-nomi-ink-40">
@@ -198,22 +204,22 @@ export function BrowserPromptDetailModal({
           </section>
           <section className="flex min-h-0 flex-col gap-2">
             <div className="flex items-center justify-between gap-2">
-              <div className="text-caption font-semibold text-nomi-ink-80">提示词</div>
+              <div className="text-caption font-semibold text-nomi-ink-80">{t('browserPrompt.detail.prompt')}</div>
               <span className="inline-flex h-6 items-center rounded-pill bg-nomi-ink-05 px-2 text-micro font-semibold text-nomi-ink-55">
-                {promptTypeLabel(asset, promptCategories)}
+                {promptTypeLabel(asset, promptCategories, t)}
               </span>
             </div>
             <textarea readOnly value={prompt} className={cn('min-h-[260px] flex-1 resize-none rounded-nomi border bg-nomi-bg p-3 text-body-sm leading-relaxed outline-none', asset.status === 'error' ? 'border-workbench-danger/35 text-workbench-danger' : 'border-nomi-line text-nomi-ink-80')} />
             <div className="flex items-center gap-2 text-caption text-nomi-ink-40">
-              <span className="font-semibold text-nomi-ink-60">模型</span>
-              <span className="rounded-pill bg-nomi-accent-soft px-2 py-1 text-micro font-semibold text-nomi-accent">当前文本模型</span>
+              <span className="font-semibold text-nomi-ink-60">{t('browserPrompt.detail.model')}</span>
+              <span className="rounded-pill bg-nomi-accent-soft px-2 py-1 text-micro font-semibold text-nomi-accent">{t('browserPrompt.detail.currentTextModel')}</span>
             </div>
           </section>
         </div>
         <div className="flex min-h-14 shrink-0 items-center justify-end gap-2 border-t border-nomi-line-soft px-4">
           <button type="button" className={cn('inline-flex h-9 items-center gap-2 rounded-nomi border border-nomi-line bg-nomi-paper px-3 text-caption font-semibold', 'cursor-pointer text-nomi-ink-80 hover:bg-nomi-ink-05 hover:text-nomi-ink', !canUsePrompt && 'cursor-not-allowed opacity-50 hover:bg-nomi-paper')} disabled={!canUsePrompt} onClick={() => void copyPrompt()}>
             <IconCopy size={15} stroke={1.8} aria-hidden="true" />
-            {copied ? '已复制' : '复制'}
+            {copied ? t('browserPrompt.detail.copied') : t('browserPrompt.detail.copy')}
           </button>
         </div>
       </motion.div>

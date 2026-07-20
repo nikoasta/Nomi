@@ -76,7 +76,7 @@ export default function NodeParameterControls({
   onInsertMention,
   onParamPanelOpenChange,
 }: NodeParameterControlsProps): JSX.Element | null {
-  const { locale } = useI18n()
+  const { locale, t } = useI18n()
   const nodes = useGenerationCanvasStore((state) => state.nodes)
   const edges = useGenerationCanvasStore((state) => state.edges)
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
@@ -238,13 +238,16 @@ export default function NodeParameterControls({
     const occupied = resolveReferenceSlots(node, nodes, edges)
       .find((rs) => referenceSlotStorage({ kind: rs.slotKind })?.metaKey === slot.metaKey)?.fills.length
     if (occupied != null && occupied >= slot.max) {
-      showInfoToast(`参考已满（最多 ${slot.max} 个，含连线）`)
+      showInfoToast(t('parameterControls.referenceFullWithEdges', { max: slot.max }))
       return
     }
     // 单源去重/上限：与拖入/连线共用 appendArchetypeArrayValue（规则 1：不另开写路径）。
     // 读最新 meta 计算追加（避免基于渲染快照算出过期数组 → 覆盖刚连边写入的项）。
     const result = appendArchetypeArrayValue(getLatestMeta(), slot, url)
-    if (result.status === 'full') { showInfoToast(`最多 ${slot.max} 个${slot.label}`); return } // 到上限:明确告知(对抗评审:别静默丢)
+    if (result.status === 'full') {
+      showInfoToast(t('parameterControls.referenceFull', { max: slot.max, label: slot.label }))
+      return
+    }
     if (result.status !== 'added') return // empty / duplicate：静默
     setArrayValue(slot.metaKey, result.next)
     setOpenSlotKey('')
@@ -291,7 +294,7 @@ export default function NodeParameterControls({
     try {
       const uploaded = await importWorkbenchLocalAssetFile(file, file.name || slot.label, { ownerNodeId: node.id, taskKind: 'image_edit' })
       const url = assetUrl(uploaded)
-      if (!url) throw new Error('服务器没有返回素材 URL')
+      if (!url) throw new Error(t('parameterControls.serverNoAssetUrl'))
       handleArrayAdd(slot, url)
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : String(error))
@@ -306,9 +309,9 @@ export default function NodeParameterControls({
     setUploadingArrayKey(metaKey)
     setUploadError('')
     try {
-      const uploaded = await importWorkbenchLocalAssetFile(file, file.name || '源视频', { ownerNodeId: node.id, taskKind: 'image_edit' })
+      const uploaded = await importWorkbenchLocalAssetFile(file, file.name || t('parameterControls.sourceVideo'), { ownerNodeId: node.id, taskKind: 'image_edit' })
       const url = assetUrl(uploaded)
-      if (!url) throw new Error('服务器没有返回视频 URL')
+      if (!url) throw new Error(t('parameterControls.serverNoVideoUrl'))
       updateMeta({ [metaKey]: url })
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : String(error))
@@ -359,7 +362,7 @@ export default function NodeParameterControls({
   const handleSlotUpload = async (slot: ImageUrlSlot, file: File | null | undefined) => {
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      setUploadError('只能选择图片文件')
+      setUploadError(t('parameterControls.imageOnly'))
       return
     }
     setUploadingSlotKey(slot.key)
@@ -370,7 +373,7 @@ export default function NodeParameterControls({
         taskKind: 'image_edit',
       })
       const url = assetUrl(uploaded)
-      if (!url) throw new Error('服务器没有返回图片 URL')
+      if (!url) throw new Error(t('parameterControls.serverNoImageUrl'))
       setSingleFrameUrlMeta(slot, url)
     } catch (error) {
       setUploadError(error instanceof Error ? error.message : String(error))
@@ -545,7 +548,7 @@ export default function NodeParameterControls({
   const rootClassName = cn('generation-canvas-v2-node__ref-section', 'flex flex-col gap-1')
 
   return (
-    <div className={rootClassName} aria-label="参考素材">
+    <div className={rootClassName} aria-label={t('parameterControls.referenceAssets')}>
       {showReferences && showModeBar ? (
         <ModeBar choices={modeChoices} activeId={archMode?.id || ''} onSelect={handleModeSwitch} />
       ) : null}

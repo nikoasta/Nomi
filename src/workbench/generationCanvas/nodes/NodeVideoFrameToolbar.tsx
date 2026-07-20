@@ -3,6 +3,7 @@ import { IconDownload, IconMaximize, IconPlayerTrackNext, IconPlayerTrackPrev } 
 import { FloatingToolbarShell, TOOLBAR_ICON as I, ToolbarButton, ToolbarDivider, ToolbarIconButton } from './NodeFloatingToolbar'
 import { extractVideoFrameToNode } from './extractVideoFrameToNode'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
+import { useI18n } from '../../../i18n/i18nContext'
 
 // 视频节点浮条（用户拍板「抽帧能力」的用户入口）：抽首帧 / 抽尾帧 ｜ 下载。
 // 抽帧 = 从这段视频取首/尾一帧 → 落独立图片节点（extractVideoFrameToNode），能拿去当 Seedance 首尾帧 /
@@ -16,6 +17,7 @@ type Props = {
 }
 
 export default function NodeVideoFrameToolbar({ node, downloading, onDownload, onPreview }: Props): JSX.Element {
+  const { t } = useI18n()
   const [busy, setBusy] = React.useState<'first' | 'last' | null>(null)
   const extract = (which: 'first' | 'last') => {
     if (busy) return
@@ -23,33 +25,33 @@ export default function NodeVideoFrameToolbar({ node, downloading, onDownload, o
     void extractVideoFrameToNode(node, which).finally(() => setBusy(null))
   }
   return (
-    <FloatingToolbarShell ariaLabel="视频操作">
+    <FloatingToolbarShell ariaLabel={t('mediaPreview.videoActions')}>
       <ToolbarIconButton
         icon={<IconMaximize size={I.size} stroke={I.stroke} />}
-        title="全屏预览"
-        ariaLabel="全屏预览视频"
+        title={t('mediaPreview.fullscreen')}
+        ariaLabel={t('mediaPreview.fullscreenVideo')}
         onClick={onPreview}
       />
       <ToolbarDivider />
       <ToolbarButton
         icon={<IconPlayerTrackPrev size={I.size} stroke={I.stroke} />}
-        label={busy === 'first' ? '抽帧中…' : '抽首帧'}
-        title="抽取这段视频的第一帧 → 落成独立图片节点（可当首帧/参考）"
+        label={busy === 'first' ? t('mediaPreview.extractingFrame') : t('mediaPreview.extractFirstFrame')}
+        title={t('mediaPreview.extractFirstFrameTitle')}
         disabled={busy !== null}
         onClick={() => extract('first')}
       />
       <ToolbarButton
         icon={<IconPlayerTrackNext size={I.size} stroke={I.stroke} />}
-        label={busy === 'last' ? '抽帧中…' : '抽尾帧'}
-        title="抽取这段视频的最后一帧 → 落成独立图片节点（可当尾帧/接力源/参考）"
+        label={busy === 'last' ? t('mediaPreview.extractingFrame') : t('mediaPreview.extractLastFrame')}
+        title={t('mediaPreview.extractLastFrameTitle')}
         disabled={busy !== null}
         onClick={() => extract('last')}
       />
       <ToolbarDivider />
       <ToolbarButton
         icon={<IconDownload size={I.size} stroke={I.stroke} />}
-        label="下载"
-        title="下载 / 另存到本地"
+        label={t('imageEdit.download')}
+        title={t('imageEdit.downloadTitle')}
         disabled={downloading}
         onClick={onDownload}
       />

@@ -8,12 +8,8 @@ import { ensureDir, getSettingsRoot } from "../runtimePaths";
 import { broadcastAssetsUpdated } from "./assetEvents";
 import { collectFilesRecursively, parseDataUrl } from "./assetBytes";
 import { assetBucketFromMeta, assetKindFromContentType, contentTypeFromPath, extensionFromMime, extensionFromUrl, localAssetUrl, sanitizeAssetMetaForKind, stableAssetId } from "./assetPaths";
-import { ASSET_IDENTITY_SIDECAR_KEY, authorizeLocalAssetRecord, computeAssetIntegrity, createElectronAssetResolution,
-  createAssetIdentityEnvelope, createImportedAssetBundle, createLocalAssetRecordSession, fingerprintAssetRecordRequest,
-  generateAssetId, hashAssetIdempotencyKey, parseAssetRecordImportFileRequest, parseAssetRecordImportRemoteUrlRequest,
-  parseAssetRecordListRequest, parseAssetResolveRequest, parseAssetIdentityEnvelope, validateAssetRecordGraph,
-  type AssetRecordBundle, type AssetRecordImportFileRequest, type AssetRecordImportRemoteUrlRequest, type AssetScope,
-  type AssetIdentityEnvelope } from "./assetIdentity";
+import { ASSET_IDENTITY_SIDECAR_KEY, authorizeLocalAssetRecord, computeAssetIntegrity, createElectronAssetResolution, createAssetIdentityEnvelope, createImportedAssetBundle, createLocalAssetRecordSession,
+  fingerprintAssetRecordRequest, generateAssetId, hashAssetIdempotencyKey, parseAssetRecordImportFileRequest, parseAssetRecordImportRemoteUrlRequest, parseAssetRecordListRequest, parseAssetResolveRequest, parseAssetIdentityEnvelope, validateAssetRecordGraph, type AssetRecordBundle, type AssetRecordImportFileRequest, type AssetRecordImportRemoteUrlRequest, type AssetScope, type AssetIdentityEnvelope } from "./assetIdentity";
 type LocalAssetRecord = {
   id: string; name: string; userId: "local"; projectId: string; createdAt: string; updatedAt: string;
   data: { url: string; relativePath: string; absolutePath: string; contentType: string; size: number; kind: string } & JsonRecord;
@@ -161,14 +157,7 @@ export function writeAsset(projectId: string, bytes: Buffer, fileName: string, c
     projectId,
     createdAt: t,
     updatedAt: t,
-    data: {
-      ...sidecarMeta,
-      url,
-      relativePath,
-      absolutePath,
-      contentType,
-      size: bytes.byteLength,
-    },
+    data: { ...sidecarMeta, url, relativePath, absolutePath, contentType, size: bytes.byteLength },
   };
 }
 export function moveAssetFile(projectId: string, sourcePath: string, fileName: string, contentType: string, rawMeta: JsonRecord): unknown {

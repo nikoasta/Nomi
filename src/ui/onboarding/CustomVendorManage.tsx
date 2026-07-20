@@ -13,6 +13,7 @@ import { cn } from '../../utils/cn'
 import { getDesktopBridge } from '../../desktop/bridge'
 import { confirmDialog } from '../../design'
 import { confirmAndDeleteVendor } from './vendorDeleteAction'
+import { useI18n } from '../../i18n/i18nContext'
 
 type CustomVendorManageProps = {
   vendorKey: string
@@ -32,6 +33,7 @@ export function CustomVendorManage({
   modelCount,
   onChanged,
 }: CustomVendorManageProps): JSX.Element {
+  const { t } = useI18n()
   const [keyEditing, setKeyEditing] = React.useState(!hasApiKey)
   const [keyDraft, setKeyDraft] = React.useState('')
   const [urlEditing, setUrlEditing] = React.useState(false)
@@ -43,7 +45,7 @@ export function CustomVendorManage({
 
   const handleSaveKey = React.useCallback(() => {
     const apiKey = keyDraft.trim()
-    if (!apiKey) { setError('请先粘贴 API Key。'); return }
+    if (!apiKey) { setError(t('vendorCard.missingApiKey')); return }
     const bridge = getDesktopBridge()
     if (!bridge) return
     setBusy(true); setError('')
@@ -51,17 +53,17 @@ export function CustomVendorManage({
       bridge.modelCatalog.upsertVendorApiKey(vendorKey, { apiKey, enabled: true })
       setKeyDraft(''); setKeyEditing(false); onChanged()
     } catch (e) {
-      setError(`保存失败：${e instanceof Error ? e.message : String(e)}`)
+      setError(t('vendorCard.saveFailed', { message: e instanceof Error ? e.message : String(e) }))
     } finally { setBusy(false) }
-  }, [keyDraft, vendorKey, onChanged])
+  }, [keyDraft, onChanged, t, vendorKey])
 
   const handleDisconnect = React.useCallback(async () => {
     const bridge = getDesktopBridge()
     if (!bridge) return
     const ok = await confirmDialog({
-      title: '断开供应商',
-      message: `断开「${vendorName}」？该家模型会回到"未连通"，需重新填 key。`,
-      confirmLabel: '断开',
+      title: t('vendorCard.disconnectTitle'),
+      message: t('vendorCard.disconnectMessage', { name: vendorName }),
+      confirmLabel: t('vendorCard.disconnect'),
       danger: true,
     })
     if (!ok) return
@@ -69,13 +71,13 @@ export function CustomVendorManage({
     try {
       bridge.modelCatalog.clearVendorApiKey(vendorKey); onChanged()
     } catch (e) {
-      setError(`断开失败：${e instanceof Error ? e.message : String(e)}`)
+      setError(t('vendorCard.disconnectFailed', { message: e instanceof Error ? e.message : String(e) }))
     } finally { setBusy(false) }
-  }, [vendorKey, vendorName, onChanged])
+  }, [onChanged, t, vendorKey, vendorName])
 
   const handleSaveBaseUrl = React.useCallback(() => {
     const next = urlDraft.trim().replace(/\/+$/, '')
-    if (!/^https?:\/\/\S+$/.test(next)) { setError('接入地址需以 http(s):// 开头。'); return }
+    if (!/^https?:\/\/\S+$/.test(next)) { setError(t('vendorCard.invalidBaseUrl')); return }
     const bridge = getDesktopBridge()
     if (!bridge) return
     setBusy(true); setError('')
@@ -83,9 +85,9 @@ export function CustomVendorManage({
       bridge.modelCatalog.upsertVendor({ key: vendorKey, baseUrlHint: next })
       setUrlEditing(false); onChanged()
     } catch (e) {
-      setError(`保存失败：${e instanceof Error ? e.message : String(e)}`)
+      setError(t('vendorCard.saveFailed', { message: e instanceof Error ? e.message : String(e) }))
     } finally { setBusy(false) }
-  }, [urlDraft, vendorKey, onChanged])
+  }, [onChanged, t, urlDraft, vendorKey])
 
   const handleDeleteVendor = React.useCallback(async () => {
     setBusy(true); setError('')
@@ -103,7 +105,7 @@ export function CustomVendorManage({
             <input
               type="password"
               aria-label={`${vendorName} API Key`}
-              placeholder="粘贴新的 API Key（sk-…）"
+              placeholder={t('vendorCard.defaultCredentialPlaceholder')}
               value={keyDraft}
               onChange={(e) => setKeyDraft(e.currentTarget.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSaveKey() }}
@@ -122,19 +124,19 @@ export function CustomVendorManage({
                 'inline-flex items-center gap-1.5 hover:bg-nomi-accent disabled:opacity-50 disabled:cursor-not-allowed',
               )}
             >
-              <IconKey size={14} stroke={1.6} />保存
+              <IconKey size={14} stroke={1.6} />{t('vendorCard.save')}
             </button>
           </div>
           {hasApiKey ? (
-            <button type="button" onClick={() => setKeyEditing(false)} disabled={busy} className="self-start text-caption text-nomi-ink-40 hover:text-nomi-ink-60">取消</button>
+            <button type="button" onClick={() => setKeyEditing(false)} disabled={busy} className="self-start text-caption text-nomi-ink-40 hover:text-nomi-ink-60">{t('vendorCard.cancel')}</button>
           ) : null}
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2">
-          <span className="text-caption text-nomi-ink-60">凭证已保存</span>
+          <span className="text-caption text-nomi-ink-60">{t('vendorCard.credentialSaved')}</span>
           <div className="flex items-center gap-2 shrink-0">
-            <button type="button" onClick={() => setKeyEditing(true)} disabled={busy} className="text-caption text-nomi-ink-60 border border-nomi-line rounded-full px-2.5 py-[3px] hover:border-nomi-ink-20">更换</button>
-            <button type="button" onClick={handleDisconnect} disabled={busy} className="text-caption text-nomi-ink-40 px-1 hover:text-workbench-danger">断开</button>
+            <button type="button" onClick={() => setKeyEditing(true)} disabled={busy} className="text-caption text-nomi-ink-60 border border-nomi-line rounded-full px-2.5 py-[3px] hover:border-nomi-ink-20">{t('vendorCard.change')}</button>
+            <button type="button" onClick={handleDisconnect} disabled={busy} className="text-caption text-nomi-ink-40 px-1 hover:text-workbench-danger">{t('vendorCard.disconnect')}</button>
           </div>
         </div>
       )}
@@ -144,7 +146,7 @@ export function CustomVendorManage({
         <div className="flex gap-2">
           <input
             type="text"
-            aria-label={`${vendorName} 接入地址`}
+            aria-label={t('vendorCard.editBaseUrl', { name: vendorName })}
             placeholder="https://…"
             value={urlDraft}
             onChange={(e) => setUrlDraft(e.currentTarget.value)}
@@ -156,13 +158,13 @@ export function CustomVendorManage({
               'text-body-sm text-nomi-ink placeholder:text-nomi-ink-40 outline-none focus:border-nomi-accent',
             )}
           />
-          <button type="button" onClick={handleSaveBaseUrl} disabled={busy} className="shrink-0 h-8 px-3 rounded-nomi-sm bg-nomi-ink text-nomi-paper text-body-sm font-semibold hover:bg-nomi-accent disabled:opacity-50">保存</button>
-          <button type="button" onClick={() => { setUrlEditing(false); setError('') }} disabled={busy} className="shrink-0 text-caption text-nomi-ink-40 hover:text-nomi-ink-60">取消</button>
+          <button type="button" onClick={handleSaveBaseUrl} disabled={busy} className="shrink-0 h-8 px-3 rounded-nomi-sm bg-nomi-ink text-nomi-paper text-body-sm font-semibold hover:bg-nomi-accent disabled:opacity-50">{t('vendorCard.save')}</button>
+          <button type="button" onClick={() => { setUrlEditing(false); setError('') }} disabled={busy} className="shrink-0 text-caption text-nomi-ink-40 hover:text-nomi-ink-60">{t('vendorCard.cancel')}</button>
         </div>
       ) : (
         <div className="flex items-center gap-1 min-w-0">
-          <span className="text-caption text-nomi-ink-30 truncate">接入地址：{baseUrl || '（未设置）'}</span>
-          <button type="button" aria-label={`编辑 ${vendorName} 接入地址`} onClick={() => { setUrlDraft(baseUrl); setUrlEditing(true) }} disabled={busy} className="shrink-0 p-0.5 text-nomi-ink-30 hover:text-nomi-ink-60">
+          <span className="text-caption text-nomi-ink-30 truncate">{baseUrl ? t('vendorCard.baseUrl', { baseUrl }) : t('vendorCard.baseUrlUnset')}</span>
+          <button type="button" aria-label={t('vendorCard.editBaseUrl', { name: vendorName })} onClick={() => { setUrlDraft(baseUrl); setUrlEditing(true) }} disabled={busy} className="shrink-0 p-0.5 text-nomi-ink-30 hover:text-nomi-ink-60">
             <IconPencil size={13} stroke={1.6} />
           </button>
         </div>
@@ -181,7 +183,7 @@ export function CustomVendorManage({
           'hover:bg-[var(--workbench-danger-soft)] disabled:opacity-50',
         )}
       >
-        <IconTrash size={14} stroke={1.7} />删除整个供应商
+        <IconTrash size={14} stroke={1.7} />{t('vendorCard.deleteVendor')}
       </button>
     </div>
   )

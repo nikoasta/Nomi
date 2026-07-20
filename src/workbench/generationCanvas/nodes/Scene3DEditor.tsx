@@ -23,9 +23,10 @@ import {
   summarizeScene3DReferenceTarget,
 } from './scene3d/scene3dReferenceDirector'
 import type { Scene3DCaptureResult, Scene3DState } from './scene3d/scene3dTypes'
+import { useScene3DI18n } from './scene3d/scene3dI18n'
 
 const loadScene3DFullscreen = () => import('./scene3d/Scene3DFullscreen')
-const Scene3DFullscreen = lazyWithChunkBoundary('3D 全屏编辑', loadScene3DFullscreen)
+const Scene3DFullscreen = lazyWithChunkBoundary('3D fullscreen editor', loadScene3DFullscreen)
 
 type Scene3DEditorProps = {
   node: GenerationCanvasNode
@@ -107,6 +108,7 @@ export function readTakeCaptureStatus(node: GenerationCanvasNode): 'generating' 
 }
 
 function Scene3DTakeGeneratingOverlay(): JSX.Element {
+  const t3d = useScene3DI18n()
   return (
     <div
       className={cn(
@@ -116,12 +118,13 @@ function Scene3DTakeGeneratingOverlay(): JSX.Element {
       aria-live="polite"
     >
       <NomiLoadingMark size={16} />
-      <span>参考视频生成中…</span>
+      <span>{t3d('take.generating')}</span>
     </div>
   )
 }
 
 function Scene3DEditor({ node, width, height, readOnly = false }: Scene3DEditorProps): JSX.Element {
+  const t3d = useScene3DI18n()
   const [fullscreen, setFullscreen] = React.useState(false)
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
   const addNode = useGenerationCanvasStore((state) => state.addNode)
@@ -203,7 +206,7 @@ function Scene3DEditor({ node, width, height, readOnly = false }: Scene3DEditorP
     const frameCount = frameCountForDuration(duration, fps)
     const takeNode = addNode({
       kind: 'scene3d',
-      title: '录制走位参考',
+      title: t3d('take.nodeTitle'),
       prompt: '',
       // #1 闭环可见性根因：scene3d 的默认分类是 'scene'，但用户正看着的子画布
       // （source 节点所在分类，常是 'shots'）未必是 'scene'。漏传 categoryId →
@@ -242,7 +245,7 @@ function Scene3DEditor({ node, width, height, readOnly = false }: Scene3DEditorP
       const screenshotNode = addNode({
         kind: 'image',
         title: capture.title,
-        prompt: '3D 场景截图',
+        prompt: t3d('screenshot.prompt'),
         position: {
           x: Math.round(node.position.x + width + 80),
           y: Math.round(node.position.y),
@@ -296,11 +299,11 @@ function Scene3DEditor({ node, width, height, readOnly = false }: Scene3DEditorP
           scene3dState: nextSceneState,
         },
       })
-      toast('3D 截图已创建图片节点', 'success')
+      toast(t3d('screenshot.created'), 'success')
     } catch (error) {
-      toast(error instanceof Error ? error.message : '截图失败，请重试', 'error')
+      toast(error instanceof Error ? error.message : t3d('screenshot.failed'), 'error')
     }
-  }, [addNode, connectNodes, node.id, node.meta, node.position.x, node.position.y, referenceTarget, updateNode, width])
+  }, [addNode, connectNodes, node.id, node.meta, node.position.x, node.position.y, referenceTarget, t3d, updateNode, width])
 
   const takeCaptureStatus = readTakeCaptureStatus(node)
 
@@ -341,7 +344,7 @@ function Scene3DEditor({ node, width, height, readOnly = false }: Scene3DEditorP
             >
               <button
                 type="button"
-                aria-label="打开 3D 编辑器"
+                aria-label={t3d('openEditor')}
                 className={cn(
                   'pointer-events-auto inline-flex items-center gap-1.5 rounded-nomi px-3 py-1.5 border-0 cursor-pointer',
                   'bg-nomi-paper/[0.92] text-body-sm font-semibold text-nomi-ink shadow-nomi-sm backdrop-blur-[10px]',
@@ -357,7 +360,7 @@ function Scene3DEditor({ node, width, height, readOnly = false }: Scene3DEditorP
                 }}
               >
                 <IconCube size={15} stroke={1.7} />
-                打开 3D 编辑器
+                {t3d('openEditor')}
               </button>
             </div>
           </>
@@ -365,9 +368,9 @@ function Scene3DEditor({ node, width, height, readOnly = false }: Scene3DEditorP
           <div className={cn('flex h-full w-full items-center justify-center')}>
             <EmptyStateLauncher
               icon={<IconCube size={24} stroke={1.65} />}
-              label="点击进入 3D 编辑器"
-              hint="摆放模型、相机并输出截图"
-              activateAriaLabel="进入 3D 编辑器"
+              label={t3d('empty.label')}
+              hint={t3d('empty.hint')}
+              activateAriaLabel={t3d('empty.activateAria')}
               onActivate={() => setFullscreen(true)}
               onPreload={preloadFullscreenEditor}
             />
@@ -381,8 +384,8 @@ function Scene3DEditor({ node, width, height, readOnly = false }: Scene3DEditorP
             'backdrop-blur-[10px] transition hover:bg-nomi-paper hover:text-nomi-ink',
           )}
           type="button"
-          aria-label="打开 3D 编辑器"
-          title="打开 3D 编辑器"
+          aria-label={t3d('openEditor')}
+          title={t3d('openEditor')}
           onFocus={preloadFullscreenEditor}
           onPointerDown={(event) => event.stopPropagation()}
           onPointerEnter={preloadFullscreenEditor}
@@ -399,7 +402,7 @@ function Scene3DEditor({ node, width, height, readOnly = false }: Scene3DEditorP
         <React.Suspense fallback={null}>
           <Scene3DFullscreen
             initialState={sceneState}
-            nodeTitle={node.title || '3D场景'}
+            nodeTitle={node.title || t3d('defaultTitle')}
             readOnly={readOnly}
             onClose={handleCloseFullscreen}
             onScreenshot={(capture) => { void handleScreenshot(capture) }}

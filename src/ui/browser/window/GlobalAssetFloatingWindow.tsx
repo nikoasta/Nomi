@@ -11,7 +11,7 @@ import { useGlobalBrowserAssets } from '../assets/useGlobalBrowserAssets'
 const GLOBAL_ASSET_POPOVER_BOUNDARY_SELECTORS = [
   '.workbench-shell__body',
   '.nomi-library-page__main',
-  'main:not([aria-label="网页内容"])',
+  'main:not([data-nomi-browser-web-content="true"])',
   '[role="main"]',
 ]
 

@@ -171,8 +171,8 @@ export function OnboardingDrawer(): JSX.Element {
   // 卡头快捷删除整家供应商（与 CustomVendorManage 的删除按钮共用 confirmAndDeleteVendor，P1）。
   const handleDeleteVendor = React.useCallback(async (vendorKey: string, vendorName: string, modelCount: number) => {
     const res = await confirmAndDeleteVendor({ vendorKey, vendorName, modelCount, onChanged: refresh })
-    if (res.error) void alertDialog({ title: '删除失败', message: res.error })
-  }, [refresh])
+    if (res.error) void alertDialog({ title: t('modelSetup.deleteModel.error'), message: res.error })
+  }, [refresh, t])
 
   // 已知供应商：catalog 里存在该 vendor 才渲染卡片。
   const knownCards = KNOWN_VENDORS
@@ -314,10 +314,10 @@ export function OnboardingDrawer(): JSX.Element {
                   statusLabel={t('modelSetup.configured')}
                   defaultExpanded={false}
                   headerAction={
-                    <button
-                      type="button"
-                      aria-label={`删除供应商 ${group.name}`}
-                      title="删除该供应商"
+	                    <button
+	                      type="button"
+	                      aria-label={t('vendorCard.deleteVendorNamed', { name: group.name })}
+	                      title={t('vendorCard.deleteVendor')}
                       onClick={() => void handleDeleteVendor(group.vendorKey, group.name, group.models.length)}
                       className={cn(
                         'grid place-items-center size-7 rounded-nomi-sm text-nomi-ink-40 transition-colors',
