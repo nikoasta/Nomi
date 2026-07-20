@@ -1,7 +1,7 @@
 import { Readable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import handler from '../../api/portal/[...path].js'
+import { handlePortalRequest } from '../../server/portalApiHandler.js'
 
 function request(method: string, path: string[], body?: unknown, headers: Record<string, string> = {}) {
   const stream = Readable.from(body === undefined ? [] : [JSON.stringify(body)]) as Readable & {
@@ -50,7 +50,7 @@ describe('Vercel portal API handler', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch
     const res = response()
 
-    await handler(
+    await handlePortalRequest(
       request('POST', ['auth', 'magic-link'], {
         email: 'User@Everville.test',
         redirectTo: 'https://cut.eva.mba/',
@@ -83,7 +83,7 @@ describe('Vercel portal API handler', () => {
     globalThis.fetch = fetchMock as unknown as typeof fetch
     const res = response()
 
-    await handler(request('POST', ['rpc', 'not_allowed'], {}, { authorization: 'Bearer user-jwt' }), res)
+    await handlePortalRequest(request('POST', ['rpc', 'not_allowed'], {}, { authorization: 'Bearer user-jwt' }), res)
 
     expect(res.statusCode).toBe(404)
     expect(fetchMock).not.toHaveBeenCalled()

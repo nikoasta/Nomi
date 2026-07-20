@@ -200,11 +200,11 @@ async function callRpc({ env, bearerToken, functionName, body }) {
   })
 }
 
-export default async function handler(req, res) {
+export async function handlePortalRequest(req, res, pathInput = null) {
   const env = readPortalEnv()
   if (!env) return json(res, 503, { error: { code: 'UNCONFIGURED', message: 'Portal backend is not configured' } })
 
-  const path = Array.isArray(req.query.path) ? req.query.path : []
+  const path = Array.isArray(pathInput) ? pathInput : Array.isArray(req.query.path) ? req.query.path : []
 
   try {
     if (req.method === 'POST' && path.join('/') === 'auth/magic-link') {
