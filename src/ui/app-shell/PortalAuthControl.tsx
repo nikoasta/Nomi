@@ -65,11 +65,12 @@ export function PortalAuthControl(): JSX.Element | null {
         type="button"
         className={cn(
           'inline-flex h-[30px] items-center gap-1.5 rounded-[var(--nomi-radius-sm)] border px-2.5',
+          'nomi-appbar__portal',
           'bg-workbench-bg font-inherit text-body-sm transition-[background,color,border-color]',
           signedIn
             ? 'border-[color-mix(in_oklch,var(--nomi-accent)_30%,var(--workbench-border))] text-[var(--nomi-accent)]'
             : 'border-workbench-border text-[var(--nomi-ink-80)] hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
-          'max-[1400px]:w-[30px] max-[1400px]:justify-center max-[1400px]:p-0',
+          'max-[1500px]:w-[30px] max-[1500px]:justify-center max-[1500px]:p-0',
         )}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -78,7 +79,7 @@ export function PortalAuthControl(): JSX.Element | null {
         onClick={() => setOpen((value) => !value)}
       >
         {signedIn ? <IconUserCheck size={15} stroke={1.8} /> : <IconUser size={15} stroke={1.8} />}
-        <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>
+        <span className={cn('nomi-appbar__action-text', 'max-[1500px]:hidden')}>
           {signedIn ? t('portal.auth.connectedShort') : t('portal.auth.portal')}
         </span>
       </WorkbenchButton>

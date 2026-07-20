@@ -156,6 +156,8 @@ describe('projectRepository workspace project creation', () => {
       const record = createLocalProject()
 
       expect(record.draft).toBe(true)
+      expect(record.name).toMatch(/^Untitled project \d{2}\/\d{2} \d{2}:\d{2}$/)
+      expect(record.name).not.toMatch(/[\u3400-\u9fff]/u)
       expect('seedKey' in record).toBe(false)
       expect(record.payload.categories.length).toBeGreaterThan(0)
       // 新建空白项目默认空画布（用户拍板 2026-06-15：删了「剧本片段 + 关键画面」预设两卡）。

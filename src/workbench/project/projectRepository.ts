@@ -43,8 +43,24 @@ function createProjectId(): string {
     return `project-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function formatDefaultProjectTimestamp(): string {
+    const parts = new Intl.DateTimeFormat("en-US", {
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+    })
+        .formatToParts(new Date())
+        .reduce<Record<string, string>>((acc, part) => {
+            if (part.type !== "literal") acc[part.type] = part.value;
+            return acc;
+        }, {});
+    return `${parts.month || "00"}/${parts.day || "00"} ${parts.hour || "00"}:${parts.minute || "00"}`;
+}
+
 function formatDefaultProjectName(): string {
-    return `未命名项目 ${new Date().toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" })}`;
+    return `Untitled project ${formatDefaultProjectTimestamp()}`;
 }
 
 export type PortalProjectBinding = {
@@ -277,7 +293,7 @@ export function saveLocalProject(
         name:
             typeof name === "string" && name.trim()
                 ? name.trim()
-                : existing?.name || "未命名项目",
+                : existing?.name || "Untitled project",
         createdAt: existing?.createdAt || now,
         updatedAt: now,
         revision: existingRevision + 1,

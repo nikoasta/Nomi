@@ -80,8 +80,8 @@ export default function NomiAppBar({
       className={cn(
         'nomi-appbar',
         isWindows && 'app-drag',
-        'relative z-[120] grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center',
-        'h-[var(--workbench-topbar-height)] px-[18px]',
+        'relative z-[120] grid grid-cols-[minmax(180px,1fr)_auto_minmax(220px,1fr)] items-center gap-x-2',
+        'h-[var(--workbench-topbar-height)] px-[16px]',
         'border-b border-workbench-border bg-workbench-surface',
         'max-[700px]:grid-cols-[auto_minmax(0,1fr)_auto] max-[700px]:gap-x-1.5 max-[700px]:px-2',
       )}
@@ -205,7 +205,7 @@ export default function NomiAppBar({
         </div>
       </div>
 
-      <div className="app-no-drag">
+      <div className="app-no-drag min-w-0 justify-self-center">
         <NomiStepper value={workspaceMode} onChange={onWorkspaceModeChange} />
       </div>
 
@@ -213,7 +213,7 @@ export default function NomiAppBar({
         className={cn(
           'nomi-appbar__right',
           'app-no-drag',
-          'inline-flex items-center justify-self-end gap-2 min-w-0',
+          'inline-flex items-center justify-self-end gap-1.5 min-w-0 overflow-hidden',
           'max-[700px]:gap-1',
         )}
         role="toolbar"
@@ -233,7 +233,7 @@ export default function NomiAppBar({
                 'bg-transparent text-[var(--nomi-ink-80)] font-inherit text-body-sm',
                 'transition-[background,color] duration-[var(--nomi-transition-fast)]',
                 'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
-                'max-[1400px]:w-[30px] max-[1400px]:h-[30px] max-[1400px]:justify-center max-[1400px]:p-0',
+                'max-[1500px]:w-[30px] max-[1500px]:h-[30px] max-[1500px]:justify-center max-[1500px]:p-0',
               )}
               aria-label={t('studio.appbar.openBrowser')}
               title={t('studio.appbar.browser')}
@@ -241,7 +241,7 @@ export default function NomiAppBar({
             >
               {/* 顶栏操作按钮统一解剖：图标 15/1.8 + 文字，窄屏一起收成 30px 方块。 */}
               <IconBrowser size={15} stroke={1.8} />
-              <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('studio.appbar.browser')}</span>
+              <span className={cn('nomi-appbar__action-text', 'max-[1500px]:hidden')}>{t('studio.appbar.browser')}</span>
             </WorkbenchButton>
             <WorkbenchButton
               className={cn(
@@ -252,7 +252,7 @@ export default function NomiAppBar({
                 'bg-transparent text-[var(--nomi-ink-80)] font-inherit text-body-sm',
                 'transition-[background,color] duration-[var(--nomi-transition-fast)]',
                 'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
-                'max-[1400px]:w-[30px] max-[1400px]:h-[30px] max-[1400px]:justify-center max-[1400px]:p-0',
+                'max-[1500px]:w-[30px] max-[1500px]:h-[30px] max-[1500px]:justify-center max-[1500px]:p-0',
               )}
               aria-label={t('studio.appbar.openAssetBox')}
               title={t('studio.appbar.assetBox')}
@@ -261,7 +261,7 @@ export default function NomiAppBar({
               }}
             >
               <IconBox size={15} stroke={1.7} aria-hidden="true" />
-              <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('studio.appbar.assetBox')}</span>
+              <span className={cn('nomi-appbar__action-text', 'max-[1500px]:hidden')}>{t('studio.appbar.assetBox')}</span>
               <AssetCountBadge count={assetCount} label={t('studio.appbar.assetCount', { count: assetCount })} />
             </WorkbenchButton>
           </>
@@ -275,17 +275,17 @@ export default function NomiAppBar({
             'bg-transparent text-[var(--nomi-ink-80)] font-inherit text-body-sm',
             'transition-[background,color] duration-[var(--nomi-transition-fast)]',
             'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
-            'max-[1400px]:w-[30px] max-[1400px]:h-[30px] max-[1400px]:justify-center max-[1400px]:p-0',
+            'max-[1500px]:w-[30px] max-[1500px]:h-[30px] max-[1500px]:justify-center max-[1500px]:p-0',
           )}
           aria-label={t('studio.appbar.openModelSetup')}
           title={t('studio.appbar.modelSetup')}
           onClick={handleOpenModelCatalog}
         >
           <IconPlugConnected size={15} stroke={1.8} />
-          <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('studio.appbar.modelSetup')}</span>
+          <span className={cn('nomi-appbar__action-text', 'max-[1500px]:hidden')}>{t('studio.appbar.modelSetup')}</span>
         </WorkbenchButton>
         <PortalAuthControl />
-        <LanguageSwitcher className="h-[30px]" />
+        <LanguageSwitcher className="h-[30px]" showLeadingLabel={false} />
         <WorkbenchButton
           className={cn(
             'nomi-appbar__primary',
@@ -295,7 +295,7 @@ export default function NomiAppBar({
             'bg-[var(--nomi-ink)] text-[var(--nomi-paper)] font-inherit text-body-sm',
             'transition-[background,color] duration-[var(--nomi-transition-fast)]',
             'hover:bg-[var(--nomi-ink-80)]',
-            'max-[1400px]:w-[30px] max-[1400px]:h-[30px] max-[1400px]:justify-center max-[1400px]:p-0',
+            'max-[1500px]:w-[30px] max-[1500px]:h-[30px] max-[1500px]:justify-center max-[1500px]:p-0',
           )}
           aria-label={workspaceMode === 'preview' ? t('studio.appbar.exportMp4') : t('studio.appbar.goPreviewExport')}
           title={workspaceMode === 'preview' ? t('studio.appbar.exportMp4') : t('studio.appbar.goPreviewExport')}
@@ -306,7 +306,7 @@ export default function NomiAppBar({
           }}
         >
           <IconDownload size={15} stroke={1.8} />
-          <span className={cn('nomi-appbar__action-text', 'max-[1400px]:hidden')}>{t('studio.appbar.export')}</span>
+          <span className={cn('nomi-appbar__action-text', 'max-[1500px]:hidden')}>{t('studio.appbar.export')}</span>
         </WorkbenchButton>
       </div>
     </header>

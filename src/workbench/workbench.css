@@ -82,6 +82,34 @@
   --workbench-veil-chip: rgba(255, 255, 255, 0.12);
 }
 
+.nomi-appbar {
+  grid-template-columns: minmax(180px, 1fr) auto minmax(220px, 1fr);
+  column-gap: 8px;
+}
+
+@media (max-width: 1500px) {
+  .nomi-appbar .nomi-appbar__action-text,
+  .nomi-appbar .nomi-onboarding-checklist__trigger-title {
+    display: none;
+  }
+
+  .nomi-appbar .nomi-appbar__ghost,
+  .nomi-appbar .nomi-appbar__primary,
+  .nomi-appbar .nomi-appbar__portal {
+    width: 30px;
+    height: 30px;
+    justify-content: center;
+    padding: 0;
+  }
+}
+
+@media (max-width: 700px) {
+  .nomi-appbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    column-gap: 6px;
+  }
+}
+
 /* ── TipTap / ProseMirror editor content typography ── */
 .workbench-editor__content {
   min-height: 100%;

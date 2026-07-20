@@ -64,7 +64,7 @@ export function normalizeSummary(input: unknown): WorkbenchProjectSummary | null
     const name =
         typeof raw.name === "string" && raw.name.trim()
             ? raw.name.trim()
-            : "未命名项目";
+            : "Untitled project";
     const updatedAt =
         typeof raw.updatedAt === "number" && Number.isFinite(raw.updatedAt)
             ? raw.updatedAt

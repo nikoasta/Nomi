@@ -36,6 +36,11 @@ describe('translateDisplayText', () => {
     expect(translateDisplayText('ru', '英文衬线')).toBe('Английский с засечками')
   })
 
+  it('translates legacy default project names without mutating persisted data', () => {
+    expect(translateDisplayText('en', '未命名项目 07/20 18:56')).toBe('Untitled project 07/20 18:56')
+    expect(translateDisplayText('ru', '未命名项目 07/20 18:56')).toBe('Проект без названия 07/20 18:56')
+  })
+
   it('translates persisted learning project labels without mutating project data', () => {
     expect(translateDisplayText('en', '示例：修好一个小机器人')).toBe('Example: Repairing a little robot')
     expect(translateDisplayText('zh-CN', 'Example: Repairing a little robot')).toBe('示例：修好一个小机器人')

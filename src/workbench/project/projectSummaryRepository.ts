@@ -25,7 +25,7 @@ function normalizeSummary(input: unknown): WorkbenchProjectSummary | null {
   if (!input || typeof input !== 'object') return null
   const raw = input as Record<string, unknown>
   const id = typeof raw.id === 'string' ? raw.id.trim() : ''
-  const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : '未命名项目'
+  const name = typeof raw.name === 'string' && raw.name.trim() ? raw.name.trim() : 'Untitled project'
   const updatedAt = typeof raw.updatedAt === 'number' && Number.isFinite(raw.updatedAt) ? raw.updatedAt : Date.now()
   const createdAt = typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt) ? raw.createdAt : updatedAt
   if (!id) return null

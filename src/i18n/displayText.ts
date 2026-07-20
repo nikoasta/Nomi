@@ -135,6 +135,12 @@ export function translateDisplayText(locale: SupportedLocale, value: unknown): s
   const demoText = translateDemoProjectText(locale, text)
   if (demoText !== text) return demoText
   if (locale === 'zh-CN') return text
+  const untitledProjectMatch = text.match(/^未命名项目\s*(.*)$/u)
+  if (untitledProjectMatch) {
+    const suffix = untitledProjectMatch[1]?.trim()
+    const label = locale === 'ru' ? 'Проект без названия' : 'Untitled project'
+    return suffix ? `${label} ${suffix}` : label
+  }
   const shotMatch = text.match(/^镜头\s*(\d+)$/u)
   if (shotMatch) return locale === 'ru' ? `Кадр ${shotMatch[1]}` : `Shot ${shotMatch[1]}`
   const cameraMatch = text.match(/^相机\s*(\d+)$/u)

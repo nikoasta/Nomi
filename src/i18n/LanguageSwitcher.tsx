@@ -3,7 +3,13 @@ import { NomiSelect } from '../design/NomiSelect'
 import { useI18n } from './i18nContext'
 import { isSupportedLocale, SUPPORTED_LOCALES } from './translations'
 
-export function LanguageSwitcher({ className }: { className?: string }): JSX.Element {
+export function LanguageSwitcher({
+  className,
+  showLeadingLabel = true,
+}: {
+  className?: string
+  showLeadingLabel?: boolean
+}): JSX.Element {
   const { locale, setLocale, t } = useI18n()
   const options = SUPPORTED_LOCALES.map((value) => ({
     value,
@@ -18,7 +24,7 @@ export function LanguageSwitcher({ className }: { className?: string }): JSX.Ele
         if (isSupportedLocale(value)) setLocale(value)
       }}
       ariaLabel={t('language.switcher.aria')}
-      leadingLabel={t('language.switcher.leading')}
+      leadingLabel={showLeadingLabel ? t('language.switcher.leading') : undefined}
       size="xs"
       triggerMaxWidth={82}
       className={className}

@@ -178,7 +178,7 @@ export function OnboardingChecklist(): JSX.Element | null {
         )}
       >
         <IconListCheck size={18} stroke={1.8} aria-hidden="true" />
-        <span className="max-[700px]:hidden">{t('onboardingChecklist.shortTitle')}</span>
+        <span className="nomi-onboarding-checklist__trigger-title max-[1500px]:hidden">{t('onboardingChecklist.shortTitle')}</span>
         <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-nomi-accent-soft text-nomi-accent text-micro font-semibold tabular-nums">
           {doneCount}/{ALL_KEYS.length}
         </span>
