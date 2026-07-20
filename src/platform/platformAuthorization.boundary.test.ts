@@ -72,7 +72,10 @@ describe('authorization public-module boundary', () => {
 
 describe('authorization repository boundary', () => {
   it('does not modify tracked frozen RFC drafts or introduce untracked production migrations', async () => {
-    const allowedMigrationPaths = new Set(['supabase/migrations/20260719141528_everville_portal_auth_rls.sql'])
+    const allowedMigrationPaths = new Set([
+      'supabase/migrations/20260719141528_everville_portal_auth_rls.sql',
+      'supabase/migrations/20260720014246_app_fk_indexes.sql',
+    ])
     let changedEntries: Array<{ status: string; path: string }> = []
     let gitError: unknown
 

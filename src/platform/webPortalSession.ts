@@ -65,8 +65,10 @@ export type WebPortalAuthRequestResult =
 type WebPortalAuthErrorCode = Extract<WebPortalAuthRequestResult, { ok: false }>['error']['code']
 
 function readImportMetaEnv(): WebPortalEnv {
-  const meta = import.meta as unknown as { env?: WebPortalEnv }
-  return meta.env ?? {}
+  return {
+    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
+    VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+  }
 }
 
 function cleanString(value: unknown): string | null {

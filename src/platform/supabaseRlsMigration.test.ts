@@ -2,9 +2,14 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 
 const MIGRATION = 'supabase/migrations/20260719141528_everville_portal_auth_rls.sql'
+const INDEX_MIGRATION = 'supabase/migrations/20260720014246_app_fk_indexes.sql'
 
 function sql(): string {
   return readFileSync(MIGRATION, 'utf8')
+}
+
+function indexSql(): string {
+  return readFileSync(INDEX_MIGRATION, 'utf8')
 }
 
 describe('Everville Supabase auth/RLS migration', () => {
@@ -81,5 +86,26 @@ describe('Everville Supabase auth/RLS migration', () => {
     expect(source).toContain('audit_events_insert_actor')
     expect(source).not.toContain('project_id is null\n  or app_private.has_project_permission')
     expect(source).toContain('(project_id is null and app_private.is_workspace_member(organization_id, workspace_id))')
+  })
+})
+
+describe('Everville Supabase app FK index migration', () => {
+  it('covers the team portal foreign-key paths that grow with collaboration data', () => {
+    const source = indexSql()
+
+    for (const expected of [
+      'workspace_memberships_workspace_organization_idx',
+      'workspace_memberships_user_id_idx',
+      'projects_workspace_organization_idx',
+      'projects_created_by_user_id_idx',
+      'project_memberships_project_organization_workspace_idx',
+      'project_memberships_user_id_idx',
+      'project_revisions_project_organization_workspace_idx',
+      'approval_gates_project_organization_workspace_idx',
+      'audit_events_workspace_organization_idx',
+      'audit_events_project_organization_workspace_idx',
+    ]) {
+      expect(source).toContain(`create index if not exists ${expected}`)
+    }
   })
 })
