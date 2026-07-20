@@ -9,6 +9,26 @@ import {
   parsePortalProjectRevisionRecord,
 } from './collaboration/contracts'
 
+type RowRecord = Record<string, unknown>
+
+export function readRowField(row: unknown, snakeKey: string, camelKey = snakeKey): unknown {
+  if (!row || typeof row !== 'object') return undefined
+  const record = row as RowRecord
+  if (Object.prototype.hasOwnProperty.call(record, snakeKey)) return record[snakeKey]
+  return record[camelKey]
+}
+
+export function normalizeSupabaseTimestamp(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return value
+  return date.toISOString()
+}
+
+function rowTimestamp(row: unknown, snakeKey: string, camelKey = snakeKey): unknown {
+  return normalizeSupabaseTimestamp(readRowField(row, snakeKey, camelKey))
+}
+
 export type SupabaseOrganizationRow = {
   id: string
   slug: string
@@ -104,67 +124,67 @@ export type SupabaseApprovalGateRow = {
 export function mapProject(row: SupabaseProjectRow): PortalProjectRecord {
   return parsePortalProjectRecord({
     schemaVersion: 'portal-project.v1',
-    id: row.id,
-    organizationId: row.organization_id,
-    workspaceId: row.workspace_id,
-    title: row.title,
-    slug: row.slug,
-    classification: row.classification,
-    status: row.status,
+    id: readRowField(row, 'id'),
+    organizationId: readRowField(row, 'organization_id', 'organizationId'),
+    workspaceId: readRowField(row, 'workspace_id', 'workspaceId'),
+    title: readRowField(row, 'title'),
+    slug: readRowField(row, 'slug'),
+    classification: readRowField(row, 'classification'),
+    status: readRowField(row, 'status'),
     brandKitId: null,
     knowledgePackId: null,
-    currentRevisionId: row.current_revision_id,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
-    createdByPrincipalId: row.created_by_user_id,
+    currentRevisionId: readRowField(row, 'current_revision_id', 'currentRevisionId'),
+    createdAt: rowTimestamp(row, 'created_at', 'createdAt'),
+    updatedAt: rowTimestamp(row, 'updated_at', 'updatedAt'),
+    createdByPrincipalId: readRowField(row, 'created_by_user_id', 'createdByUserId'),
   })
 }
 
 export function mapAuditEvent(row: SupabaseAuditEventRow): PortalAuditEventRecord {
   return parsePortalAuditEventRecord({
     schemaVersion: 'portal-audit-event.v1',
-    id: row.id,
-    organizationId: row.organization_id,
-    workspaceId: row.workspace_id,
-    projectId: row.project_id,
-    actorPrincipalId: row.actor_user_id,
-    action: row.action,
-    targetType: row.target_type,
-    targetId: row.target_id,
-    createdAt: row.created_at,
-    metadata: row.metadata,
+    id: readRowField(row, 'id'),
+    organizationId: readRowField(row, 'organization_id', 'organizationId'),
+    workspaceId: readRowField(row, 'workspace_id', 'workspaceId'),
+    projectId: readRowField(row, 'project_id', 'projectId'),
+    actorPrincipalId: readRowField(row, 'actor_user_id', 'actorUserId'),
+    action: readRowField(row, 'action'),
+    targetType: readRowField(row, 'target_type', 'targetType'),
+    targetId: readRowField(row, 'target_id', 'targetId'),
+    createdAt: rowTimestamp(row, 'created_at', 'createdAt'),
+    metadata: readRowField(row, 'metadata'),
   })
 }
 
 export function mapProjectRevision(row: SupabaseProjectRevisionRow): PortalProjectRevisionRecord {
   return parsePortalProjectRevisionRecord({
     schemaVersion: 'portal-project-revision.v1',
-    id: row.id,
-    organizationId: row.organization_id,
-    workspaceId: row.workspace_id,
-    projectId: row.project_id,
-    revisionNumber: row.revision_number,
-    snapshotDigest: row.snapshot_digest,
-    parentRevisionId: row.parent_revision_id,
-    createdAt: row.created_at,
-    createdByPrincipalId: row.created_by_user_id,
+    id: readRowField(row, 'id'),
+    organizationId: readRowField(row, 'organization_id', 'organizationId'),
+    workspaceId: readRowField(row, 'workspace_id', 'workspaceId'),
+    projectId: readRowField(row, 'project_id', 'projectId'),
+    revisionNumber: readRowField(row, 'revision_number', 'revisionNumber'),
+    snapshotDigest: readRowField(row, 'snapshot_digest', 'snapshotDigest'),
+    parentRevisionId: readRowField(row, 'parent_revision_id', 'parentRevisionId'),
+    createdAt: rowTimestamp(row, 'created_at', 'createdAt'),
+    createdByPrincipalId: readRowField(row, 'created_by_user_id', 'createdByUserId'),
   })
 }
 
 export function mapApprovalGate(row: SupabaseApprovalGateRow): ApprovalGateRecord {
   return parseApprovalGateRecord({
     schemaVersion: 'approval-gate.v1',
-    id: row.id,
-    organizationId: row.organization_id,
-    workspaceId: row.workspace_id,
-    projectId: row.project_id,
-    kind: row.kind,
-    requiredRole: row.required_role,
-    required: row.required,
-    decidedByPrincipalId: row.decided_by_user_id,
-    decision: row.decision,
-    decidedAt: row.decided_at,
-    assetVersionId: row.asset_version_id,
-    policySnapshotDigest: row.policy_snapshot_digest,
+    id: readRowField(row, 'id'),
+    organizationId: readRowField(row, 'organization_id', 'organizationId'),
+    workspaceId: readRowField(row, 'workspace_id', 'workspaceId'),
+    projectId: readRowField(row, 'project_id', 'projectId'),
+    kind: readRowField(row, 'kind'),
+    requiredRole: readRowField(row, 'required_role', 'requiredRole'),
+    required: readRowField(row, 'required'),
+    decidedByPrincipalId: readRowField(row, 'decided_by_user_id', 'decidedByUserId'),
+    decision: readRowField(row, 'decision'),
+    decidedAt: rowTimestamp(row, 'decided_at', 'decidedAt'),
+    assetVersionId: readRowField(row, 'asset_version_id', 'assetVersionId'),
+    policySnapshotDigest: readRowField(row, 'policy_snapshot_digest', 'policySnapshotDigest'),
   })
 }

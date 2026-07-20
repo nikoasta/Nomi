@@ -58,19 +58,36 @@ export function VendorOnboardCard({
   }, [hasApiKey])
 
   const total = models.length
+  const tagline = directory.taglineKey ? t(directory.taglineKey) : directory.tagline
+  const credentialHint = directory.credentialHintKey
+    ? t(directory.credentialHintKey)
+    : directory.credentialHint ?? t('vendorCard.defaultCredentialHint')
+  const promoText = directory.promo
+    ? directory.promo.textKey ? t(directory.promo.textKey) : directory.promo.text
+    : ''
+  const promoCtaLabel = directory.promo
+    ? directory.promo.ctaLabelKey ? t(directory.promo.ctaLabelKey) : directory.promo.ctaLabel
+    : ''
 
   // 凭证字段：档案声明了 credentialFields 就按声明渲染多框；否则退化成单框（沿用 credentialPlaceholder）。
   const fields = React.useMemo(
     () =>
-      directory.credentialFields ?? [
+      (directory.credentialFields ?? [
         {
           key: 'apiKey',
           label: '',
-          placeholder: directory.credentialPlaceholder ?? t('vendorCard.defaultCredentialPlaceholder'),
+          placeholder: directory.credentialPlaceholderKey
+            ? t(directory.credentialPlaceholderKey)
+            : directory.credentialPlaceholder ?? t('vendorCard.defaultCredentialPlaceholder'),
           secret: true,
         },
-      ],
-    [directory.credentialFields, directory.credentialPlaceholder, t],
+      ]).map((field) => ({
+        ...field,
+        label: field.labelKey ? t(field.labelKey) : field.label,
+        placeholder: field.placeholderKey ? t(field.placeholderKey) : field.placeholder,
+        hint: field.hintKey ? t(field.hintKey) : field.hint,
+      })),
+    [directory.credentialFields, directory.credentialPlaceholder, directory.credentialPlaceholderKey, t],
   )
   const isMulti = fields.length > 1
 
@@ -156,7 +173,7 @@ export function VendorOnboardCard({
         : directory.glyph}
       glyphTone={directory.logo ? 'logo' : 'ink'}
       name={vendorName}
-      subtitle={hasApiKey ? t('modelSetup.modelsAvailable', { count: total }) : directory.tagline}
+      subtitle={hasApiKey ? t('modelSetup.modelsAvailable', { count: total }) : tagline}
       status={hasApiKey ? 'ok' : 'todo'}
       badge={!hasApiKey && directory.recommended ? (
         <span className="text-micro font-semibold text-nomi-accent bg-nomi-accent-soft rounded-full px-2 py-[2px] whitespace-nowrap">{t('modelSetup.recommended')}</span>
@@ -263,7 +280,7 @@ export function VendorOnboardCard({
               ) : null}
             </>
           )}
-          <div className="text-caption text-nomi-ink-40">{directory.credentialHint ?? t('vendorCard.defaultCredentialHint')}</div>
+          <div className="text-caption text-nomi-ink-40">{credentialHint}</div>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-2">
@@ -352,13 +369,13 @@ export function VendorOnboardCard({
       {/* 推广位：移到 body 末尾，折叠态不显（减噪）；软话术、不营销 */}
       {directory.promo ? (
         <div className="flex items-center gap-2 border-t border-nomi-line-soft pt-3">
-          <span className="flex-1 min-w-0 text-caption text-nomi-ink-40 leading-snug">{directory.promo.text}</span>
+          <span className="flex-1 min-w-0 text-caption text-nomi-ink-40 leading-snug">{promoText}</span>
           <button
             type="button"
             onClick={openPromo}
             className="shrink-0 inline-flex items-center gap-1 text-caption text-nomi-ink-60 hover:text-nomi-accent"
           >
-            {directory.promo.ctaLabel}
+            {promoCtaLabel}
             <IconExternalLink size={13} stroke={1.6} />
           </button>
         </div>

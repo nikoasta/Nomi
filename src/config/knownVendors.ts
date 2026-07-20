@@ -10,11 +10,15 @@
  * （apimart → APIMART_VENDOR_SEED.key、kie → KIE_VENDOR_SEED.key）。
  */
 
+import type { TranslationKey } from '../i18n/translations'
+
 export type KnownVendorPromo = {
   /** 卡片底部话术正文。 */
   text: string
+  textKey?: TranslationKey
   /** CTA 按钮文案。 */
   ctaLabel: string
+  ctaLabelKey?: TranslationKey
   /**
    * 注册链接。当前先指官网；拿到专属 affiliate ?ref= 链接后替换这里即可，
    * 卡片代码无需改动（TODO: 用户拿回推广链接/优惠码后替换）。
@@ -33,12 +37,15 @@ export type CredentialField = {
   key: string
   /** 字段显示名（如「App ID」）。 */
   label: string
+  labelKey?: TranslationKey
   /** 输入框占位。 */
   placeholder: string
+  placeholderKey?: TranslationKey
   /** 是否密文输入（如 Access Token）。 */
   secret?: boolean
   /** 字段下方小字说明（去哪拿这一段）。 */
   hint?: string
+  hintKey?: TranslationKey
 }
 
 export type KnownVendor = {
@@ -50,12 +57,15 @@ export type KnownVendor = {
   glyph: string
   /** 卡片副标题。 */
   tagline: string
+  taglineKey?: TranslationKey
   /** 推广位；null = 不展示推广。 */
   promo: KnownVendorPromo | null
   /** key 输入框占位（缺省 = 通用 sk- 提示）。仅单段凭证用；声明了 credentialFields 时被忽略。 */
   credentialPlaceholder?: string
+  credentialPlaceholderKey?: TranslationKey
   /** key 输入框下方帮助文案（缺省 = 通用「填一次即可…」）。多段凭证时作为卡片底部总说明。 */
   credentialHint?: string
+  credentialHintKey?: TranslationKey
   /**
    * 多段凭证声明（缺省 = 单段，沿用 credentialPlaceholder）。
    * 声明后接入卡渲染对应数量的独立输入框，各自标注；保存时按 credentialJoin 拼成单串存进唯一 key 槽。
@@ -75,11 +85,14 @@ export const KNOWN_VENDORS: readonly KnownVendor[] = [
     logo: new URL('../assets/vendor-logos/apimart.png', import.meta.url).href,
     glyph: 'A',
     tagline: '一个 key，解锁全部预置模型',
+    taglineKey: 'vendor.apimart.tagline',
     recommended: true, // 聚合中转，一个 key 解锁图/视频/文本/配音 → 新手最省事的起点
 
     promo: {
       text: '如果你愿意，可以用我们的链接注册；不愿意也可以直接去官方注册。',
+      textKey: 'vendor.apimart.promo',
       ctaLabel: '用我们的链接',
+      ctaLabelKey: 'vendor.apimart.cta',
       url: 'https://apimart.ai/register?aff=t55VtP', // 专属推广链接
     },
   },
@@ -89,11 +102,16 @@ export const KNOWN_VENDORS: readonly KnownVendor[] = [
     vendorKey: 'agnes',
     glyph: 'Ag',
     tagline: '全模态免费 · 一个 key 解锁文本/图片/视频',
+    taglineKey: 'vendor.agnes.tagline',
     credentialPlaceholder: '粘贴 Agnes API Key',
+    credentialPlaceholderKey: 'vendor.agnes.credentialPlaceholder',
     credentialHint: '免费：去 platform.agnes-ai.com 邮箱注册（不绑卡）→ 创建 API Key。免费层有速率上限（RPM 20），个人/原型够用。凭证本地加密存储。',
+    credentialHintKey: 'vendor.agnes.credentialHint',
     promo: {
       text: 'Agnes AI（新加坡 Sapiens AI）把文本/图片/视频三模态 API 无限期免费开放，OpenAI 兼容。邮箱注册不绑卡即可拿 Key。',
+      textKey: 'vendor.agnes.promo',
       ctaLabel: '去 Agnes 注册（免费）',
+      ctaLabelKey: 'vendor.agnes.cta',
       url: 'https://agnes-ai.com',
     },
   },
@@ -102,9 +120,12 @@ export const KNOWN_VENDORS: readonly KnownVendor[] = [
     logo: new URL('../assets/vendor-logos/kie.png', import.meta.url).href,
     glyph: 'K',
     tagline: '一个 key，解锁内置模型',
+    taglineKey: 'vendor.kie.tagline',
     promo: {
       text: '如果你愿意，可以用我们的链接注册；不愿意也可以直接去官方注册。',
+      textKey: 'vendor.kie.promo',
       ctaLabel: '用我们的链接',
+      ctaLabelKey: 'vendor.kie.cta',
       url: 'https://kie.ai', // TODO: 替换为专属 ?ref 链接
     },
   },
@@ -113,9 +134,12 @@ export const KNOWN_VENDORS: readonly KnownVendor[] = [
     logo: new URL('../assets/vendor-logos/modelscope.png', import.meta.url).href,
     glyph: '魔',
     tagline: '官方原生 · 绑定阿里云每天免费额度',
+    taglineKey: 'vendor.modelscope.tagline',
     promo: {
       text: '魔搭社区由阿里达摩院运营，绑定阿里云账号后每天有免费推理额度。去官网拿 API Key。',
+      textKey: 'vendor.modelscope.promo',
       ctaLabel: '去魔搭注册',
+      ctaLabelKey: 'vendor.modelscope.cta',
       url: 'https://modelscope.cn/my/myaccesstoken',
     },
   },
@@ -124,9 +148,12 @@ export const KNOWN_VENDORS: readonly KnownVendor[] = [
     logo: new URL('../assets/vendor-logos/volcengine.png', import.meta.url).href,
     glyph: '火',
     tagline: '官方原生 · 豆包 Seedream / Seedance',
+    taglineKey: 'vendor.volcengine.tagline',
     promo: {
       text: '火山方舟（字节跳动）官方。需先在 Ark 控制台「开通管理」激活模型（Seedream/Seedance），再拿 API Key。',
+      textKey: 'vendor.volcengine.promo',
       ctaLabel: '去火山方舟',
+      ctaLabelKey: 'vendor.volcengine.cta',
       url: 'https://console.volcengine.com/ark',
     },
   },
@@ -137,11 +164,16 @@ export const KNOWN_VENDORS: readonly KnownVendor[] = [
     vendorKey: 'runninghub',
     glyph: 'R',
     tagline: '一个 key，解锁 355+ 标准模型（Seedance / 可灵 / 混元3D / Meshy…）',
+    taglineKey: 'vendor.runninghub.tagline',
     credentialPlaceholder: '粘贴 RunningHub API Key（32 位）',
+    credentialPlaceholderKey: 'vendor.runninghub.credentialPlaceholder',
     credentialHint: '⚠️ 标准模型 API 需「Enterprise-Shared（企业级-共享）」API Key；个人/Consumer key 会报「访问被拒绝（1014）」。登录 RunningHub → API 设置里拿。凭证本地加密存储。',
+    credentialHintKey: 'vendor.runninghub.credentialHint',
     promo: {
       text: 'RunningHub 聚合 355+ 主流模型（按量付费）。标准模型 API 需企业级-共享 key——登录后在控制台 API 设置里获取。',
+      textKey: 'vendor.runninghub.promo',
       ctaLabel: '去 RunningHub',
+      ctaLabelKey: 'vendor.runninghub.cta',
       url: 'https://www.runninghub.cn',
     },
   },
@@ -153,27 +185,37 @@ export const KNOWN_VENDORS: readonly KnownVendor[] = [
     logo: new URL('../assets/vendor-logos/doubao.png', import.meta.url).href,
     glyph: '声',
     tagline: '官方原生 · 豆包语音 2.0 配音（自然语言情感控制）',
+    taglineKey: 'vendor.volcengineSpeech.tagline',
     // 火山语音需要两段凭证（App ID + Access Token），声明成两个独立框，别让用户自己拼冒号
     // （D1：让用户照我们的格式手写 = 离谱）。卡片保存时内部拼成 APP_ID:ACCESS_KEY 存单槽。
     credentialFields: [
       {
         key: 'appId',
         label: 'App ID',
+        labelKey: 'vendor.volcengineSpeech.appId.label',
         placeholder: '火山语音应用的 App ID',
+        placeholderKey: 'vendor.volcengineSpeech.appId.placeholder',
         hint: '语音控制台 → 应用管理里的 App ID',
+        hintKey: 'vendor.volcengineSpeech.appId.hint',
       },
       {
         key: 'accessToken',
         label: 'Access Token',
+        labelKey: 'vendor.volcengineSpeech.accessToken.label',
         placeholder: '对应的 Access Token',
+        placeholderKey: 'vendor.volcengineSpeech.accessToken.placeholder',
         secret: true,
         hint: '同一应用的访问令牌（Access Key）',
+        hintKey: 'vendor.volcengineSpeech.accessToken.hint',
       },
     ],
     credentialHint: '需先开通豆包语音合成 2.0 + 付费音色；凭证本地加密存储、只在调用时使用。',
+    credentialHintKey: 'vendor.volcengineSpeech.credentialHint',
     promo: {
       text: '火山「语音技术」官方（与方舟是不同控制台）。开通豆包语音合成 2.0 与付费音色后，拿 App ID 与 Access Token。',
+      textKey: 'vendor.volcengineSpeech.promo',
       ctaLabel: '去火山语音控制台',
+      ctaLabelKey: 'vendor.volcengineSpeech.cta',
       url: 'https://console.volcengine.com/speech/app',
     },
   },
@@ -183,11 +225,16 @@ export const KNOWN_VENDORS: readonly KnownVendor[] = [
     vendorKey: 'replicate',
     glyph: 'R',
     tagline: '一个 token，解锁「元素拆解」（一张图拆成可编辑图层）',
+    taglineKey: 'vendor.replicate.tagline',
     credentialPlaceholder: '粘贴 Replicate API Token（r8_…）',
+    credentialPlaceholderKey: 'vendor.replicate.credentialPlaceholder',
     credentialHint: '用于「元素拆解」(qwen-image-layered，约 $0.05/张，按量付费)。登录 Replicate → Account → API tokens 里拿。凭证本地加密存储、只在调用时使用。',
+    credentialHintKey: 'vendor.replicate.credentialHint',
     promo: {
       text: 'Replicate 托管 qwen-image-layered（开源 Apache 2.0），把一张图拆成前景/背景/元素多个可编辑图层。注册后在 Account 里拿 API token，按量付费。',
+      textKey: 'vendor.replicate.promo',
       ctaLabel: '去 Replicate 拿 token',
+      ctaLabelKey: 'vendor.replicate.cta',
       url: 'https://replicate.com/account/api-tokens',
     },
   },

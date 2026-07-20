@@ -23,6 +23,8 @@ import {
   mapAuditEvent,
   mapProject,
   mapProjectRevision,
+  normalizeSupabaseTimestamp,
+  readRowField,
   type SupabaseApprovalGateRow,
   type SupabaseAuditEventRow,
   type SupabaseMembershipRow,
@@ -380,12 +382,12 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
             items.push(
               parseOrganizationRecord({
                 schemaVersion: 'organization.v1',
-                id: row.id,
-                slug: row.slug,
-                name: row.name,
-                status: row.status,
-                createdAt: row.created_at,
-                updatedAt: row.updated_at,
+                id: readRowField(row, 'id'),
+                slug: readRowField(row, 'slug'),
+                name: readRowField(row, 'name'),
+                status: readRowField(row, 'status'),
+                createdAt: normalizeSupabaseTimestamp(readRowField(row, 'created_at', 'createdAt')),
+                updatedAt: normalizeSupabaseTimestamp(readRowField(row, 'updated_at', 'updatedAt')),
               }),
             )
           }
@@ -420,13 +422,13 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
             items.push(
               parseWorkspaceRecord({
                 schemaVersion: 'workspace.v1',
-                id: row.id,
-                organizationId: row.organization_id,
-                slug: row.slug,
-                name: row.name,
-                status: row.status,
-                createdAt: row.created_at,
-                updatedAt: row.updated_at,
+                id: readRowField(row, 'id'),
+                organizationId: readRowField(row, 'organization_id', 'organizationId'),
+                slug: readRowField(row, 'slug'),
+                name: readRowField(row, 'name'),
+                status: readRowField(row, 'status'),
+                createdAt: normalizeSupabaseTimestamp(readRowField(row, 'created_at', 'createdAt')),
+                updatedAt: normalizeSupabaseTimestamp(readRowField(row, 'updated_at', 'updatedAt')),
               }),
             )
           }
@@ -460,23 +462,24 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
         const items: WorkspaceMembershipRecord[] = []
         try {
           for (const row of result.value) {
+            const projectMemberships = readRowField(row, 'project_memberships', 'projectMemberships')
             items.push(
               parseWorkspaceMembershipRecord({
                 schemaVersion: 'workspace-membership.v1',
-                id: row.id,
-                organizationId: row.organization_id,
-                workspaceId: row.workspace_id,
-                principalId: row.user_id,
-                status: row.status,
-                roles: row.roles,
-                organizationPermissions: row.organization_permissions,
-                workspacePermissions: row.workspace_permissions,
-                projects: (row.project_memberships ?? []).map((project) => ({
-                  projectId: project.project_id,
-                  permissions: project.permissions,
+                id: readRowField(row, 'id'),
+                organizationId: readRowField(row, 'organization_id', 'organizationId'),
+                workspaceId: readRowField(row, 'workspace_id', 'workspaceId'),
+                principalId: readRowField(row, 'user_id', 'userId'),
+                status: readRowField(row, 'status'),
+                roles: readRowField(row, 'roles'),
+                organizationPermissions: readRowField(row, 'organization_permissions', 'organizationPermissions'),
+                workspacePermissions: readRowField(row, 'workspace_permissions', 'workspacePermissions'),
+                projects: (Array.isArray(projectMemberships) ? projectMemberships : []).map((project) => ({
+                  projectId: readRowField(project, 'project_id', 'projectId'),
+                  permissions: readRowField(project, 'permissions'),
                 })),
-                createdAt: row.created_at,
-                updatedAt: row.updated_at,
+                createdAt: normalizeSupabaseTimestamp(readRowField(row, 'created_at', 'createdAt')),
+                updatedAt: normalizeSupabaseTimestamp(readRowField(row, 'updated_at', 'updatedAt')),
               }),
             )
           }

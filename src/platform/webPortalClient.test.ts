@@ -7,6 +7,7 @@ const ENDPOINT = 'https://project.supabase.co'
 const PUBLISHABLE = 'sb_publishable_test'
 const BEARER = 'user-session-jwt'
 const NOW = '2026-07-19T00:00:00.000Z'
+const SUPABASE_NOW = '2026-07-19T00:00:00+00:00'
 
 function response(body: unknown, init: ResponseInit = {}) {
   return new Response(JSON.stringify(body), {
@@ -82,8 +83,8 @@ describe('web portal PlatformClient adapter', () => {
             slug: 'everville',
             name: 'Everville',
             status: 'active',
-            created_at: NOW,
-            updated_at: NOW,
+            created_at: SUPABASE_NOW,
+            updated_at: SUPABASE_NOW,
           },
         ])
       }
@@ -98,7 +99,7 @@ describe('web portal PlatformClient adapter', () => {
             snapshot_digest: 'a'.repeat(64),
             parent_revision_id: null,
             created_by_user_id: 'principal-niko',
-            created_at: NOW,
+            created_at: SUPABASE_NOW,
           },
         ])
       }
@@ -179,8 +180,8 @@ describe('web portal PlatformClient adapter', () => {
           slug: 'everville',
           name: 'Everville',
           status: 'active',
-          created_at: NOW,
-          updated_at: NOW,
+          created_at: SUPABASE_NOW,
+          updated_at: SUPABASE_NOW,
         },
       ]),
     )
@@ -251,8 +252,8 @@ describe('web portal PlatformClient adapter', () => {
             organization_permissions: [],
             workspace_permissions: ['project.read'],
             project_memberships: [{ project_id: 'project-cash-on-rails', permissions: ['project.read'] }],
-            created_at: NOW,
-            updated_at: NOW,
+            created_at: SUPABASE_NOW,
+            updated_at: SUPABASE_NOW,
           },
         ]),
       )
@@ -315,8 +316,8 @@ describe('web portal PlatformClient adapter', () => {
       status: 'draft',
       current_revision_id: null,
       created_by_user_id: 'principal-niko',
-      created_at: NOW,
-      updated_at: NOW,
+      created_at: SUPABASE_NOW,
+      updated_at: SUPABASE_NOW,
     }
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (url.endsWith('/auth/v1/user')) return response({ id: 'principal-niko', email: 'niko@example.test' })
@@ -430,7 +431,7 @@ describe('web portal PlatformClient adapter', () => {
             target_type: 'project',
             target_id: 'project-cash-on-rails',
             metadata: { source: 'web-portal' },
-            created_at: NOW,
+            created_at: SUPABASE_NOW,
           },
         ])
       }
@@ -485,7 +486,7 @@ describe('web portal PlatformClient adapter', () => {
             snapshot_digest: 'a'.repeat(64),
             parent_revision_id: null,
             created_by_user_id: 'principal-niko',
-            created_at: NOW,
+            created_at: SUPABASE_NOW,
           },
         ])
       }
@@ -560,8 +561,8 @@ describe('web portal PlatformClient adapter', () => {
       decision: null,
       decided_by_user_id: null,
       decided_at: null,
-      created_at: NOW,
-      updated_at: NOW,
+      created_at: SUPABASE_NOW,
+      updated_at: SUPABASE_NOW,
     }
     const decidedRow = {
       ...gateRow,
