@@ -77,6 +77,7 @@ describe('authorization repository boundary', () => {
       'supabase/migrations/20260720014246_app_fk_indexes.sql',
       'supabase/migrations/20260720030000_portal_revision_rpc.sql',
       'supabase/migrations/20260720034022_portal_approval_rpc.sql',
+      'supabase/migrations/20260720040006_portal_public_bff_rpc.sql',
     ])
     let changedEntries: Array<{ status: string; path: string }> = []
     let gitError: unknown

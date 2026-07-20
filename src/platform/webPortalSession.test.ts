@@ -40,17 +40,16 @@ function session(overrides: Partial<WebPortalStoredSession> = {}): WebPortalStor
 }
 
 describe('web portal browser session wiring', () => {
-  it('reads only public Vite Supabase portal environment', () => {
+  it('reads the server-side portal API base without exposing Supabase browser keys', () => {
     expect(
       readWebPortalRuntimeEnv({
-        VITE_SUPABASE_URL: 'https://project.supabase.co',
-        VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_live',
+        VITE_PORTAL_API_BASE: 'https://cut.eva.mba/api/portal',
       }),
     ).toEqual({
-      endpoint: 'https://project.supabase.co',
-      publishableKey: 'sb_publishable_live',
+      apiBase: 'https://cut.eva.mba/api/portal',
     })
-    expect(readWebPortalRuntimeEnv({ VITE_SUPABASE_URL: 'https://project.supabase.co' })).toBeNull()
+    expect(readWebPortalRuntimeEnv({})).toEqual({ apiBase: '/api/portal' })
+    expect(readWebPortalRuntimeEnv({ VITE_PORTAL_AUTH_ENABLED: 'false' })).toBeNull()
   })
 
   it('parses Supabase magic-link hash sessions with an absolute expiry', () => {
@@ -102,7 +101,7 @@ describe('web portal browser session wiring', () => {
     expect(replaceState).toHaveBeenCalledWith(null, '', '/#/studio')
   })
 
-  it('requests invite-only Supabase magic links with only the publishable key and a fixed redirect', async () => {
+  it('requests invite-only magic links through the same-origin portal API', async () => {
     const request = vi.fn(async () => new Response('{}', { status: 200 }))
 
     await expect(
@@ -110,44 +109,41 @@ describe('web portal browser session wiring', () => {
         email: ' User@Everville.test ',
         redirectTo: 'https://cut.eva.mba/',
         env: {
-          VITE_SUPABASE_URL: 'https://project.supabase.co',
-          VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_live',
+          VITE_PORTAL_API_BASE: 'https://cut.eva.mba/api/portal',
         },
         fetch: request as unknown as typeof fetch,
       }),
     ).resolves.toEqual({ ok: true, value: { email: 'user@everville.test', redirectTo: 'https://cut.eva.mba/' } })
 
-    expect(request).toHaveBeenCalledWith('https://project.supabase.co/auth/v1/otp', {
+    expect(request).toHaveBeenCalledWith('https://cut.eva.mba/api/portal/auth/magic-link', {
       method: 'POST',
       headers: {
         accept: 'application/json',
-        apikey: 'sb_publishable_live',
-        authorization: 'Bearer sb_publishable_live',
         'content-type': 'application/json',
       },
       body: JSON.stringify({
         email: 'user@everville.test',
-        create_user: false,
-        options: {
-          email_redirect_to: 'https://cut.eva.mba/',
-        },
+        redirectTo: 'https://cut.eva.mba/',
       }),
     })
     expect(JSON.stringify(request.mock.calls)).not.toMatch(/service|secret|refresh-token|user-access-token/i)
   })
 
-  it('fails closed when magic-link auth has no public portal config or a non-publishable key', async () => {
+  it('fails closed when magic-link auth is disabled or misconfigured', async () => {
     const request = vi.fn()
 
-    await expect(requestWebPortalMagicLink({ email: 'user@everville.test', env: {}, fetch: request })).resolves.toEqual(
-      expect.objectContaining({ ok: false, error: expect.objectContaining({ code: 'UNCONFIGURED', retryable: false }) }),
-    )
+    await expect(
+      requestWebPortalMagicLink({
+        email: 'user@everville.test',
+        env: { VITE_PORTAL_AUTH_ENABLED: 'false' },
+        fetch: request,
+      }),
+    ).resolves.toEqual(expect.objectContaining({ ok: false, error: expect.objectContaining({ code: 'UNCONFIGURED' }) }))
     await expect(
       requestWebPortalMagicLink({
         email: 'user@everville.test',
         env: {
-          VITE_SUPABASE_URL: 'https://project.supabase.co',
-          VITE_SUPABASE_PUBLISHABLE_KEY: 'eyJhbGciOiJIUzI1NiJ9.payload.signature',
+          VITE_PORTAL_API_BASE: 'file:///tmp/portal',
         },
         fetch: request,
       }),
@@ -163,8 +159,7 @@ describe('web portal browser session wiring', () => {
         email: 'user@everville.test',
         redirectTo: 'https://cut.eva.mba/',
         env: {
-          VITE_SUPABASE_URL: 'https://project.supabase.co',
-          VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_live',
+          VITE_PORTAL_API_BASE: 'https://cut.eva.mba/api/portal',
         },
         fetch: request as unknown as typeof fetch,
       }),
@@ -185,15 +180,14 @@ describe('web portal browser session wiring', () => {
     expect(
       getBrowserWebPortalClientConfig(
         {
-          VITE_SUPABASE_URL: 'https://project.supabase.co',
-          VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_live',
+          VITE_PORTAL_API_BASE: 'https://cut.eva.mba/api/portal',
         },
         storage,
         NOW,
       ),
     ).toEqual({
-      endpoint: 'https://project.supabase.co',
-      publishableKey: 'sb_publishable_live',
+      endpoint: 'https://cut.eva.mba/api/portal',
+      apiBase: 'https://cut.eva.mba/api/portal',
       bearer: 'user-access-token',
     })
   })
@@ -205,8 +199,7 @@ describe('web portal browser session wiring', () => {
     expect(
       getBrowserWebPortalClientConfig(
         {
-          VITE_SUPABASE_URL: 'https://project.supabase.co',
-          VITE_SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_live',
+          VITE_PORTAL_API_BASE: 'https://cut.eva.mba/api/portal',
         },
         storage,
         NOW,

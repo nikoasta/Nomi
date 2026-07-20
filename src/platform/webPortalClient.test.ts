@@ -72,6 +72,105 @@ describe('web portal PlatformClient adapter', () => {
     })
   })
 
+  it('uses the server-side portal API without exposing Supabase keys in browser data calls', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/identity/session')) return response({ id: 'principal-1', email: 'team@example.test' })
+      if (url.endsWith('/query') && init?.method === 'POST') {
+        return response([
+          {
+            id: 'org-everville',
+            slug: 'everville',
+            name: 'Everville',
+            status: 'active',
+            created_at: NOW,
+            updated_at: NOW,
+          },
+        ])
+      }
+      if (url.endsWith('/rpc/save_project_revision') && init?.method === 'POST') {
+        return response([
+          {
+            id: 'revision-001',
+            organization_id: 'org-everville',
+            workspace_id: 'workspace-content',
+            project_id: 'project-cash-on-rails',
+            revision_number: 1,
+            snapshot_digest: 'a'.repeat(64),
+            parent_revision_id: null,
+            created_by_user_id: 'principal-niko',
+            created_at: NOW,
+          },
+        ])
+      }
+      return response([], { status: 404 })
+    })
+    const services = createWebPortalServices({
+      endpoint: 'https://cut.eva.mba/api/portal',
+      apiBase: 'https://cut.eva.mba/api/portal',
+      bearer: BEARER,
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+
+    await expect(services.identity.getSession()).resolves.toEqual({
+      ok: true,
+      value: {
+        state: 'authenticated',
+        principal: { id: 'principal-1', kind: 'human', displayName: 'team@example.test' },
+        activeMembership: null,
+      },
+    })
+    await expect(services.organizations.listOrganizations({ limit: 10 })).resolves.toEqual({
+      ok: true,
+      value: {
+        items: [
+          expect.objectContaining({
+            schemaVersion: 'organization.v1',
+            id: 'org-everville',
+          }),
+        ],
+        cursor: null,
+      },
+    })
+    await expect(
+      services.collaboration.saveProjectRevision({
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cash-on-rails',
+        expectedCurrentRevisionId: null,
+        snapshotDigest: 'a'.repeat(64),
+        snapshot: { schemaVersion: 'nomi-project.v1', title: 'Cash on Rails' },
+        idempotencyKey: 'revision-cash-on-rails-1',
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: expect.objectContaining({
+        schemaVersion: 'portal-project-revision.v1',
+        id: 'revision-001',
+      }),
+    })
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://cut.eva.mba/api/portal/query',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          authorization: `Bearer ${BEARER}`,
+        }),
+        body: JSON.stringify({
+          table: 'organizations',
+          query: {
+            select: 'id,slug,name,status,created_at,updated_at',
+            order: 'name.asc',
+            limit: 10,
+          },
+        }),
+      }),
+    )
+    const serializedCalls = JSON.stringify(fetchMock.mock.calls)
+    expect(serializedCalls).not.toContain('apikey')
+    expect(serializedCalls).not.toContain('sb_publishable')
+  })
+
   it('reads organizations through the app schema with publishable and user bearer headers', async () => {
     const fetchMock = vi.fn(async () =>
       response([

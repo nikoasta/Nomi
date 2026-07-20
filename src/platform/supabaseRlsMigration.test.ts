@@ -5,6 +5,7 @@ const MIGRATION = 'supabase/migrations/20260719141528_everville_portal_auth_rls.
 const INDEX_MIGRATION = 'supabase/migrations/20260720014246_app_fk_indexes.sql'
 const REVISION_RPC_MIGRATION = 'supabase/migrations/20260720030000_portal_revision_rpc.sql'
 const APPROVAL_RPC_MIGRATION = 'supabase/migrations/20260720034022_portal_approval_rpc.sql'
+const PUBLIC_BFF_RPC_MIGRATION = 'supabase/migrations/20260720040006_portal_public_bff_rpc.sql'
 
 function sql(): string {
   return readFileSync(MIGRATION, 'utf8')
@@ -20,6 +21,10 @@ function revisionRpcSql(): string {
 
 function approvalRpcSql(): string {
   return readFileSync(APPROVAL_RPC_MIGRATION, 'utf8')
+}
+
+function publicBffRpcSql(): string {
+  return readFileSync(PUBLIC_BFF_RPC_MIGRATION, 'utf8')
 }
 
 describe('Everville Supabase auth/RLS migration', () => {
@@ -158,6 +163,37 @@ describe('Everville Supabase portal approval RPC migration', () => {
     expect(source).toContain('revoke all on function app.decide_approval_gate')
     expect(source).toContain('from public, anon, authenticated')
     expect(source).toContain('grant execute on function app.decide_approval_gate')
+    expect(source).toContain('to authenticated')
+    expect(source).not.toMatch(/grant\s+execute[^;]+to\s+anon/i)
+  })
+})
+
+describe('Everville Supabase portal public BFF RPC migration', () => {
+  it('exposes only authenticated public RPC wrappers and keeps audit writes server-derived', () => {
+    const source = publicBffRpcSql()
+
+    for (const name of [
+      'nomi_portal_list_organizations',
+      'nomi_portal_list_workspaces',
+      'nomi_portal_list_memberships',
+      'nomi_portal_list_projects',
+      'nomi_portal_create_project',
+      'nomi_portal_save_project_revision',
+      'nomi_portal_list_review_queue',
+      'nomi_portal_decide_approval_gate',
+      'nomi_portal_append_audit_event',
+    ]) {
+      expect(source).toContain(`create or replace function public.${name}`)
+      expect(source).toContain(`revoke all on function public.${name}`)
+      expect(source).toContain(`grant execute on function public.${name}`)
+    }
+
+    expect(source).toContain("set search_path = ''")
+    expect(source).toContain('actor_id uuid := (select auth.uid())')
+    expect(source).toContain('revoke insert on app.audit_events from authenticated')
+    expect(source).toContain('actor_id,\n      request_action')
+    expect(source).toContain("request_action not in ('project.create', 'project.view', 'project.revision.save', 'approval.decide')")
+    expect(source).toContain("from public, anon, authenticated")
     expect(source).toContain('to authenticated')
     expect(source).not.toMatch(/grant\s+execute[^;]+to\s+anon/i)
   })

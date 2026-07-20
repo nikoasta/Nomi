@@ -1,12 +1,12 @@
-import { isWebPortalPublishableKey, type WebPortalClientConfig } from './webPortalClient'
+import type { WebPortalClientConfig } from './webPortalClient'
 
 export const WEB_PORTAL_SESSION_STORAGE_KEY = 'nomi.portal.session.v1'
 export const WEB_PORTAL_SESSION_EXPIRY_SKEW_MS = 30_000
 export const WEB_PORTAL_AUTH_CHANGE_EVENT = 'nomi-web-portal-auth-change'
 
 type WebPortalEnv = {
-  VITE_SUPABASE_URL?: string
-  VITE_SUPABASE_PUBLISHABLE_KEY?: string
+  VITE_PORTAL_API_BASE?: string
+  VITE_PORTAL_AUTH_ENABLED?: string
 }
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
@@ -34,8 +34,7 @@ export type WebPortalStoredSession = {
 }
 
 export type WebPortalRuntimeEnv = {
-  endpoint: string
-  publishableKey: string
+  apiBase: string
 }
 
 export type WebPortalAuthRequestOptions = {
@@ -66,8 +65,8 @@ type WebPortalAuthErrorCode = Extract<WebPortalAuthRequestResult, { ok: false }>
 
 function readImportMetaEnv(): WebPortalEnv {
   return {
-    VITE_SUPABASE_URL: import.meta.env.VITE_SUPABASE_URL,
-    VITE_SUPABASE_PUBLISHABLE_KEY: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+    VITE_PORTAL_API_BASE: import.meta.env.VITE_PORTAL_API_BASE,
+    VITE_PORTAL_AUTH_ENABLED: import.meta.env.VITE_PORTAL_AUTH_ENABLED,
   }
 }
 
@@ -78,11 +77,11 @@ function cleanString(value: unknown): string | null {
 }
 
 function publicPortalEnv(env: WebPortalEnv): WebPortalRuntimeEnv | null {
-  const endpoint = cleanString(env.VITE_SUPABASE_URL)
-  const publishableKey = cleanString(env.VITE_SUPABASE_PUBLISHABLE_KEY)
-  if (!endpoint || !publishableKey) return null
-  if (!isWebPortalPublishableKey(publishableKey)) return null
-  return { endpoint, publishableKey }
+  if (env.VITE_PORTAL_AUTH_ENABLED === 'false') return null
+  const apiBase = cleanString(env.VITE_PORTAL_API_BASE) ?? '/api/portal'
+  const normalizedApiBase = normalizeApiBase(apiBase)
+  if (normalizedApiBase) return { apiBase: normalizedApiBase }
+  return null
 }
 
 function normalizeEndpoint(endpoint: string): string | null {
@@ -93,6 +92,13 @@ function normalizeEndpoint(endpoint: string): string | null {
   } catch {
     return null
   }
+}
+
+function normalizeApiBase(apiBase: string): string | null {
+  const trimmed = apiBase.trim().replace(/\/+$/, '')
+  if (!trimmed) return null
+  if (trimmed.startsWith('/')) return trimmed
+  return normalizeEndpoint(trimmed)
 }
 
 function browserRedirectTo(): string | null {
@@ -213,7 +219,7 @@ export async function requestWebPortalMagicLink({
 }: WebPortalAuthRequestOptions): Promise<WebPortalAuthRequestResult> {
   const portalEnv = readWebPortalRuntimeEnv(env)
   if (!portalEnv) return authError('UNCONFIGURED', 'Portal auth is not configured', false)
-  const endpoint = normalizeEndpoint(portalEnv.endpoint)
+  const endpoint = normalizeApiBase(portalEnv.apiBase)
   const safeEmail = normalizePortalEmail(email)
   const safeRedirectTo = normalizeRedirectTo(redirectTo)
   const request = fetchOverride ?? globalThis.fetch
@@ -224,20 +230,15 @@ export async function requestWebPortalMagicLink({
 
   let response: Response
   try {
-    response = await request(`${endpoint}/auth/v1/otp`, {
+    response = await request(`${endpoint}/auth/magic-link`, {
       method: 'POST',
       headers: {
         accept: 'application/json',
-        apikey: portalEnv.publishableKey,
-        authorization: `Bearer ${portalEnv.publishableKey}`,
         'content-type': 'application/json',
       },
       body: JSON.stringify({
         email: safeEmail,
-        create_user: false,
-        options: {
-          email_redirect_to: safeRedirectTo,
-        },
+        redirectTo: safeRedirectTo,
       }),
     })
   } catch {
@@ -351,7 +352,7 @@ export function getBrowserWebPortalClientConfig(
   env: WebPortalEnv = readImportMetaEnv(),
   storage: StorageLike | null = browserStorage(),
   now = Date.now(),
-): Pick<WebPortalClientConfig, 'endpoint' | 'publishableKey' | 'bearer'> | null {
+): Pick<WebPortalClientConfig, 'endpoint' | 'apiBase' | 'bearer'> | null {
   const portalEnv = readWebPortalRuntimeEnv(env)
   if (!portalEnv) return null
   const session = readWebPortalSession(storage)
@@ -361,8 +362,8 @@ export function getBrowserWebPortalClientConfig(
     return null
   }
   return {
-    endpoint: portalEnv.endpoint,
-    publishableKey: portalEnv.publishableKey,
+    endpoint: portalEnv.apiBase,
+    apiBase: portalEnv.apiBase,
     bearer: session.accessToken,
   }
 }

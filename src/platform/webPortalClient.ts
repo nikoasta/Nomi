@@ -31,30 +31,21 @@ import {
   type SupabaseProjectRow,
   type SupabaseWorkspaceRow,
 } from './webPortalRows'
+import {
+  assertWebPortalBearer,
+  assertWebPortalPublishableKey,
+  configuredWebPortalFetch,
+  mapWebPortalFetchError,
+  mapWebPortalResponseError,
+  normalizeWebPortalApiBase,
+  normalizeWebPortalEndpoint,
+  type WebPortalCapability,
+  type WebPortalClientConfig,
+  type WebPortalRequestOptions,
+  webPortalQueryString,
+} from './webPortalTransport'
 
-export type WebPortalClientConfig = {
-  endpoint: string
-  publishableKey: string
-  bearer: string
-  fetch?: typeof fetch
-}
-
-type RequestOptions = {
-  table: string
-  query: Record<string, string | number | null | undefined>
-}
-
-type WebPortalCapability =
-  | 'identity.session.read'
-  | 'org.organizations.list'
-  | 'org.workspaces.list'
-  | 'org.memberships.list'
-  | 'portal.projects.list'
-  | 'portal.projects.create'
-  | 'portal.project-revisions.save'
-  | 'portal.review-queue.list'
-  | 'portal.approvals.decide'
-  | 'portal.audit-events.append'
+export { isWebPortalPublishableKey, type WebPortalClientConfig } from './webPortalTransport'
 
 function unsupported<T>(capability: PlatformCapability): PlatformResult<T> {
   return {
@@ -68,112 +59,67 @@ function unsupported<T>(capability: PlatformCapability): PlatformResult<T> {
   }
 }
 
-function normalizeEndpoint(endpoint: string): string {
-  const trimmed = endpoint.trim().replace(/\/+$/, '')
-  const parsed = new URL(trimmed)
-  if (parsed.protocol !== 'https:' && parsed.hostname !== '127.0.0.1' && parsed.hostname !== 'localhost') {
-    throw new TypeError('Portal endpoint must use https outside local development')
-  }
-  return parsed.toString().replace(/\/+$/, '')
-}
-
-export function isWebPortalPublishableKey(value: string): boolean {
-  const key = value.trim()
-  return Boolean(
-    key &&
-      key.startsWith('sb_publishable_') &&
-      !/(?:^|[^a-z0-9])(?:service[_-]?role|secret)(?=$|[^a-z0-9])/i.test(key) &&
-      !/^eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(key),
-  )
-}
-
-function assertPublishableKey(value: string): string {
-  const key = value.trim()
-  if (!isWebPortalPublishableKey(key)) {
-    throw new TypeError('Portal browser config requires a publishable key')
-  }
-  return key
-}
-
-function assertBearer(value: string): string {
-  const bearer = value.trim()
-  if (!bearer || /(?:^|[^a-z0-9])(?:service[_-]?role|secret)(?=$|[^a-z0-9])/i.test(bearer)) {
-    throw new TypeError('Portal browser config requires a user bearer token')
-  }
-  return bearer
-}
-
-function configuredFetch(config: WebPortalClientConfig): typeof fetch {
-  const candidate = config.fetch ?? globalThis.fetch
-  if (typeof candidate !== 'function') throw new TypeError('Portal browser config requires fetch')
-  return candidate.bind(globalThis) as typeof fetch
-}
-
-function queryString(query: RequestOptions['query']): string {
-  const params = new URLSearchParams()
-  for (const [key, value] of Object.entries(query)) {
-    if (value === undefined || value === null) continue
-    params.set(key, String(value))
-  }
-  return params.toString()
-}
-
-function mapFetchError(capability: WebPortalCapability) {
-  return {
-    ok: false,
-    error: {
-      code: 'NETWORK_ERROR',
-      capability,
-      message: `${capability} failed while contacting the portal backend`,
-      retryable: true,
-    },
-  } as const
-}
-
-function mapResponseError(capability: WebPortalCapability, status: number) {
-  return {
-    ok: false,
-    error: {
-      code:
-        status === 401 || status === 403
-          ? 'PERMISSION_DENIED'
-          : status === 404
-            ? 'NOT_FOUND'
-            : status === 409
-              ? 'CONFLICT'
-              : 'NETWORK_ERROR',
-      capability,
-      message: `${capability} returned HTTP ${status}`,
-      retryable: status >= 500,
-    },
-  } as const
-}
-
 export function createWebPortalServices(config: WebPortalClientConfig): {
   identity: PlatformIdentity
   organizations: PlatformOrganizations
   collaboration: PlatformCollaboration
 } {
-  const endpoint = normalizeEndpoint(config.endpoint)
-  const publishableKey = assertPublishableKey(config.publishableKey)
-  const bearer = assertBearer(config.bearer)
-  const request = configuredFetch(config)
+  const apiBase = config.apiBase ? normalizeWebPortalApiBase(config.apiBase) : null
+  const endpoint = apiBase ?? normalizeWebPortalEndpoint(config.endpoint)
+  const publishableKey = apiBase ? null : assertWebPortalPublishableKey(config.publishableKey ?? '')
+  const bearer = assertWebPortalBearer(config.bearer)
+  const request = configuredWebPortalFetch(config)
 
   async function getUser(): Promise<PlatformResult<{ id: string; email?: string }>> {
+    if (apiBase) {
+      let response: Response
+      try {
+        response = await request(`${endpoint}/identity/session`, {
+          method: 'GET',
+          headers: {
+            accept: 'application/json',
+            authorization: `Bearer ${bearer}`,
+          },
+        })
+      } catch {
+        return mapWebPortalFetchError('identity.session.read')
+      }
+      if (!response.ok) return mapWebPortalResponseError('identity.session.read', response.status)
+      const user = (await response.json().catch(() => null)) as { id?: unknown; email?: unknown } | null
+      if (!user || typeof user.id !== 'string') {
+        return {
+          ok: false,
+          error: {
+            code: 'INTEGRITY_ERROR',
+            capability: 'identity.session.read',
+            message: 'Portal identity response is invalid',
+            retryable: false,
+          },
+        }
+      }
+      return {
+        ok: true,
+        value: {
+          id: user.id,
+          ...(typeof user.email === 'string' ? { email: user.email } : {}),
+        },
+      }
+    }
+
     let response: Response
     try {
       response = await request(`${endpoint}/auth/v1/user`, {
         method: 'GET',
         headers: {
           accept: 'application/json',
-          apikey: publishableKey,
+          apikey: publishableKey ?? '',
           authorization: `Bearer ${bearer}`,
         },
       })
     } catch {
-      return mapFetchError('identity.session.read')
+      return mapWebPortalFetchError('identity.session.read')
     }
-    if (!response.ok) return mapResponseError('identity.session.read', response.status)
+    if (!response.ok) return mapWebPortalResponseError('identity.session.read', response.status)
     const user = (await response.json().catch(() => null)) as { id?: unknown; email?: unknown } | null
     if (!user || typeof user.id !== 'string') {
       return {
@@ -197,9 +143,16 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
 
   async function selectRows<T>(
     capability: WebPortalCapability,
-    options: RequestOptions,
+    options: WebPortalRequestOptions,
   ): Promise<PlatformResult<T[]>> {
-    const qs = queryString(options.query)
+    if (apiBase) {
+      return portalApi<T[]>(capability, 'query', {
+        table: options.table,
+        query: options.query,
+      })
+    }
+
+    const qs = webPortalQueryString(options.query)
     const url = `${endpoint}/rest/v1/${options.table}${qs ? `?${qs}` : ''}`
     let response: Response
     try {
@@ -207,16 +160,16 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
         method: 'GET',
         headers: {
           accept: 'application/json',
-          apikey: publishableKey,
+          apikey: publishableKey ?? '',
           authorization: `Bearer ${bearer}`,
           'accept-profile': 'app',
           'content-profile': 'app',
         },
       })
     } catch {
-      return mapFetchError(capability)
+      return mapWebPortalFetchError(capability)
     }
-    if (!response.ok) return mapResponseError(capability, response.status)
+    if (!response.ok) return mapWebPortalResponseError(capability, response.status)
     try {
       const rows = (await response.json()) as T[]
       return { ok: true, value: rows }
@@ -241,7 +194,29 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
       body: Readonly<Record<string, unknown>>
     },
   ): Promise<PlatformResult<T>> {
-    const qs = queryString({ select: options.select })
+    if (apiBase) {
+      const result = await portalApi<T[]>(capability, 'insert', {
+        table: options.table,
+        select: options.select,
+        body: options.body,
+      })
+      if (!result.ok) return result
+      const row = result.value[0]
+      if (!row) {
+        return {
+          ok: false,
+          error: {
+            code: 'INTEGRITY_ERROR',
+            capability,
+            message: `${capability} returned no inserted row`,
+            retryable: false,
+          },
+        }
+      }
+      return { ok: true, value: row }
+    }
+
+    const qs = webPortalQueryString({ select: options.select })
     const url = `${endpoint}/rest/v1/${options.table}?${qs}`
     let response: Response
     try {
@@ -249,7 +224,7 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
         method: 'POST',
         headers: {
           accept: 'application/json',
-          apikey: publishableKey,
+          apikey: publishableKey ?? '',
           authorization: `Bearer ${bearer}`,
           'accept-profile': 'app',
           'content-profile': 'app',
@@ -259,9 +234,9 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
         body: JSON.stringify(options.body),
       })
     } catch {
-      return mapFetchError(capability)
+      return mapWebPortalFetchError(capability)
     }
-    if (!response.ok) return mapResponseError(capability, response.status)
+    if (!response.ok) return mapWebPortalResponseError(capability, response.status)
     try {
       const rows = (await response.json()) as T[]
       const row = rows[0]
@@ -297,6 +272,8 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
       body: Readonly<Record<string, unknown>>
     },
   ): Promise<PlatformResult<T[]>> {
+    if (apiBase) return portalApi<T[]>(capability, `rpc/${options.functionName}`, options.body)
+
     const url = `${endpoint}/rest/v1/rpc/${options.functionName}`
     let response: Response
     try {
@@ -304,7 +281,7 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
         method: 'POST',
         headers: {
           accept: 'application/json',
-          apikey: publishableKey,
+          apikey: publishableKey ?? '',
           authorization: `Bearer ${bearer}`,
           'accept-profile': 'app',
           'content-profile': 'app',
@@ -313,12 +290,47 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
         body: JSON.stringify(options.body),
       })
     } catch {
-      return mapFetchError(capability)
+      return mapWebPortalFetchError(capability)
     }
-    if (!response.ok) return mapResponseError(capability, response.status)
+    if (!response.ok) return mapWebPortalResponseError(capability, response.status)
     try {
       const rows = (await response.json()) as T[]
       return { ok: true, value: rows }
+    } catch {
+      return {
+        ok: false,
+        error: {
+          code: 'INTEGRITY_ERROR',
+          capability,
+          message: `${capability} returned invalid JSON`,
+          retryable: false,
+        },
+      }
+    }
+  }
+
+  async function portalApi<T>(
+    capability: WebPortalCapability,
+    path: string,
+    body?: Readonly<Record<string, unknown>>,
+  ): Promise<PlatformResult<T>> {
+    let response: Response
+    try {
+      response = await request(`${endpoint}/${path.replace(/^\/+/, '')}`, {
+        method: 'POST',
+        headers: {
+          accept: 'application/json',
+          authorization: `Bearer ${bearer}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(body ?? {}),
+      })
+    } catch {
+      return mapWebPortalFetchError(capability)
+    }
+    if (!response.ok) return mapWebPortalResponseError(capability, response.status)
+    try {
+      return { ok: true, value: (await response.json()) as T }
     } catch {
       return {
         ok: false,
