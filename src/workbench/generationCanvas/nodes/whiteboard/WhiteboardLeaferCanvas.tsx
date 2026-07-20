@@ -746,16 +746,16 @@ export const LeaferCanvas = forwardRef<LeaferCanvasHandle, LeaferCanvasProps>(fu
                 onMouseDown={handleGroupMenuMouseDown}
                 onClick={handleGroupMenuClick}
               >
-                组合
+                {t('whiteboard.context.group')}
               </button>
             ) : null}
             {contextMenu.targets.length === 1 ? (
               <>
                 <button type="button" role="menuitem" onClick={() => flipSelectedTarget('x')}>
-                  水平翻转
+                  {t('whiteboard.context.flipHorizontal')}
                 </button>
                 <button type="button" role="menuitem" onClick={() => flipSelectedTarget('y')}>
-                  垂直翻转
+                  {t('whiteboard.context.flipVertical')}
                 </button>
                 {contextMenu.targets[0].kind === 'asset' && onRemoveBackground ? (
                   <button
@@ -763,7 +763,7 @@ export const LeaferCanvas = forwardRef<LeaferCanvasHandle, LeaferCanvasProps>(fu
                     role="menuitem"
                     onClick={() => { onRemoveBackground(contextMenu.targets[0]); setContextMenu(null) }}
                   >
-                    抠图
+                    {t('whiteboard.context.removeBackground')}
                   </button>
                 ) : null}
               </>

@@ -113,7 +113,7 @@ function buildCharacterObjects(spec: StagingSpec, layout: StagingLayout, spacing
     const preset = MANNEQUIN_POSE_PRESETS.find((item) => item.id === character.pose)
     return {
       id: createScene3DObjectId(),
-      name: character.name?.trim() || `角色${String.fromCharCode(65 + index)}`,
+      name: character.name?.trim() || `Character ${String.fromCharCode(65 + index)}`,
       type: 'mannequin',
       visible: true,
       position: [place.x, FEET_Y, place.z] as Scene3DVector3,
@@ -131,7 +131,7 @@ function buildCrowdObject(spec: StagingSpec, centerX: number, backZ: number): Sc
   const columns = Math.max(1, Math.min(10, Math.round(spec.crowd.columns)))
   return {
     id: createScene3DObjectId(),
-    name: '群众',
+    name: 'Crowd',
     type: 'mannequinCrowd',
     visible: true,
     position: [centerX, FEET_Y, backZ - 3] as Scene3DVector3,
@@ -167,7 +167,7 @@ function buildStagingCamera(objects: Scene3DObject[], camera: StagingSpec['camer
   const target: Scene3DVector3 = [centerX, heightPose.targetY, centerZ]
   return {
     id: createScene3DCameraId(),
-    name: '机位',
+    name: 'Camera',
     visible: true,
     position,
     rotation: cameraLookAtRotation(position, target),

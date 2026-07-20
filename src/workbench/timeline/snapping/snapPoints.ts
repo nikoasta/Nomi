@@ -1,11 +1,14 @@
 import type { TimelineState } from '../timelineTypes'
 import type { SnapPoint } from './snapTypes'
+import { translateDisplayText } from '../../../i18n/displayText'
+import { translate, type SupportedLocale } from '../../../i18n/translations'
 
 export type BuildSnapPointsOptions = {
   /** 拖动中的 clip 自身（及成组成员）不作为吸附目标。 */
   excludeClipIds?: ReadonlySet<string>
   /** 是否把 playhead 当吸附目标（拖 playhead 自身时应关掉）。默认 true。 */
   includePlayhead?: boolean
+  locale?: SupportedLocale
 }
 
 /**
@@ -17,18 +20,19 @@ export type BuildSnapPointsOptions = {
  */
 export function buildSnapPoints(timeline: TimelineState, options: BuildSnapPointsOptions = {}): SnapPoint[] {
   const exclude = options.excludeClipIds ?? new Set<string>()
-  const points: SnapPoint[] = [{ frame: 0, type: 'origin', label: '起点' }]
+  const locale = options.locale ?? 'zh-CN'
+  const points: SnapPoint[] = [{ frame: 0, type: 'origin', label: translate(locale, 'timeline.snap.origin') }]
 
   if (options.includePlayhead !== false) {
-    points.push({ frame: timeline.playheadFrame, type: 'playhead', label: '播放头' })
+    points.push({ frame: timeline.playheadFrame, type: 'playhead', label: translate(locale, 'timeline.snap.playhead') })
   }
 
   for (const track of timeline.tracks) {
     for (const clip of track.clips) {
       if (exclude.has(clip.id)) continue
-      const name = clip.label || clip.text || '片段'
-      points.push({ frame: clip.startFrame, type: 'clipStart', label: `${name}头`, clipId: clip.id })
-      points.push({ frame: clip.endFrame, type: 'clipEnd', label: `${name}尾`, clipId: clip.id })
+      const name = translateDisplayText(locale, clip.label || clip.text || translate(locale, 'timeline.clip'))
+      points.push({ frame: clip.startFrame, type: 'clipStart', label: translate(locale, 'timeline.snap.clipStart', { name }), clipId: clip.id })
+      points.push({ frame: clip.endFrame, type: 'clipEnd', label: translate(locale, 'timeline.snap.clipEnd', { name }), clipId: clip.id })
     }
   }
 

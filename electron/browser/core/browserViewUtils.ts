@@ -4,8 +4,8 @@ import { browserViews, browserViewsByWindow } from "./browserViewState";
 import type { BrowserPromptCategory, BrowserViewIdPayload, BrowserViewRecord } from "./browserViewTypes";
 
 const DEFAULT_BROWSER_PROMPT_CATEGORIES: readonly BrowserPromptCategory[] = [
-  { id: "image", label: "图片提示词" },
-  { id: "video", label: "视频提示词" },
+  { id: "image", label: "Image prompt" },
+  { id: "video", label: "Video prompt" },
 ];
 
 export function clampNumber(value: number, min: number, max: number): number {

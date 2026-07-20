@@ -102,7 +102,7 @@ export function browserChromeMenuHtml(items: BrowserChromeMenuItem[]): string {
     </style>
   </head>
   <body>
-    <div class="menu" role="menu" aria-label="浏览器菜单">${rows}</div>
+    <div class="menu" role="menu" aria-label="Browser menu">${rows}</div>
   </body>
 </html>`;
 }

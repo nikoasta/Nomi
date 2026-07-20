@@ -13,7 +13,7 @@ import {
   type CameraMovePresetSpec,
 } from './cameraMovePreset'
 import { type Scene3DReferenceTargetSummary } from './scene3dReferenceDirector'
-import { useScene3DI18n, type Scene3DI18nKey } from './scene3dI18n'
+import { useScene3DI18n, useScene3DLabel, type Scene3DI18nKey } from './scene3dI18n'
 
 const DEFAULT_DURATION = 5 // Seedance 甜区中档（与 CAMERA_SPEED_DURATION.medium 一致）
 const DEFAULT_AMPLITUDE_PERCENT = 60
@@ -31,6 +31,7 @@ export function CameraMovePanel({
   referenceTarget?: Scene3DReferenceTargetSummary
 }): JSX.Element {
   const t3d = useScene3DI18n()
+  const sceneLabel = useScene3DLabel()
   const [durationValue, setDurationValue] = React.useState(DEFAULT_DURATION)
   const [amplitudePercent, setAmplitudePercent] = React.useState(DEFAULT_AMPLITUDE_PERCENT)
 
@@ -59,7 +60,7 @@ export function CameraMovePanel({
       : t3d('cameraMove.noFrameSlot')
   const referenceTargetLabel = target.state === 'not-connected'
     ? t3d('cameraMove.notConnectedVideo')
-    : `${target.state === 'video-ref' ? 'video_ref' : 'prompt'} · ${target.targetTitle}`
+    : `${target.state === 'video-ref' ? 'video_ref' : 'prompt'} · ${sceneLabel(target.targetTitle)}`
 
   return (
     <div className="grid gap-2 rounded-nomi border border-[var(--nomi-line-soft)] bg-[var(--nomi-paper)] p-2">

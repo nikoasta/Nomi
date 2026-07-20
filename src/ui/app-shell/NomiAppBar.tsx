@@ -10,6 +10,7 @@ import { dispatchGlobalAssetPopoverOpen, getGlobalAssetPopoverAnchorRect } from 
 import { useGlobalBrowserAssetCount } from '../browser/assets/useGlobalBrowserAssets'
 import { LanguageSwitcher } from '../../i18n/LanguageSwitcher'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 import { PortalAuthControl } from './PortalAuthControl'
 
 // 平台分流：win32 下品牌/关于 + 上手清单都让位给 WorkbenchShell 的自绘标题栏（windowbar），
@@ -49,7 +50,7 @@ export default function NomiAppBar({
   onOpenModelCatalog,
   onRenameProject,
 }: NomiAppBarProps): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [editingProjectName, setEditingProjectName] = React.useState(false)
   const [projectTitle, setProjectTitle] = React.useState(projectName || t('app.project.untitled'))
   const [aboutOpen, setAboutOpen] = React.useState(false)
@@ -72,6 +73,7 @@ export default function NomiAppBar({
   const handleOpenModelCatalog = React.useCallback(() => {
     onOpenModelCatalog?.()
   }, [onOpenModelCatalog])
+  const displayedProjectTitle = translateDisplayText(locale, projectTitle)
 
   return (
     <header
@@ -194,10 +196,10 @@ export default function NomiAppBar({
                 'transition-[background,color] duration-[var(--nomi-transition-fast)]',
                 'hover:bg-[var(--nomi-ink-05)] hover:text-[var(--nomi-ink)]',
               )}
-              title={projectTitle}
+              title={displayedProjectTitle}
               onClick={() => setEditingProjectName(true)}
             >
-              {projectTitle}
+              {displayedProjectTitle}
             </WorkbenchButton>
           )}
         </div>

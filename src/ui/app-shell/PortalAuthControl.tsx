@@ -6,9 +6,11 @@ import { useI18n } from '../../i18n/i18nContext'
 import { cn } from '../../utils/cn'
 import {
   clearWebPortalSession,
+  readWebPortalRuntimeEnv,
   requestWebPortalMagicLink,
 } from '../../platform/webPortalSession'
 import { usePortalAuthState } from './portalAuthState'
+import { PortalTelegramLogin } from './PortalTelegramLogin'
 
 export function PortalAuthControl(): JSX.Element | null {
   const { t } = useI18n()
@@ -23,8 +25,12 @@ export function PortalAuthControl(): JSX.Element | null {
     | 'portal.auth.linkSentByMailer'
     | 'portal.auth.rateLimited'
     | 'portal.auth.sendError'
+    | 'portal.auth.telegramError'
+    | 'portal.auth.telegramExpired'
+    | 'portal.auth.telegramDenied'
     | null
   >(authState === 'unconfigured' ? 'portal.auth.configMissing' : null)
+  const hasTelegramLogin = Boolean(readWebPortalRuntimeEnv()?.telegramBotUsername)
 
   React.useEffect(() => {
     setMessageKey((current) => {
@@ -104,6 +110,33 @@ export function PortalAuthControl(): JSX.Element | null {
             </div>
           ) : (
             <form className="grid gap-2" onSubmit={(event) => void submit(event)}>
+              {hasTelegramLogin ? (
+                <div className="grid justify-center gap-2">
+                  <PortalTelegramLogin
+                    disabled={authState === 'unconfigured' || submitting}
+                    onStart={() => {
+                      setSubmitting(true)
+                      setMessageKey(null)
+                    }}
+                    onFinish={(result) => {
+                      setSubmitting(false)
+                      if (result.ok) {
+                        setOpen(false)
+                        return
+                      }
+                      if (result.error.code === 'TELEGRAM_AUTH_EXPIRED') setMessageKey('portal.auth.telegramExpired')
+                      else if (result.error.code === 'PERMISSION_DENIED') setMessageKey('portal.auth.telegramDenied')
+                      else if (result.error.code === 'UNCONFIGURED') setMessageKey('portal.auth.configMissing')
+                      else setMessageKey('portal.auth.telegramError')
+                    }}
+                  />
+                  <div className="flex items-center gap-2 text-caption text-[var(--nomi-ink-40)]">
+                    <span className="h-px flex-1 bg-workbench-border" />
+                    <span>{t('portal.auth.or')}</span>
+                    <span className="h-px flex-1 bg-workbench-border" />
+                  </div>
+                </div>
+              ) : null}
               <label className="grid gap-1 text-caption text-[var(--nomi-ink-60)]">
                 <span>{t('portal.auth.emailLabel')}</span>
                 <input

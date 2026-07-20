@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import type { BuiltinCanvasCategoryId, GenerationCanvasEdgeMode } from '../model/generationCanvasTypes'
+import type { SupportedLocale } from '../../../i18n/translations'
 
 /**
  * 「分镜方案」中间表示（IR）—— 剧本→方案文档→确认→落画布 主链路的中枢。
@@ -169,6 +170,8 @@ export type StoryboardPlanToArgsOptions = {
   defaultVideoModelKey?: string
   /** 镜头默认视频模式 id（优先带 image_ref/first_frame 槽的 i2v，定妆卡参考才喂得进）；调用方传入。 */
   defaultVideoModeId?: string
+  /** Prompt template language for generated anchor sheets; default zh-CN preserves existing planner contracts. */
+  promptLocale?: SupportedLocale
 }
 
 const VISUAL_KINDS: ReadonlySet<PlanAnchorKind> = new Set(['character', 'scene', 'prop'])
@@ -200,12 +203,67 @@ function shotClientId(shot: PlanShot): string {
  * 中性背景+平光+小标签，多视图+多变体集中一张图，整张喂参考视频）。GPT Image 2 尤擅此类多面板版面。
  * 视觉锚（character/scene/prop）→ 卡片大图；变体（成年/童年、白天/夜晚…）拼进「变体行」。
  */
-export function buildAnchorSheetPrompt(anchor: PlanAnchor): string {
+export function buildAnchorSheetPrompt(anchor: PlanAnchor, locale: SupportedLocale = 'zh-CN'): string {
   const name = anchor.name.trim()
   const desc = anchor.description.trim()
+  const variantNames = anchor.variants?.map((v) => v.trim()).filter(Boolean) ?? []
+  if (locale === 'en') {
+    const variantLine = variantNames.length
+      ? `\nVariant row: ${variantNames.join(', ')}. Give each variant its own panel with a small label below it.`
+      : ''
+    if (anchor.kind === 'scene') {
+      return [
+        'Environment reference sheet. Horizontal layout, clear panels, small labels under each panel, unified color palette and light source.',
+        `Same location "${name}": ${desc}`,
+        'Angles: ① establishing wide shot ② close detail ③ overhead view ④ three-quarter view.' + variantLine,
+        'Requirements: keep the same location and style across panels; avoid people, style drift, and merged panels.',
+      ].join('\n')
+    }
+    if (anchor.kind === 'prop') {
+      return [
+        'Prop reference sheet. Neutral white background, flat lighting, clear panels, small labels under each panel.',
+        `Same object "${name}": ${desc}`,
+        'Views: ① front ② side ③ detail close-up.' + variantLine,
+        'Requirements: keep the same object consistent across panels; avoid scene backgrounds, style drift, and merged panels.',
+      ].join('\n')
+    }
+    return [
+      'Character reference sheet. Neutral white background, flat lighting, horizontal layout, clear panels, small labels under each panel.',
+      `Same character "${name}", keep face shape, hairstyle, outfit, and signature details fully consistent across every panel: ${desc}`,
+      'Views: ① full-body front A-pose ② side ③ back ④ three-quarter side ⑤ expression row (neutral / smile / angry).' + variantLine,
+      'Requirements: keep facial features and outfit consistent across panels; avoid merged panels, cross-panel drift, and scene backgrounds.',
+    ].join('\n')
+  }
+  if (locale === 'ru') {
+    const variantLine = variantNames.length
+      ? `\nРяд вариантов: ${variantNames.join(', ')}. Каждый вариант в отдельной панели с маленькой подписью снизу.`
+      : ''
+    if (anchor.kind === 'scene') {
+      return [
+        'Референс сцены. Горизонтальный лист, четкие панели, маленькие подписи под каждой панелью, единая палитра и источник света.',
+        `Та же локация "${name}": ${desc}`,
+        'Ракурсы: ① общий establishing ② близкая деталь ③ вид сверху ④ ракурс три четверти.' + variantLine,
+        'Требования: сохранить одну и ту же локацию и стиль во всех панелях; избегать людей, дрейфа стиля и слияния панелей.',
+      ].join('\n')
+    }
+    if (anchor.kind === 'prop') {
+      return [
+        'Референс предмета. Нейтральный белый фон, ровный свет, четкие панели, маленькие подписи под каждой панелью.',
+        `Один и тот же предмет "${name}": ${desc}`,
+        'Виды: ① спереди ② сбоку ③ крупная деталь.' + variantLine,
+        'Требования: сохранить один и тот же предмет во всех панелях; избегать сценического фона, дрейфа стиля и слияния панелей.',
+      ].join('\n')
+    }
+    return [
+      'Референс персонажа. Нейтральный белый фон, ровный свет, горизонтальный лист, четкие панели, маленькие подписи под каждой панелью.',
+      `Один и тот же персонаж "${name}", лицо, прическа, одежда и узнаваемые детали полностью совпадают во всех панелях: ${desc}`,
+      'Виды: ① полный рост спереди, A-pose ② сбоку ③ сзади ④ три четверти сбоку ⑤ ряд выражений (нейтрально / улыбка / злость).' + variantLine,
+      'Требования: сохранить черты лица и одежду во всех панелях; избегать слияния панелей, дрейфа между панелями и сценического фона.',
+    ].join('\n')
+  }
   const variantLine =
-    anchor.variants && anchor.variants.length
-      ? `\n变体行：${anchor.variants.map((v) => v.trim()).filter(Boolean).join('、')}（每个变体各占一格并在格下标注）。`
+    variantNames.length
+      ? `\n变体行：${variantNames.join('、')}（每个变体各占一格并在格下标注）。`
       : ''
   if (anchor.kind === 'scene') {
     return [
@@ -268,7 +326,7 @@ export function storyboardPlanToCreateNodesArgs(
       clientId: anchor.id,
       kind: anchorKindToNodeKind(anchor.kind),
       title: anchor.name,
-      prompt: buildAnchorSheetPrompt(anchor),
+      prompt: buildAnchorSheetPrompt(anchor, options.promptLocale),
       // 参考卡永不占镜号（道具锚 kind=image 落 shots 分类，不标记会吃掉「镜头 1/2」，R13 抓出）。
       referenceSheet: true,
       ...(options.defaultImageModelKey ? { modelKey: options.defaultImageModelKey } : {}),

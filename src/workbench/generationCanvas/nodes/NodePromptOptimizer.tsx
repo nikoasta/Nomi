@@ -14,8 +14,29 @@ import { useGenerationCanvasStore } from '../store/generationCanvasStore'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import { diffPromptWords } from './promptDiff'
 import { useI18n } from '../../../i18n/i18nContext'
+import type { SupportedLocale } from '../../../i18n/translations'
 
-function buildOptimizePrompt(original: string, idea: string, isVideo: boolean): string {
+function buildOptimizePrompt(original: string, idea: string, isVideo: boolean, locale: SupportedLocale): string {
+  if (locale === 'en') {
+    const kind = isVideo ? 'video-generation' : 'image-generation'
+    return [
+      `You are an expert ${kind} prompt writer. Improve the prompt below so it is more specific and easier to generate high-quality ${isVideo ? 'video' : 'images'}:`,
+      `"""\n${original || '(blank; complete it based on the user idea)'}\n"""`,
+      idea ? `Use this user idea: ${idea}` : '',
+      isVideo ? 'Add camera motion, pacing, lighting, and quality details.' : 'Add lighting, composition, style, and quality details.',
+      'Preserve the intent. Output only the improved prompt itself, in English. Do not explain, quote, or use bullet points.',
+    ].filter(Boolean).join('\n')
+  }
+  if (locale === 'ru') {
+    const kind = isVideo ? 'видео' : 'изображений'
+    return [
+      `Вы эксперт по prompt для генерации ${kind}. Улучшите prompt ниже: сделайте его конкретнее и пригоднее для сильного результата.`,
+      `"""\n${original || '(пусто; дополните по идее пользователя)'}\n"""`,
+      idea ? `Учтите идею пользователя: ${idea}` : '',
+      isVideo ? 'Добавьте движение камеры, ритм, свет и качество.' : 'Добавьте свет, композицию, стиль и качество.',
+      'Сохраните исходный смысл. Верните только улучшенный prompt на русском языке, без объяснений, кавычек и списка.',
+    ].filter(Boolean).join('\n')
+  }
   const kind = isVideo ? '视频生成' : '图像生成'
   return [
     `你是${kind}提示词专家。请优化下面这条${kind}提示词，让它更具体、更易出好${isVideo ? '片' : '图'}：`,
@@ -32,7 +53,7 @@ function isMissingTextApiKeyError(error: unknown): boolean {
 }
 
 export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasNode; isVideo: boolean }): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [open, setOpen] = React.useState(false)
   const [idea, setIdea] = React.useState('')
   const [running, setRunning] = React.useState(false)
@@ -62,7 +83,7 @@ export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasN
         setError(t('tool.promptOptimizer.noTextModel'))
         return
       }
-      const prompt = buildOptimizePrompt(originalRef.current, idea.trim(), isVideo)
+      const prompt = buildOptimizePrompt(originalRef.current, idea.trim(), isVideo, locale)
       let acc = ''
       await runWorkbenchTextTaskStream(
         brain.vendor,
@@ -85,7 +106,7 @@ export function NodePromptOptimizer({ node, isVideo }: { node: GenerationCanvasN
       setRunning(false)
       abortRef.current = null
     }
-  }, [node.prompt, idea, isVideo, t])
+  }, [node.prompt, idea, isVideo, locale, t])
 
   const apply = React.useCallback(() => {
     if (!result) return

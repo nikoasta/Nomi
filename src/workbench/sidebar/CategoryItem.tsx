@@ -1,6 +1,7 @@
 import React from 'react'
 import { cn } from '../../utils/cn'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 import type { ProjectCategory } from '../project/projectCategories'
 import { getCategoryIcon } from './categoryIcons'
 
@@ -21,10 +22,11 @@ type Props = {
 }
 
 export default function CategoryItem({ category, count, active, collapsed, expanded = false, editing = false, onCommitName, onCancelEdit, onActivate, onDropNode, onContextMenu }: Props): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [dragOver, setDragOver] = React.useState(false)
   const settledRef = React.useRef(false)
   React.useEffect(() => { if (editing) settledRef.current = false }, [editing])
+  const displayName = translateDisplayText(locale, category.name)
 
   const handleDragOver = React.useCallback((event: React.DragEvent<HTMLButtonElement>) => {
     if (!onDropNode) return
@@ -81,7 +83,7 @@ export default function CategoryItem({ category, count, active, collapsed, expan
       onDrop={handleDrop}
       data-category-id={category.id}
       data-active={active ? 'true' : 'false'}
-      title={collapsed ? `${category.name} (${count})` : undefined}
+      title={collapsed ? `${displayName} (${count})` : undefined}
       className={cn(
         'w-full flex items-center gap-2 px-2 py-1.5 text-left rounded-nomi-sm transition-colors',
         'text-caption leading-tight border border-transparent',
@@ -101,13 +103,13 @@ export default function CategoryItem({ category, count, active, collapsed, expan
       })()}
       {collapsed ? (
         count > 0 ? (
-          <span className="sr-only">{category.name} ({count})</span>
+          <span className="sr-only">{displayName} ({count})</span>
         ) : (
-          <span className="sr-only">{category.name}</span>
+          <span className="sr-only">{displayName}</span>
         )
       ) : (
         <>
-          <span className="flex-1 truncate">{category.name}</span>
+          <span className="flex-1 truncate">{displayName}</span>
           {count > 0 ? (
             <span className="text-micro text-nomi-ink-40 tabular-nums">{count}</span>
           ) : null}

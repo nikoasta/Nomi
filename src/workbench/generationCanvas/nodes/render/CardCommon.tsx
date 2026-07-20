@@ -11,12 +11,10 @@ import React from 'react'
 import { cn } from '../../../../utils/cn'
 import { NomiLoadingMark } from '../../../../design'
 import { useI18n } from '../../../../i18n/i18nContext'
+import { translateDisplayText } from '../../../../i18n/displayText'
 
 export const STRIPED_BG_CLASS =
   'bg-[repeating-linear-gradient(45deg,var(--nomi-ink-05)_0_23px,var(--nomi-ink-20)_23px_24px)]'
-
-/** 空态统一文案常量（措辞单源，避免「等待生成/待生成」各处不一）。 */
-export const PENDING_HINT_LABEL = '等待生成'
 
 /**
  * 节点 body 左上角标题行（统一规格：可选「镜头 N」徽标 + text-body-sm font-semibold 标题）。
@@ -24,15 +22,17 @@ export const PENDING_HINT_LABEL = '等待生成'
  * 图片卡（角色/场景/道具）的标题压在图上/图下是刻意沉浸式，不走这里（仅字号字重经 EditableNodeTitle 对齐）。
  */
 export function NodeBodyHeader({ title, shotIndex }: { title?: string; shotIndex?: number | null }): JSX.Element | null {
+  const { t, locale } = useI18n()
+  const displayedTitle = title ? translateDisplayText(locale, title) : ''
   if (shotIndex == null && !title) return null
   return (
     <div className="flex flex-col gap-1 min-w-0">
       {shotIndex != null ? (
         <span className="self-start inline-flex items-center h-[18px] px-2 rounded-full bg-nomi-ink text-nomi-paper text-micro font-bold tabular-nums">
-          镜头 {shotIndex}
+          {t('tool.convertShot.badge', { index: shotIndex })}
         </span>
       ) : null}
-      {title ? <span className="text-body-sm font-semibold text-nomi-ink-80 truncate">{title}</span> : null}
+      {displayedTitle ? <span className="text-body-sm font-semibold text-nomi-ink-80 truncate">{displayedTitle}</span> : null}
     </div>
   )
 }
@@ -60,6 +60,7 @@ export function EmptyStateLauncher({
   onPreload?: () => void
   activateAriaLabel?: string
 }): JSX.Element {
+  const { t } = useI18n()
   const cluster = (
     <>
       <span className="grid size-12 place-items-center rounded-full bg-nomi-ink text-nomi-paper">{icon}</span>
@@ -73,7 +74,7 @@ export function EmptyStateLauncher({
   return (
     <button
       type="button"
-      aria-label={activateAriaLabel || label || '打开'}
+      aria-label={activateAriaLabel || label || t('common.open')}
       className={cn(
         'flex flex-col items-center justify-center gap-2 text-center rounded-nomi px-4 py-3 bg-transparent border-0 cursor-pointer',
         'transition-[background] duration-[var(--nomi-transition-fast)] hover:bg-nomi-ink-05',
@@ -100,6 +101,7 @@ export function UsageDot({ count }: { count: number }): JSX.Element | null {
 }
 
 export function VariantChip({ count }: { count: number }): JSX.Element | null {
+  const { t } = useI18n()
   if (count <= 0) return null
   return (
     <span
@@ -109,16 +111,17 @@ export function VariantChip({ count }: { count: number }): JSX.Element | null {
         'text-micro px-2 py-[1px] tabular-nums',
       )}
     >
-      ⊕{count}变体
+      {t('card.variantCount', { count })}
     </span>
   )
 }
 
 export function PlaceholderCenter({ label }: { label: string }): JSX.Element {
+  const { t } = useI18n()
   return (
     <div className={cn('flex flex-col items-center justify-center w-full h-full gap-1 pointer-events-none')}>
       <span className="text-body-sm font-medium text-nomi-ink-60 tabular-nums">{label}</span>
-      <span className="text-micro text-nomi-ink-40">{PENDING_HINT_LABEL}</span>
+      <span className="text-micro text-nomi-ink-40">{t('card.pending')}</span>
     </div>
   )
 }
@@ -146,6 +149,8 @@ export function PendingGenerationPlaceholder({
   title?: string
   prompt?: string
 }): JSX.Element | null {
+  const { t, locale } = useI18n()
+  const displayedPrompt = prompt ? translateDisplayText(locale, prompt) : ''
   if (selected) return null
   if (needsFirstFrame) {
     return (
@@ -153,15 +158,15 @@ export function PendingGenerationPlaceholder({
         <span className="text-micro text-nomi-ink-40 leading-relaxed">
           {waitingUpstream ? (
             <>
-              已连接上游画面
+              {t('card.waitingUpstream.line1')}
               <br />
-              等待其生成完成
+              {t('card.waitingUpstream.line2')}
             </>
           ) : (
             <>
-              把图片节点拖过来
+              {t('card.dragImageFirstFrame.line1')}
               <br />
-              作为首帧
+              {t('card.dragImageFirstFrame.line2')}
             </>
           )}
         </span>
@@ -171,17 +176,17 @@ export function PendingGenerationPlaceholder({
   return (
     <div className="flex w-full h-full flex-col pointer-events-none p-2.5 gap-1 overflow-hidden">
       <NodeBodyHeader title={title} shotIndex={shotIndex} />
-      {prompt ? (
+      {displayedPrompt ? (
         // 提示词是用户最常想复制的内容：穿透容器的 pointer-events-none + 覆盖 stage 的
         // user-select:none（select-text），并 stopPropagation 防节点拖拽吃掉划选手势。
         <span
           className="text-caption text-nomi-ink-60 leading-snug overflow-hidden [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2] select-text cursor-text pointer-events-auto"
           onPointerDown={(event) => event.stopPropagation()}
         >
-          {prompt}
+          {displayedPrompt}
         </span>
       ) : null}
-      <span className="mt-auto text-micro text-nomi-ink-40">{PENDING_HINT_LABEL}</span>
+      <span className="mt-auto text-micro text-nomi-ink-40">{t('card.pending')}</span>
     </div>
   )
 }
@@ -344,14 +349,15 @@ export function UploadFallback({
  * 其它 → 分类名 / fallback title
  */
 export function placeholderLabel(categoryName: string | undefined, title: string | undefined): string {
-  return categoryName || title || '节点'
+  return categoryName || title || ''
 }
 
 /** Scene3DEditor 懒加载期间的占位（React.Suspense fallback）。 */
 export function Scene3DEditorLoading(): JSX.Element {
+  const { t } = useI18n()
   return (
     <div className={cn('flex w-full h-full items-center justify-center bg-nomi-ink-05 text-caption text-nomi-ink-40')}>
-      3D 编辑器加载中
+      {t('cardCommon.scene3dLoading')}
     </div>
   )
 }

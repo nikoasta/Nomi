@@ -25,6 +25,7 @@ import type { LocalProjectSummary } from './localProjectStore'
 import type { ProjectTemplateId } from './projectTemplates'
 import { useI18n } from '../../i18n/i18nContext'
 import type { TranslationKey } from '../../i18n/translations'
+import { translateDisplayText } from '../../i18n/displayText'
 import { usePortalWorkspace } from './usePortalWorkspace'
 import type { PortalProjectRecord } from '../../platform/collaboration/contracts'
 
@@ -101,7 +102,7 @@ export default function ProjectLibraryPage({
   const portalWorkspace = usePortalWorkspace()
   const normalizedQuery = query.trim().toLowerCase()
   const searchedProjects = normalizedQuery
-    ? projects.filter((project) => project.name.toLowerCase().includes(normalizedQuery))
+    ? projects.filter((project) => translateDisplayText(locale, project.name).toLowerCase().includes(normalizedQuery))
     : projects
   const sourceCounts = React.useMemo(
     () => ({
@@ -452,6 +453,7 @@ export default function ProjectLibraryPage({
           <div className="shrink-0 grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-3">
             {filteredProjects.map((project) => {
               const urls = project.thumbnailUrls || (project.thumbnail ? [project.thumbnail] : [])
+              const projectName = translateDisplayText(locale, project.name)
               return (
                 <div
                   key={project.id}
@@ -488,7 +490,7 @@ export default function ProjectLibraryPage({
                           'hover:bg-workbench-danger hover:text-nomi-paper',
                         )}
                         type="button"
-                        aria-label={t('library.project.deleteAria', { name: project.name })}
+                        aria-label={t('library.project.deleteAria', { name: projectName })}
                         title={t('library.project.deleteTitle')}
                         onClick={(e) => {
                           e.stopPropagation()
@@ -521,13 +523,15 @@ export default function ProjectLibraryPage({
                   </div>
                   <div className="px-3 pt-2.5 pb-3 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2">
                     <div className="min-w-0">
-                      <div className="text-body-sm font-medium text-nomi-ink truncate mb-0.5">{project.name}</div>
+                      <div className="text-body-sm font-medium text-nomi-ink truncate mb-0.5" title={projectName}>
+                        {projectName}
+                      </div>
                       <div className="text-micro text-nomi-ink-40">{formatUpdatedAt(project.updatedAt, t, locale)}</div>
                     </div>
                     {onRevealProjectFolder && project.rootPath ? (
                       <button
                         type="button"
-                        aria-label={t('library.project.revealAria', { name: project.name })}
+                        aria-label={t('library.project.revealAria', { name: projectName })}
                         title={t('library.project.revealTitle')}
                         onClick={(e) => {
                           e.stopPropagation()

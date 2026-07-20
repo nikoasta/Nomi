@@ -47,21 +47,21 @@ export const ZOOM_MOVES = new Set<CameraMove>(['zoom_in', 'zoom_out', 'dolly_zoo
 export type CameraSpeed = 'slow' | 'medium' | 'fast'
 export const CAMERA_SPEED_DURATION: Record<CameraSpeed, number> = { slow: 8, medium: 5, fast: 3 }
 
-// 运镜中文标签（轨迹命名 / UI 用）。
+// Camera-move labels used for trajectory names and prompt fallbacks.
 export const CAMERA_MOVE_LABEL: Record<CameraMove, string> = {
-  orbit_left: '左环绕',
-  orbit_right: '右环绕',
-  push_in: '推近',
-  pull_out: '拉远',
-  crane_up: '升镜',
-  crane_down: '降镜',
-  track_left: '左横移跟拍',
-  track_right: '右横移跟拍',
-  arc_left: '左弧线',
-  arc_right: '右弧线',
-  zoom_in: '变焦推',
-  zoom_out: '变焦拉',
-  dolly_zoom: '希区柯克变焦',
+  orbit_left: 'Orbit left',
+  orbit_right: 'Orbit right',
+  push_in: 'Push in',
+  pull_out: 'Pull out',
+  crane_up: 'Crane up',
+  crane_down: 'Crane down',
+  track_left: 'Track left',
+  track_right: 'Track right',
+  arc_left: 'Arc left',
+  arc_right: 'Arc right',
+  zoom_in: 'Zoom in',
+  zoom_out: 'Zoom out',
+  dolly_zoom: 'Dolly zoom',
 }
 
 // 运镜专属景别（distance/fov）——**不复用站位的 SHOT_FRAMING**（那套为「主体占画面」收紧，
@@ -79,17 +79,17 @@ export const CAMERA_MOVE_FRAMING: Record<StagingShot, { distance: number; fov: n
 
 // 运镜人话描述（喂给 AI 的 schema，让它选对运镜）。
 export const CAMERA_MOVE_DESC: Record<CameraMove, string> = {
-  orbit_left: '相机绕主体逆时针大角度环绕（约 300°），展示主体四周空间。',
-  orbit_right: '相机绕主体顺时针大角度环绕（约 300°），展示主体四周空间。',
-  push_in: '相机正面推近主体，逐渐放大主体、强化压迫感或聚焦。',
-  pull_out: '相机从主体拉远，逐渐揭示环境、收尾或退场感。',
-  crane_up: '相机在主体前方升高（升降臂上摇），从平视升到俯视。',
-  crane_down: '相机在主体前方降低，从俯视降到平视或仰视。',
-  track_left: '相机在主体前方向左横移跟拍（平移），保持距离不变。',
-  track_right: '相机在主体前方向右横移跟拍（平移），保持距离不变。',
-  arc_left: '相机绕主体逆时针小角度弧线（约 90°），轻微换视角。',
-  arc_right: '相机绕主体顺时针小角度弧线（约 90°），轻微换视角。',
-  zoom_in: '机位不动，镜头变焦推近（FOV 收窄），画面放大、空间压缩感。',
-  zoom_out: '机位不动，镜头变焦拉远（FOV 放宽），画面变广、揭示环境。',
-  dolly_zoom: '希区柯克变焦：机位后拉同时变焦推近，主体大小不变、背景被抽离拉伸（眩晕感）。',
+  orbit_left: 'The camera makes a wide counterclockwise orbit around the subject, revealing the surrounding space.',
+  orbit_right: 'The camera makes a wide clockwise orbit around the subject, revealing the surrounding space.',
+  push_in: 'The camera pushes toward the subject from the front, gradually enlarging the subject and increasing focus.',
+  pull_out: 'The camera pulls away from the subject, gradually revealing the environment or creating an exit feeling.',
+  crane_up: 'The camera rises in front of the subject, moving from eye level toward a high angle.',
+  crane_down: 'The camera lowers in front of the subject, moving from a high angle toward eye level or a low angle.',
+  track_left: 'The camera tracks left in front of the subject while keeping roughly the same distance.',
+  track_right: 'The camera tracks right in front of the subject while keeping roughly the same distance.',
+  arc_left: 'The camera moves along a small counterclockwise arc around the subject, gently changing viewpoint.',
+  arc_right: 'The camera moves along a small clockwise arc around the subject, gently changing viewpoint.',
+  zoom_in: 'The camera position stays fixed while the lens zooms in, narrowing FOV and compressing space.',
+  zoom_out: 'The camera position stays fixed while the lens zooms out, widening FOV and revealing more environment.',
+  dolly_zoom: 'Dolly zoom: the camera pulls back while zooming in, keeping subject size stable while the background stretches.',
 }

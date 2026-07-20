@@ -15,14 +15,16 @@ import { useNodeImageUpload } from '../../adapters/useNodeImageUpload'
 import { EditableNodeTitle } from './EditableNodeTitle'
 import { DeferredNodeImage } from '../DeferredNodeMedia'
 import { useI18n } from '../../../../i18n/i18nContext'
+import { translateDisplayText } from '../../../../i18n/displayText'
 
 type Props = {
   node: GenerationCanvasNode
 }
 
 function SceneCardNodeImpl({ node }: Props): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const meta = readSceneMeta(node)
+  const displayTitle = translateDisplayText(locale, node.title || '')
   const usageCount = useNodeUsageCount(node.id, node.title)
   const variantCount = useNodeVariantCount(node.id)
   const hasImage = Boolean(node.result?.url)
@@ -38,7 +40,7 @@ function SceneCardNodeImpl({ node }: Props): JSX.Element {
         {hasImage ? (
           <DeferredNodeImage
             src={node.result!.url!}
-            alt={node.title || ''}
+            alt={displayTitle}
             className="w-full h-full object-contain object-center select-none pointer-events-none"
           />
         ) : (
@@ -59,6 +61,7 @@ function SceneCardNodeImpl({ node }: Props): JSX.Element {
             <EditableNodeTitle
               nodeId={node.id}
               value={node.title || ''}
+              displayValue={displayTitle}
               placeholder={t('card.unnamedScene')}
               className="text-nomi-paper"
             />

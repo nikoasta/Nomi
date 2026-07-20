@@ -31,7 +31,7 @@ export type AttachCameraMoveOutcome =
 /** 运镜 prompt 地板（通用，全供应商可用）：人话点出该镜的运镜，作为不吃视频参考时的降级。 */
 function cameraMoveDirective(move: CameraMove | undefined): string {
   if (!move) return ''
-  return `\n镜头运动：${CAMERA_MOVE_LABEL[move]}（${CAMERA_MOVE_DESC[move]}）`
+  return `\nCamera movement: ${CAMERA_MOVE_LABEL[move]} (${CAMERA_MOVE_DESC[move]})`
 }
 
 /** 读目标 meta 里「当前已附的运镜 mp4」（无 / 非串 → ''）。 */
@@ -57,7 +57,7 @@ export function computeAttachCameraMove(
   // P2-A 校验目标节点种类：运镜参考只能喂视频生成节点。指到图片节点没有 video_ref 槽，
   // 旧逻辑会静默把无用的运镜 prompt 追加到图片上（图片模型不懂「镜头运动」）。诚实跳过并提示。
   if (!isVideoLikeGenerationNodeKind(target.kind)) {
-    return { kind: 'noop', toast: { message: '运镜参考只能喂给视频镜头节点，已跳过（目标不是视频节点）', level: 'warning' } }
+    return { kind: 'noop', toast: { message: 'Camera-move references can only be attached to video shot nodes. Skipped because the target is not a video node.', level: 'warning' } }
   }
   const meta = { ...(target.meta || {}) } as Record<string, unknown>
   const trimmedNew = mp4Url.trim()
@@ -81,14 +81,14 @@ export function computeAttachCameraMove(
     nextMeta = { ...nextMeta, [videoRef.metaKey]: referenceVideoUrls, [CAMERA_MOVE_ATTACHED_URL_KEY]: trimmedNew }
     const targetMode = archetype.modes.find((m) => m.id === videoRef.modeId)
     const targetHasFrameSlot = targetMode?.slots.some((s) => s.kind === 'first_frame' || s.kind === 'last_frame') ?? false
-    const directive = `\n@Video1 跟随这段参考视频的运镜（只参考镜头运动，画面内容由角色参考与文字决定）。`
+    const directive = `\n@Video1 follows the camera movement of this reference video. Use it only for camera motion; visual content is controlled by character references and text.`
     const basePrompt = typeof target.prompt === 'string' ? target.prompt : ''
     const prompt = basePrompt.includes('@Video1') ? basePrompt : `${basePrompt}${directive}`
     return {
       kind: 'patch',
       patch: { meta: nextMeta, prompt },
       ...(hadFirstOrLast && !targetHasFrameSlot
-        ? { toast: { message: '已切换到全能参考模式以注入运镜参考视频（该模式无首/尾帧，原首帧不再生效）', level: 'warning' as const } }
+        ? { toast: { message: 'Switched to omni-reference mode to inject the camera-move reference video. This mode has no first/last-frame slot, so the previous first frame no longer applies.', level: 'warning' as const } }
         : {}),
     }
   }
@@ -96,6 +96,6 @@ export function computeAttachCameraMove(
   const directive = cameraMoveDirective(move)
   if (!directive) return { kind: 'noop' }
   const basePrompt = typeof target.prompt === 'string' ? target.prompt : ''
-  const prompt = basePrompt.includes('镜头运动：') ? basePrompt : `${basePrompt}${directive}`
+  const prompt = basePrompt.includes('Camera movement:') || basePrompt.includes('镜头运动：') ? basePrompt : `${basePrompt}${directive}`
   return { kind: 'patch', patch: { meta: { ...meta, [CAMERA_MOVE_ATTACHED_URL_KEY]: trimmedNew }, prompt } }
 }

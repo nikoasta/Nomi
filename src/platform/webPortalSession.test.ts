@@ -8,6 +8,7 @@ import {
   readWebPortalRuntimeEnv,
   readWebPortalSession,
   requestWebPortalMagicLink,
+  requestWebPortalTelegramLogin,
   storeWebPortalSession,
   WEB_PORTAL_SESSION_STORAGE_KEY,
   type WebPortalStoredSession,
@@ -44,11 +45,13 @@ describe('web portal browser session wiring', () => {
     expect(
       readWebPortalRuntimeEnv({
         VITE_PORTAL_API_BASE: 'https://cut.eva.mba/api/portal',
+        VITE_TELEGRAM_BOT_USERNAME: '@everville_portal_bot',
       }),
     ).toEqual({
       apiBase: 'https://cut.eva.mba/api/portal',
+      telegramBotUsername: 'everville_portal_bot',
     })
-    expect(readWebPortalRuntimeEnv({})).toEqual({ apiBase: '/api/portal' })
+    expect(readWebPortalRuntimeEnv({})).toEqual({ apiBase: '/api/portal', telegramBotUsername: null })
     expect(readWebPortalRuntimeEnv({ VITE_PORTAL_AUTH_ENABLED: 'false' })).toBeNull()
   })
 
@@ -178,6 +181,74 @@ describe('web portal browser session wiring', () => {
         retryable: true,
       },
     })
+  })
+
+  it('exchanges Telegram auth data for a stored portal session', async () => {
+    const storage = storageStub()
+    const request = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          email: 'tg_12345678@eva.mba',
+          delivery: 'telegram_verified',
+          session: {
+            accessToken: 'telegram-access-token',
+            refreshToken: 'telegram-refresh-token',
+            expiresIn: 600,
+            tokenType: 'bearer',
+          },
+        }),
+        { status: 200 },
+      ),
+    )
+
+    await expect(
+      requestWebPortalTelegramLogin({
+        authData: {
+          id: 12345678,
+          first_name: 'Niko',
+          username: 'niko_asta',
+          auth_date: 1784550000,
+          hash: 'a'.repeat(64),
+        },
+        env: {
+          VITE_PORTAL_API_BASE: 'https://cut.eva.mba/api/portal',
+          VITE_TELEGRAM_BOT_USERNAME: 'everville_portal_bot',
+        },
+        fetch: request as unknown as typeof fetch,
+        storage,
+        now: NOW,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        email: 'tg_12345678@eva.mba',
+        delivery: 'telegram_verified',
+      },
+    })
+
+    expect(request).toHaveBeenCalledWith('https://cut.eva.mba/api/portal/auth/telegram', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        authData: {
+          id: 12345678,
+          first_name: 'Niko',
+          username: 'niko_asta',
+          auth_date: 1784550000,
+          hash: 'a'.repeat(64),
+        },
+      }),
+    })
+    expect(readWebPortalSession(storage)).toEqual(
+      expect.objectContaining({
+        accessToken: 'telegram-access-token',
+        refreshToken: 'telegram-refresh-token',
+        expiresAt: NOW + 600_000,
+      }),
+    )
   })
 
   it('returns a portal client config only for current sessions', () => {

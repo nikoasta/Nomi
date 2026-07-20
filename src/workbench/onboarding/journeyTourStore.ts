@@ -18,11 +18,12 @@ import { markJourneyTourSeen } from './onboardingState'
 import { setJourneyTourActive } from './journeyTourActivity'
 import {
   buildDemoStoryboardPlan,
-  DEMO_STORY,
-  DEMO_PROJECT_NAME,
+  getDemoStory,
+  getDemoProjectName,
   DEMO_CANVAS_SPOTLIGHTS,
   DEMO_NODE_IMAGES,
 } from './demoProject'
+import { getRuntimeLocale } from '../../i18n/runtimeLocale'
 
 type TourPhase = 'idle' | 'running' | 'finale'
 
@@ -71,6 +72,7 @@ export const useJourneyTourStore = create<JourneyTourState>((set) => {
     }
 
     // ── 创作区：打字回放 ──
+    const locale = getRuntimeLocale()
     ws().setStoryboardEditorOpen(false)
     ws().setStoryboardPlan(null)
     ws().setWorkspaceMode('creation')
@@ -78,8 +80,8 @@ export const useJourneyTourStore = create<JourneyTourState>((set) => {
     if (aborted()) return
     cinematic('write')
     await playTypewriter({
-      story: DEMO_STORY,
-      title: DEMO_PROJECT_NAME,
+      story: getDemoStory(locale),
+      title: getDemoProjectName(locale),
       setDocument: (doc) => ws().setWorkbenchDocument(doc),
       shouldAbort: aborted,
     })
@@ -87,7 +89,7 @@ export const useJourneyTourStore = create<JourneyTourState>((set) => {
     if (aborted()) return
 
     // ── 创作区：AI 拆分镜（预置方案直接展示）──
-    const plan = buildDemoStoryboardPlan()
+    const plan = buildDemoStoryboardPlan(locale)
     ws().setStoryboardPlan(plan)
     ws().setStoryboardEditorOpen(true)
     cinematic('split')
@@ -95,7 +97,7 @@ export const useJourneyTourStore = create<JourneyTourState>((set) => {
     if (aborted()) return
 
     // ── 落画布：走真实流水线 ──
-    const args = storyboardPlanToCreateNodesArgs(plan)
+    const args = storyboardPlanToCreateNodesArgs(plan, { promptLocale: locale })
     const result = (await applyCanvasToolCall('create_canvas_nodes', args)) as CreateNodesResult
     ws().commitStoryboardPlan()
     ws().setWorkspaceMode('generation')

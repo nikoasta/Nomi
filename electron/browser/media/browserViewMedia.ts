@@ -212,7 +212,7 @@ async function downloadHttpBrowserMediaFromPageSession(
         ...(referrer ? { Referer: referrer } : {}),
       },
     });
-    if (!response.ok) throw new Error(`网页素材下载失败（HTTP ${response.status}）`);
+    if (!response.ok) throw new Error(`Web asset download failed (HTTP ${response.status})`);
     const stagingPath = path.join(tempDir, "download.part");
     const header = await streamBrowserMediaResponseToFile(response, stagingPath);
     const resolved = resolveBrowserMediaContentType(
@@ -451,7 +451,7 @@ export async function importBrowserMedia(record: BrowserViewRecord, payload: Bro
 
 export function assertPromptReferenceDataUrlSize(byteLength: number): void {
   if (!Number.isFinite(byteLength) || byteLength < 0 || byteLength > BROWSER_PROMPT_IMAGE_MAX_BYTES) {
-    throw new Error("图片过大，无法用于提示词提取（最大 16 MB）");
+    throw new Error("Image is too large for prompt extraction (maximum 16 MB)");
   }
 }
 
@@ -583,7 +583,7 @@ export async function selectBrowserPromptScreenshotRect(record: BrowserViewRecor
   ].join(';');
 
   const hint = document.createElement('div');
-  hint.textContent = '拖拽选择截图区域，Esc 取消';
+  hint.textContent = 'Drag to select a screenshot area, Esc to cancel';
   hint.style.cssText = [
     'position:fixed',
     'left:50%',

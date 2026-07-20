@@ -35,7 +35,7 @@ export function makePastedObject(object: Scene3DObject, pasteCount: number): Sce
   return {
     ...cloneObjectForClipboard(object),
     id: createScene3DObjectId(),
-    name: `${object.name} 副本`,
+    name: `${object.name} copy`,
     position: offsetScene3DVector(object.position, pasteCount),
     parentId: undefined,
     children: undefined,
@@ -48,7 +48,7 @@ export function makePastedCamera(camera: Scene3DCamera, pasteCount: number): Sce
   return {
     ...cloneCameraForClipboard(camera),
     id: createScene3DCameraId(),
-    name: `${camera.name} 副本`,
+    name: `${camera.name} copy`,
     position,
     target,
     rotation: cameraLookAtRotation(position, target),

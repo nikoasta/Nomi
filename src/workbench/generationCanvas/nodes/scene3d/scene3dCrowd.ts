@@ -6,7 +6,6 @@ import {
   MANNEQUIN_LABEL_BASE_HEIGHT,
   ROLE_COLOR_SEQUENCE,
 } from './scene3dConstants'
-import { vectorFromArray, vectorToArray } from './scene3dMath'
 
 export function roleColorForIndex(index: number): string {
   return ROLE_COLOR_SEQUENCE[index % ROLE_COLOR_SEQUENCE.length]
@@ -66,8 +65,8 @@ export function crowdLocalOffsets(object: Scene3DObject): THREE.Vector3[] {
 }
 
 export function mannequinRoleLabel(index: number): string {
-  if (index < 26) return `角色${String.fromCharCode(65 + index)}`
-  return `角色A${index - 25}`
+  if (index < 26) return `Character ${String.fromCharCode(65 + index)}`
+  return `Character A${index - 25}`
 }
 
 export function mannequinLabelHeight(object: Scene3DObject): number {

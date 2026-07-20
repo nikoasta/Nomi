@@ -3,10 +3,11 @@ import React from 'react'
 import { IconBrowser, IconBrush, IconPalette, IconWorld } from '../../../vendor/tablerIcons'
 import type { DesktopAssetDto, DesktopBrowserAssetOverlayCaptureRequest, DesktopBrowserPromptCaptureEvent, DesktopBrowserResourceCaptureEvent, DesktopBrowserViewBounds } from '../../../desktop/bridge'
 import { cn } from '../../../utils/cn'
-import { BROWSER_PROMPT_EXTRACTION_MODE_LABELS, type BrowserPromptExtractionMode } from '../prompt/browserPromptExtraction'
+import type { BrowserPromptExtractionMode } from '../prompt/browserPromptExtraction'
 import type { NomiBrowserAsset } from '../assets/browserAssetData'
 import type { BrowserAssetPromptCaptureRequest } from '../popover/NomiBrowserAssetPopover'
 import type { FloatingWindowBoundsRect } from '../window/useResizableFloatingWindow'
+import { runtimeT } from '../../../i18n/runtimeTranslate'
 
 export type NomiBrowserDialogProps = {
   opened: boolean
@@ -92,7 +93,7 @@ export const USE_NATIVE_BROWSER_ASSET_OVERLAY = true
 export const DEFAULT_BOOKMARKS: BrowserBookmark[] = [
   {
     id: 'default-nomi',
-    title: 'Nomi 官网',
+    title: 'Nomi site',
     url: 'http://nomiaqm.com/',
     createdAt: 1,
   },
@@ -107,14 +108,14 @@ export const MATERIAL_SITE_SHORTCUTS = [
 
 // 创作参考类快捷站点——空态页网格。8 张卡是最舒服的 4×2 密度：太少显得空，太多变站点堆。
 export const BROWSER_START_SHORTCUTS = [
-  { label: 'Pinterest', url: 'https://www.pinterest.com/', hint: '视觉灵感' },
-  { label: 'Behance', url: 'https://www.behance.net/', hint: '设计作品集' },
-  { label: 'Dribbble', url: 'https://dribbble.com/', hint: 'UI 灵感' },
-  { label: 'ArtStation', url: 'https://www.artstation.com/', hint: '概念美术' },
-  { label: '小红书', url: 'https://www.xiaohongshu.com/', hint: '中文种草' },
-  { label: 'YouTube', url: 'https://www.youtube.com/', hint: '视频参考' },
-  { label: 'Film Grab', url: 'https://film-grab.com/', hint: '电影分镜' },
-  { label: 'X', url: 'https://x.com/', hint: '创作者动态' },
+  { label: 'Pinterest', url: 'https://www.pinterest.com/', hint: 'Visual inspiration' },
+  { label: 'Behance', url: 'https://www.behance.net/', hint: 'Design portfolios' },
+  { label: 'Dribbble', url: 'https://dribbble.com/', hint: 'UI inspiration' },
+  { label: 'ArtStation', url: 'https://www.artstation.com/', hint: 'Concept art' },
+  { label: 'Xiaohongshu', url: 'https://www.xiaohongshu.com/', hint: 'Chinese discovery' },
+  { label: 'YouTube', url: 'https://www.youtube.com/', hint: 'Video reference' },
+  { label: 'Film Grab', url: 'https://film-grab.com/', hint: 'Film frames' },
+  { label: 'X', url: 'https://x.com/', hint: 'Creator updates' },
 ] as const
 
 export const TOOL_BUTTON_CLASS = cn(
@@ -141,7 +142,7 @@ export function createBlankTab(): BrowserTab {
   return {
     id: createTabId(),
     viewId: null,
-    title: '新建标签页',
+    title: runtimeT('browserDialog.newTab'),
     url: '',
     canGoBack: false,
     canGoForward: false,
@@ -398,10 +399,10 @@ export function browserAssetFromDesktopAsset(asset: DesktopAssetDto, fallbackTit
     id: asset.id,
     type: mediaType,
     source: 'my',
-    title: sidecarTitle || fallbackTitle || asset.name || '网页图片',
-    subtitle: '网页素材',
+    title: sidecarTitle || fallbackTitle || asset.name || runtimeT('browserDialog.webImage'),
+    subtitle: runtimeT('browserAsset.source.capture'),
     previewUrl: url,
-    tags: ['网页素材'],
+    tags: [runtimeT('browserAsset.source.capture')],
     createdAt: asset.createdAt,
     updatedAt: asset.updatedAt,
   }
@@ -429,7 +430,7 @@ export function promptCaptureRequestFromBrowserEvent(
     extractionMode: event.extractionMode === 'style' ? 'style' : 'replicate',
     viewId: event.viewId,
     sourceUrl: event.url,
-    title: event.title || event.pageTitle || '网页图片提示词',
+    title: event.title || event.pageTitle || runtimeT('browserAsset.prompt.imagePrompt'),
     fileName: event.fileName || undefined,
     pageUrl: event.pageUrl || undefined,
     pageTitle: event.pageTitle || undefined,
@@ -469,10 +470,10 @@ export function PromptModeOption({
       </span>
       <span className="min-w-0 flex-1">
         <span className="block font-semibold leading-[1.25] text-nomi-ink">
-          {BROWSER_PROMPT_EXTRACTION_MODE_LABELS[mode]}
+          {mode === 'style' ? runtimeT('browserPrompt.mode.style') : runtimeT('browserPrompt.mode.replicate')}
         </span>
         <span className="mt-0.5 block text-micro leading-snug text-nomi-ink-40">
-          {styleMode ? '提取配色、字体、构图、效果 JSON' : '还原主体、构图、光影和细节'}
+          {styleMode ? runtimeT('browserDialog.promptMode.styleDescription') : runtimeT('browserDialog.promptMode.replicateDescription')}
         </span>
       </span>
     </button>

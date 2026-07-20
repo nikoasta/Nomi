@@ -4,7 +4,6 @@ import type { BrowserAssetCanvasImportItem } from '../overlay/globalAssetPopover
 import type { BrowserAssetLibraryState } from '../assets/browserAssetLibraryStorage'
 import type { NomiBrowserAsset } from '../assets/browserAssetData'
 import type { BrowserPromptExtractionMode } from '../prompt/browserPromptExtraction'
-import { BROWSER_PROMPT_EXTRACTION_MODE_LABELS } from '../prompt/browserPromptExtraction'
 import type {
   AssetPopoverDockMode,
   BrowserAssetPromptCaptureRequest,
@@ -29,6 +28,9 @@ import {
   PROMPT_MASONRY_MIN_COLUMN_WIDTH,
 } from './browserAssetPopoverConstants'
 import { FLOATING_WINDOW_MIN_WIDTH, type FloatingWindowBoundsRect, type FloatingWindowRect } from '../window/useResizableFloatingWindow'
+import { translateDisplayText } from '../../../i18n/displayText'
+import type { SupportedLocale } from '../../../i18n/translations'
+import { runtimeT } from '../../../i18n/runtimeTranslate'
 
 export function clampNumber(value: number, min: number, max: number): number {
   if (max < min) return min
@@ -118,15 +120,15 @@ export function browserAssetTimeValue(asset: NomiBrowserAsset): number {
   return idTime ? Number(idTime) : 0
 }
 
-export function browserAssetDisplaySubtitle(asset: NomiBrowserAsset): string {
+export function browserAssetDisplaySubtitle(asset: NomiBrowserAsset, locale: SupportedLocale = 'zh-CN'): string {
   const concreteSubtitle = asset.subtitle?.trim()
-  if (asset.status === 'loading') return asset.promptCard ? '提取中...' : '下载中...'
-  if (asset.status === 'error') return concreteSubtitle || (asset.promptCard ? '提取失败' : '下载失败')
-  if (concreteSubtitle) return concreteSubtitle
-  if (asset.type === 'folder') return '文件夹'
-  if (asset.type === 'image') return '图片'
-  if (asset.type === 'video') return '视频'
-  return '提示词'
+  if (asset.status === 'loading') return asset.promptCard ? translateDisplayText(locale, '提取中...') : translateDisplayText(locale, '下载中...')
+  if (asset.status === 'error') return translateDisplayText(locale, concreteSubtitle || (asset.promptCard ? '提取失败' : '下载失败'))
+  if (concreteSubtitle) return translateDisplayText(locale, concreteSubtitle)
+  if (asset.type === 'folder') return translateDisplayText(locale, '文件夹')
+  if (asset.type === 'image') return translateDisplayText(locale, '图片')
+  if (asset.type === 'video') return translateDisplayText(locale, '视频')
+  return translateDisplayText(locale, '提示词')
 }
 
 export function isBrowserAssetDraggable(asset: NomiBrowserAsset, renaming: boolean): boolean {
@@ -134,14 +136,14 @@ export function isBrowserAssetDraggable(asset: NomiBrowserAsset, renaming: boole
 }
 
 export function browserAssetImportErrorMessage(reason: string, url: string): string {
-  if (/来源页面会话|source page session/i.test(reason)) return '来源网页已关闭，请重新拖入'
-  if (/timed out|超时/i.test(reason)) return '下载超时，请重试'
-  if (/HTTP\s*(401|403)|forbidden|hotlink|referer/i.test(reason)) return '网站拒绝下载（可能需要登录）'
-  if (/HTTP\s*(404|410)/i.test(reason)) return '网页素材已失效'
-  if (/不是图片或视频|not supported media|media type/i.test(reason)) return '网站返回的不是图片或视频'
-  if (/too large|200\s*MiB|超过.*MB/i.test(reason)) return '素材超过 200MB'
-  if (/^blob:/i.test(url)) return '网页临时资源已失效'
-  return '下载失败，请重试'
+  if (/来源页面会话|source page session/i.test(reason)) return runtimeT('browserAsset.status.sourceSessionExpired')
+  if (/timed out|超时/i.test(reason)) return runtimeT('browserAsset.status.timeout')
+  if (/HTTP\s*(401|403)|forbidden|hotlink|referer/i.test(reason)) return runtimeT('browserAsset.status.hotlinkBlocked')
+  if (/HTTP\s*(404|410)/i.test(reason)) return runtimeT('browserAsset.status.webAssetExpired')
+  if (/不是图片或视频|not supported media|media type/i.test(reason)) return runtimeT('browserAsset.status.notSupportedMedia')
+  if (/too large|200\s*MiB|超过.*MB/i.test(reason)) return runtimeT('browserAsset.status.tooLarge')
+  if (/^blob:/i.test(url)) return runtimeT('browserAsset.status.blobUnavailable')
+  return runtimeT('browserAsset.status.downloadRetry')
 }
 
 function isPromptAssetFileName(fileName: string): boolean {
@@ -184,10 +186,10 @@ export function shouldShowDesktopAssetInBrowserPopover(asset: DesktopAssetDto, l
 
 function browserAssetSubtitleFromDesktopAsset(asset: DesktopAssetDto): string {
   const kind = typeof asset.data.kind === 'string' ? asset.data.kind : ''
-  if (kind === 'browser-capture') return '网页素材'
-  if (kind === 'browser-upload') return '本地导入'
-  if (kind === 'upload') return '本地导入'
-  return '项目素材'
+  if (kind === 'browser-capture') return runtimeT('browserAsset.source.capture')
+  if (kind === 'browser-upload') return runtimeT('browserAsset.status.localImport')
+  if (kind === 'upload') return runtimeT('browserAsset.status.localImport')
+  return runtimeT('browserAsset.status.projectAsset')
 }
 
 export function browserAssetFromDesktopAsset(asset: DesktopAssetDto): NomiBrowserAsset | null {
@@ -203,7 +205,7 @@ export function browserAssetFromDesktopAsset(asset: DesktopAssetDto): NomiBrowse
     id: asset.id,
     type,
     source: 'my',
-    title: sidecarTitle || asset.name || (type === 'video' ? '项目视频' : type === 'image' ? '项目图片' : '本地文本'),
+    title: sidecarTitle || asset.name || (type === 'video' ? runtimeT('browserAsset.status.projectVideo') : type === 'image' ? runtimeT('browserAsset.status.projectImage') : runtimeT('browserAsset.status.localText')),
     subtitle,
     previewUrl: type === 'prompt' ? undefined : url || undefined,
     tags: [subtitle],
@@ -226,7 +228,7 @@ function promptTextFromBrowserAsset(asset: NomiBrowserAsset): string {
   const promptCardPrompt = asset.promptCard?.prompt.trim()
   if (promptCardPrompt) return promptCardPrompt
   const subtitle = asset.subtitle?.trim() ?? ''
-  if (subtitle && !['本地文本', '本地导入', '网页素材', '项目素材'].includes(subtitle)) return subtitle
+  if (subtitle && !['本地文本', '本地导入', '网页素材', '项目素材', 'Local text', 'Local import', 'Web capture', 'Project asset'].includes(subtitle)) return subtitle
   return asset.title
 }
 
@@ -357,20 +359,20 @@ export function promptExtractionModeFromRequest(request: BrowserAssetPromptCaptu
 }
 
 function promptExtractionModeLabel(mode: BrowserPromptExtractionMode): string {
-  return BROWSER_PROMPT_EXTRACTION_MODE_LABELS[mode]
+  return mode === 'style' ? runtimeT('browserPrompt.mode.style') : runtimeT('browserPrompt.mode.replicate')
 }
 
 function promptAssetTitle(request: BrowserAssetPromptCaptureRequest, promptTitle?: string): string {
   const title = (promptTitle || request.title || request.pageTitle || '').trim()
   if (title) return title.slice(0, 48)
-  if (promptExtractionModeFromRequest(request) === 'style') return request.sourceType === 'screenshot' ? '网页截图风格' : '画面风格'
-  return request.sourceType === 'screenshot' ? '网页截图提示词' : '图片提示词'
+  if (promptExtractionModeFromRequest(request) === 'style') return request.sourceType === 'screenshot' ? runtimeT('browserAsset.prompt.screenshotStyle') : runtimeT('browserAsset.prompt.imageStyle')
+  return request.sourceType === 'screenshot' ? runtimeT('browserAsset.prompt.screenshotPrompt') : runtimeT('browserAsset.prompt.imagePrompt')
 }
 
 function promptAssetSubtitle(asset: NomiBrowserAsset): string {
   const label = promptExtractionModeLabel(asset.promptCard?.extractionMode === 'style' ? 'style' : 'replicate')
-  if (asset.status === 'loading') return `正在提取${label}...`
-  if (asset.status === 'error') return `${label}提取失败`
+  if (asset.status === 'loading') return runtimeT('browserAsset.prompt.extractingMode', { mode: label })
+  if (asset.status === 'error') return runtimeT('browserAsset.prompt.extractModeFailed', { mode: label })
   return label
 }
 
@@ -406,7 +408,7 @@ export function createPromptCardAsset(input: {
     type: 'prompt',
     source: 'transcript',
     title: promptAssetTitle(input.request, input.title),
-    tags: ['图片提示词', modeLabel],
+    tags: [runtimeT('browserAsset.prompt.imagePrompt'), modeLabel],
     previewUrl,
     previewMediaType: previewUrl ? 'image' : undefined,
     status: input.status,

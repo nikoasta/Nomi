@@ -7,6 +7,7 @@ export const WEB_PORTAL_AUTH_CHANGE_EVENT = 'nomi-web-portal-auth-change'
 type WebPortalEnv = {
   VITE_PORTAL_API_BASE?: string
   VITE_PORTAL_AUTH_ENABLED?: string
+  VITE_TELEGRAM_BOT_USERNAME?: string
 }
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
@@ -35,6 +36,7 @@ export type WebPortalStoredSession = {
 
 export type WebPortalRuntimeEnv = {
   apiBase: string
+  telegramBotUsername: string | null
 }
 
 export type WebPortalAuthRequestOptions = {
@@ -45,6 +47,7 @@ export type WebPortalAuthRequestOptions = {
 }
 
 export type WebPortalAuthDelivery = 'accepted_by_auth_provider' | 'sent_by_everville_mailer' | 'not_sent_non_member'
+export type WebPortalTelegramAuthDelivery = 'telegram_verified'
 
 export type WebPortalAuthRequestResult =
   | {
@@ -66,10 +69,52 @@ export type WebPortalAuthRequestResult =
 
 type WebPortalAuthErrorCode = Extract<WebPortalAuthRequestResult, { ok: false }>['error']['code']
 
+export type WebPortalTelegramAuthPayload = {
+  id: number
+  first_name?: string
+  last_name?: string
+  username?: string
+  photo_url?: string
+  auth_date: number
+  hash: string
+}
+
+export type WebPortalTelegramAuthRequestOptions = {
+  authData: WebPortalTelegramAuthPayload
+  env?: WebPortalEnv
+  fetch?: typeof fetch
+  storage?: StorageLike | null
+  now?: number
+}
+
+export type WebPortalTelegramAuthRequestResult =
+  | {
+      ok: true
+      value: {
+        email: string
+        delivery: WebPortalTelegramAuthDelivery
+      }
+    }
+  | {
+      ok: false
+      error: {
+        code:
+          | 'UNCONFIGURED'
+          | 'INVALID_TELEGRAM_AUTH'
+          | 'TELEGRAM_AUTH_EXPIRED'
+          | 'RATE_LIMITED'
+          | 'PERMISSION_DENIED'
+          | 'NETWORK_ERROR'
+        message: string
+        retryable: boolean
+      }
+    }
+
 function readImportMetaEnv(): WebPortalEnv {
   return {
     VITE_PORTAL_API_BASE: import.meta.env.VITE_PORTAL_API_BASE,
     VITE_PORTAL_AUTH_ENABLED: import.meta.env.VITE_PORTAL_AUTH_ENABLED,
+    VITE_TELEGRAM_BOT_USERNAME: import.meta.env.VITE_TELEGRAM_BOT_USERNAME,
   }
 }
 
@@ -83,7 +128,12 @@ function publicPortalEnv(env: WebPortalEnv): WebPortalRuntimeEnv | null {
   if (env.VITE_PORTAL_AUTH_ENABLED === 'false') return null
   const apiBase = cleanString(env.VITE_PORTAL_API_BASE) ?? '/api/portal'
   const normalizedApiBase = normalizeApiBase(apiBase)
-  if (normalizedApiBase) return { apiBase: normalizedApiBase }
+  if (normalizedApiBase) {
+    return {
+      apiBase: normalizedApiBase,
+      telegramBotUsername: normalizeTelegramBotUsername(env.VITE_TELEGRAM_BOT_USERNAME),
+    }
+  }
   return null
 }
 
@@ -102,6 +152,13 @@ function normalizeApiBase(apiBase: string): string | null {
   if (!trimmed) return null
   if (trimmed.startsWith('/')) return trimmed
   return normalizeEndpoint(trimmed)
+}
+
+function normalizeTelegramBotUsername(value: unknown): string | null {
+  const username = cleanString(value)
+  if (!username) return null
+  const normalized = username.replace(/^@+/, '')
+  return /^[A-Za-z0-9_]{5,32}$/.test(normalized) ? normalized : null
 }
 
 function browserRedirectTo(): string | null {
@@ -221,6 +278,21 @@ function sessionFromParams(params: URLSearchParams, now: number): WebPortalStore
   }
 }
 
+function sessionFromApiPayload(payload: unknown, now: number): WebPortalStoredSession | null {
+  const raw = payload && typeof payload === 'object' ? (payload as { session?: unknown }) : {}
+  const session = raw.session && typeof raw.session === 'object' ? (raw.session as Record<string, unknown>) : null
+  const accessToken = cleanString(session?.accessToken)
+  if (!session || !accessToken) return null
+  const expiresInSeconds = Number(session.expiresIn ?? 3600)
+  return {
+    schemaVersion: 'web-portal-session.v1',
+    accessToken,
+    refreshToken: cleanString(session.refreshToken) ?? null,
+    tokenType: cleanString(session.tokenType) ?? 'bearer',
+    expiresAt: Number.isFinite(expiresInSeconds) ? now + Math.max(0, expiresInSeconds) * 1000 : now + 3600_000,
+  }
+}
+
 export function readWebPortalRuntimeEnv(env: WebPortalEnv = readImportMetaEnv()): WebPortalRuntimeEnv | null {
   return publicPortalEnv(env)
 }
@@ -271,6 +343,75 @@ export async function requestWebPortalMagicLink({
     delivery = undefined
   }
   return { ok: true, value: { email: safeEmail, redirectTo: safeRedirectTo, delivery: authDelivery(delivery) } }
+}
+
+export async function requestWebPortalTelegramLogin({
+  authData,
+  env = readImportMetaEnv(),
+  fetch: fetchOverride,
+  storage = browserStorage(),
+  now = Date.now(),
+}: WebPortalTelegramAuthRequestOptions): Promise<WebPortalTelegramAuthRequestResult> {
+  const portalEnv = readWebPortalRuntimeEnv(env)
+  if (!portalEnv) return { ok: false, error: { code: 'UNCONFIGURED', message: 'Portal auth is not configured', retryable: false } }
+  const endpoint = normalizeApiBase(portalEnv.apiBase)
+  const request = fetchOverride ?? globalThis.fetch
+  if (!endpoint || typeof request !== 'function') {
+    return { ok: false, error: { code: 'UNCONFIGURED', message: 'Portal auth is not configured', retryable: false } }
+  }
+
+  let response: Response
+  try {
+    response = await request(`${endpoint}/auth/telegram`, {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ authData }),
+    })
+  } catch {
+    return { ok: false, error: { code: 'NETWORK_ERROR', message: 'Could not contact Telegram auth', retryable: true } }
+  }
+
+  let payload: unknown
+  try {
+    payload = await response.json()
+  } catch {
+    payload = null
+  }
+
+  if (!response.ok) {
+    const rawCode =
+      payload && typeof payload === 'object' && 'error' in payload && payload.error && typeof payload.error === 'object'
+        ? (payload.error as { code?: unknown }).code
+        : null
+    if (rawCode === 'INVALID_TELEGRAM_AUTH' || rawCode === 'TELEGRAM_AUTH_EXPIRED') {
+      return {
+        ok: false,
+        error: {
+          code: rawCode,
+          message: rawCode === 'TELEGRAM_AUTH_EXPIRED' ? 'Telegram login expired' : 'Telegram login was rejected',
+          retryable: true,
+        },
+      }
+    }
+    if (response.status === 429) {
+      return { ok: false, error: { code: 'RATE_LIMITED', message: 'Please wait before trying again', retryable: true } }
+    }
+    if (response.status === 401 || response.status === 403) {
+      return { ok: false, error: { code: 'PERMISSION_DENIED', message: 'Portal auth rejected this Telegram user', retryable: false } }
+    }
+    return { ok: false, error: { code: 'NETWORK_ERROR', message: `Telegram auth returned HTTP ${response.status}`, retryable: response.status >= 500 } }
+  }
+
+  const session = sessionFromApiPayload(payload, now)
+  const email = payload && typeof payload === 'object' ? cleanString((payload as { email?: unknown }).email) : null
+  if (!session || !email) {
+    return { ok: false, error: { code: 'NETWORK_ERROR', message: 'Telegram auth returned an invalid session', retryable: true } }
+  }
+  storeWebPortalSession(session, storage)
+  return { ok: true, value: { email, delivery: 'telegram_verified' } }
 }
 
 export function parseWebPortalSessionFromUrl(href: string, now = Date.now()): WebPortalStoredSession | null {

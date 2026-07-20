@@ -35,4 +35,19 @@ describe('translateDisplayText', () => {
     expect(translateDisplayText('en', '默认黑体')).toBe('Default sans')
     expect(translateDisplayText('ru', '英文衬线')).toBe('Английский с засечками')
   })
+
+  it('translates persisted learning project labels without mutating project data', () => {
+    expect(translateDisplayText('en', '示例：修好一个小机器人')).toBe('Example: Repairing a little robot')
+    expect(translateDisplayText('zh-CN', 'Example: Repairing a little robot')).toBe('示例：修好一个小机器人')
+    expect(translateDisplayText('ru', '小孩')).toBe('Ребенок')
+    expect(translateDisplayText('en', '黄昏屋顶')).toBe('Dusk rooftop')
+    expect(translateDisplayText('ru', '镜头 3')).toBe('Кадр 3')
+  })
+
+  it('translates persisted 3D system labels from older Chinese projects', () => {
+    expect(translateDisplayText('en', '假人')).toBe('Mannequin')
+    expect(translateDisplayText('en', '相机1')).toBe('Camera 1')
+    expect(translateDisplayText('ru', '群众(2x3)')).toBe('Массовка (2x3)')
+    expect(translateDisplayText('en', '假人 副本')).toBe('Mannequin copy')
+  })
 })

@@ -7,6 +7,7 @@
  *
  */
 import { useToastStore } from '../ui/toast'
+import { runtimeT } from '../i18n/runtimeTranslate'
 
 export type UndoToastOptions = {
   message: string
@@ -23,7 +24,7 @@ export function showUndoToast({ message, onUndo, durationMs = DEFAULT_DURATION_M
     message,
     type: 'success',
     ttl: durationMs,
-    actionLabel: '撤销',
+    actionLabel: runtimeT('richText.undo'),
     onAction: () => {
       if (consumed) return
       consumed = true

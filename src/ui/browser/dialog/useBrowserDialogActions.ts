@@ -14,7 +14,7 @@ import {
   type BrowserAssetRemoteImportInput,
 } from '../popover/NomiBrowserAssetPopover'
 import { subscribeBrowserAssetPopoverOpen } from '../overlay/globalAssetPopoverEvents'
-import { BROWSER_PROMPT_EXTRACTION_MODE_LABELS, type BrowserPromptExtractionMode } from '../prompt/browserPromptExtraction'
+import type { BrowserPromptExtractionMode } from '../prompt/browserPromptExtraction'
 import type { NomiBrowserAsset } from '../assets/browserAssetData'
 import { saveBrowserPromptCard } from '../assets/browserAssetLibraryStorage'
 import type { FloatingWindowBoundsRect } from '../window/useResizableFloatingWindow'
@@ -112,7 +112,7 @@ export function useBrowserDialogActions({
       const tab: BrowserTab = {
         id: tabId,
         viewId,
-        title: url ? browserUrlDisplayTitle(url) : '新建标签页',
+        title: url ? browserUrlDisplayTitle(url) : runtimeT('browserDialog.newTab'),
         url,
         canGoBack: false,
         canGoForward: false,
@@ -435,12 +435,12 @@ export function useBrowserDialogActions({
             items: [
               {
                 id: 'replicate',
-                label: BROWSER_PROMPT_EXTRACTION_MODE_LABELS.replicate,
+                label: runtimeT('browserPrompt.mode.replicate'),
                 description: runtimeT('browserDialog.promptMode.replicateDescription'),
               },
               {
                 id: 'style',
-                label: BROWSER_PROMPT_EXTRACTION_MODE_LABELS.style,
+                label: runtimeT('browserPrompt.mode.style'),
                 description: runtimeT('browserDialog.promptMode.styleDescription'),
               },
             ],

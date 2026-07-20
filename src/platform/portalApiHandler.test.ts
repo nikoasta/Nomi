@@ -1,3 +1,4 @@
+import crypto from 'node:crypto'
 import { Readable } from 'node:stream'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -36,6 +37,26 @@ function response() {
   }
 }
 
+const TELEGRAM_BOT_TOKEN = '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11'
+
+function signedTelegramAuthData(overrides: Record<string, unknown> = {}) {
+  const data: Record<string, unknown> = {
+    id: 12345678,
+    first_name: 'Niko',
+    username: 'niko_asta',
+    auth_date: Math.floor(Date.now() / 1000),
+    ...overrides,
+  }
+  const checkString = Object.entries(data)
+    .filter(([, value]) => value !== undefined && value !== null)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n')
+  const secretKey = crypto.createHash('sha256').update(TELEGRAM_BOT_TOKEN).digest()
+  const hash = crypto.createHmac('sha256', secretKey).update(checkString).digest('hex')
+  return { ...data, hash }
+}
+
 describe('Vercel portal API handler', () => {
   const originalEnv = { ...process.env }
   const originalFetch = globalThis.fetch
@@ -48,6 +69,7 @@ describe('Vercel portal API handler', () => {
   afterEach(() => {
     process.env = { ...originalEnv }
     globalThis.fetch = originalFetch
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
@@ -173,6 +195,123 @@ describe('Vercel portal API handler', () => {
       delivery: 'not_sent_non_member',
     })
     expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('creates portal sessions for signed approved Telegram members', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-20T08:00:00Z'))
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-secret'
+    process.env.TELEGRAM_BOT_TOKEN = TELEGRAM_BOT_TOKEN
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/rest/v1/rpc/nomi_portal_find_or_create_member_by_telegram')) {
+        expect(init?.headers).toEqual(
+          expect.objectContaining({
+            apikey: 'service-role-secret',
+            authorization: 'Bearer service-role-secret',
+          }),
+        )
+        expect(JSON.parse(String(init?.body))).toEqual({
+          request_telegram_id: '12345678',
+          request_telegram_username: 'niko_asta',
+        })
+        return new Response(
+          JSON.stringify([
+            {
+              user_id: 'user-1',
+              email: 'tg_12345678@eva.mba',
+              organization_id: 'organization-1',
+              workspace_id: 'workspace-1',
+            },
+          ]),
+          { status: 200 },
+        )
+      }
+      if (url.endsWith('/auth/v1/admin/generate_link')) {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          type: 'magiclink',
+          email: 'tg_12345678@eva.mba',
+        })
+        return new Response(JSON.stringify({ properties: { hashed_token: 'token-hash-1' } }), { status: 200 })
+      }
+      if (url.endsWith('/auth/v1/verify')) {
+        expect(JSON.parse(String(init?.body))).toEqual({
+          token_hash: 'token-hash-1',
+          type: 'magiclink',
+        })
+        return new Response(
+          JSON.stringify({
+            access_token: 'access-token-1',
+            refresh_token: 'refresh-token-1',
+            expires_in: 900,
+            token_type: 'bearer',
+          }),
+          { status: 200 },
+        )
+      }
+      throw new Error(`Unexpected URL ${url}`)
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(request('POST', ['auth', 'telegram'], { authData: signedTelegramAuthData() }), res)
+
+    expect(res.statusCode).toBe(200)
+    expect(JSON.parse(res.body)).toEqual({
+      email: 'tg_12345678@eva.mba',
+      delivery: 'telegram_verified',
+      session: {
+        accessToken: 'access-token-1',
+        refreshToken: 'refresh-token-1',
+        expiresIn: 900,
+        tokenType: 'bearer',
+      },
+    })
+    expect(JSON.stringify(res.body)).not.toMatch(/service-role-secret|token-hash|telegram_bot_token/i)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
+  })
+
+  it('rejects tampered Telegram auth before contacting Supabase', async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-secret'
+    process.env.TELEGRAM_BOT_TOKEN = TELEGRAM_BOT_TOKEN
+    const fetchMock = vi.fn()
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(
+      request('POST', ['auth', 'telegram'], {
+        authData: { ...signedTelegramAuthData(), username: 'attacker' },
+      }),
+      res,
+    )
+
+    expect(res.statusCode).toBe(400)
+    expect(JSON.parse(res.body)).toEqual({
+      error: { code: 'INVALID_TELEGRAM_AUTH', message: 'Telegram auth was rejected' },
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects expired Telegram auth before contacting Supabase', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-20T08:10:00Z'))
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-secret'
+    process.env.TELEGRAM_BOT_TOKEN = TELEGRAM_BOT_TOKEN
+    const fetchMock = vi.fn()
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(
+      request('POST', ['auth', 'telegram'], {
+        authData: signedTelegramAuthData({ auth_date: Math.floor(new Date('2026-07-20T08:00:00Z').getTime() / 1000) }),
+      }),
+      res,
+    )
+
+    expect(res.statusCode).toBe(401)
+    expect(JSON.parse(res.body)).toEqual({
+      error: { code: 'TELEGRAM_AUTH_EXPIRED', message: 'Telegram auth was rejected' },
+    })
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('confirms own-domain magic links into browser hash sessions', async () => {

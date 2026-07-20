@@ -119,7 +119,7 @@ describe('computeAttachCameraMove — 运镜小片附到目标镜头（可替换
     const outcome = computeAttachCameraMove(withFirstFrame, 'nomi://a.mp4', 'push_in')
     expect(outcome.kind).toBe('patch')
     expect(outcome.toast?.level).toBe('warning')
-    expect(outcome.toast?.message).toContain('首/尾帧')
+    expect(outcome.toast?.message).toContain('first/last-frame')
   })
 
   it('无 video_ref 槽的视频模型（imagen-4）→ 降级只补运镜 prompt 地板 + 记指纹', () => {
@@ -127,7 +127,7 @@ describe('computeAttachCameraMove — 运镜小片附到目标镜头（可替换
     const outcome = computeAttachCameraMove(noVideoRef, 'nomi://a.mp4', 'push_in')
     expect(outcome.kind).toBe('patch')
     if (outcome.kind !== 'patch') return
-    expect(outcome.patch.prompt).toContain('镜头运动：')
+    expect(outcome.patch.prompt).toContain('Camera movement:')
     expect(outcome.patch.meta[CAMERA_MOVE_ATTACHED_URL_KEY]).toBe('nomi://a.mp4')
     // 降级路不切模式、不写 referenceVideoUrls。
     expect(outcome.patch.meta.referenceVideoUrls).toBeUndefined()
@@ -141,8 +141,9 @@ describe('computeAttachCameraMove — 运镜小片附到目标镜头（可替换
     const outcome = computeAttachCameraMove(attached, 'nomi://b.mp4', 'orbit_left')
     expect(outcome.kind).toBe('patch')
     if (outcome.kind !== 'patch') return
-    // 不重复追加 directive（子串已在）。
+    // 不重复追加 directive（legacy Chinese 子串已在）。
     expect(outcome.patch.prompt?.match(/镜头运动：/g)?.length).toBe(1)
+    expect(outcome.patch.prompt).not.toContain('Camera movement:')
     expect(outcome.patch.meta[CAMERA_MOVE_ATTACHED_URL_KEY]).toBe('nomi://b.mp4')
   })
 })

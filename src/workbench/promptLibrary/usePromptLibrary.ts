@@ -1,5 +1,6 @@
 import React from 'react'
 import { fetchPromptLibrary, type LibraryPrompt } from '../api/promptLibraryApi'
+import { runtimeT } from '../../i18n/runtimeTranslate'
 
 type State = { items: LibraryPrompt[]; loading: boolean; error: string | null }
 
@@ -19,10 +20,10 @@ export function usePromptLibrary(opened: boolean): State & { reload: () => void 
     fetchPromptLibrary()
       .then((items) => {
         cached = items
-        setState({ items, loading: false, error: items.length ? null : '暂时没拉到提示词，稍后重试' })
+        setState({ items, loading: false, error: items.length ? null : runtimeT('promptLibrary.fetchEmpty.title') })
       })
       .catch((error: unknown) => {
-        setState({ items: cached ?? [], loading: false, error: error instanceof Error ? error.message : '加载失败' })
+        setState({ items: cached ?? [], loading: false, error: error instanceof Error ? error.message : runtimeT('promptLibrary.fetchEmpty.title') })
       })
   }, [])
 

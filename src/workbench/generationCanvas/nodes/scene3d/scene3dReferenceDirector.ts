@@ -91,7 +91,7 @@ export function summarizeScene3DReferenceTarget(
     return {
       state: 'video-ref',
       targetNodeId: target.id,
-      targetTitle: target.title || '视频镜头',
+      targetTitle: target.title || 'Video shot',
       videoRefModeId: videoRef.modeId,
       videoRefMetaKey: videoRef.metaKey,
       ...frameSupport,
@@ -101,7 +101,7 @@ export function summarizeScene3DReferenceTarget(
   return {
     state: 'prompt-fallback',
     targetNodeId: target.id,
-    targetTitle: target.title || '视频镜头',
+    targetTitle: target.title || 'Video shot',
     ...frameSupport,
   }
 }

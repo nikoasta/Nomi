@@ -5,6 +5,9 @@
  */
 import { getDesktopBridge } from '../../desktop/bridge'
 import { confirmDialog } from '../../design'
+import { translateDisplayText } from '../../i18n/displayText'
+import { getRuntimeLocale } from '../../i18n/runtimeLocale'
+import { runtimeT } from '../../i18n/runtimeTranslate'
 
 export async function confirmAndDeleteVendor(args: {
   vendorKey: string
@@ -14,10 +17,12 @@ export async function confirmAndDeleteVendor(args: {
 }): Promise<{ deleted: boolean; error?: string }> {
   const bridge = getDesktopBridge()
   if (!bridge) return { deleted: false }
+  const locale = getRuntimeLocale()
+  const vendorName = translateDisplayText(locale, args.vendorName)
   const ok = await confirmDialog({
-    title: '删除整个供应商',
-    message: `删除「${args.vendorName}」及其全部 ${args.modelCount} 个模型？此操作不可恢复，之后要用需重新接入。`,
-    confirmLabel: '删除',
+    title: runtimeT('vendorCard.deleteVendor'),
+    message: runtimeT('vendorCard.deleteVendorMessage', { name: vendorName, count: args.modelCount }),
+    confirmLabel: runtimeT('common.delete'),
     danger: true,
   })
   if (!ok) return { deleted: false }
@@ -26,6 +31,6 @@ export async function confirmAndDeleteVendor(args: {
     args.onChanged()
     return { deleted: true }
   } catch (e) {
-    return { deleted: false, error: `删除失败：${e instanceof Error ? e.message : String(e)}` }
+    return { deleted: false, error: runtimeT('vendorCard.deleteFailed', { message: e instanceof Error ? e.message : String(e) }) }
   }
 }

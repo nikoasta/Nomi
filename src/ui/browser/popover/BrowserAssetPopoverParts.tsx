@@ -2,6 +2,8 @@ import React from 'react'
 import { IconCheck, IconFileText, IconFolder, IconPhoto, IconPlayerPlayFilled, IconPlus, IconVideo } from '../../../vendor/tablerIcons'
 import { cn } from '../../../utils/cn'
 import { useI18n } from '../../../i18n/i18nContext'
+import { translateDisplayText } from '../../../i18n/displayText'
+import type { SupportedLocale } from '../../../i18n/translations'
 import type { NomiBrowserAsset, NomiBrowserAssetTab, NomiBrowserAssetTabDefinition } from '../assets/browserAssetData'
 import { browserAssetDisplaySubtitle, isBrowserAssetDraggable } from './browserAssetPopoverUtils'
 
@@ -140,11 +142,11 @@ function FolderShape({ selected }: { selected: boolean }): JSX.Element {
   )
 }
 
-function getAssetTypeLabel(asset: NomiBrowserAsset): string {
-  if (asset.type === 'folder') return '文件夹'
-  if (asset.type === 'image') return '图片'
-  if (asset.type === 'video') return '视频'
-  return '提示词'
+function getAssetTypeLabel(asset: NomiBrowserAsset, locale: SupportedLocale): string {
+  if (asset.type === 'folder') return translateDisplayText(locale, '文件夹')
+  if (asset.type === 'image') return translateDisplayText(locale, '图片')
+  if (asset.type === 'video') return translateDisplayText(locale, '视频')
+  return translateDisplayText(locale, '提示词')
 }
 
 function renderAssetFallbackIcon(asset: NomiBrowserAsset, size = 26): JSX.Element {
@@ -181,14 +183,16 @@ export const BrowserAssetTile = React.memo(function BrowserAssetTile({
   onRenameCommit,
   onRenameCancel,
 }: AssetTileProps): JSX.Element {
+  const { t, locale } = useI18n()
   const hasVisualPreview = Boolean(asset.preview || asset.previewUrl)
   const isFolder = asset.type === 'folder'
   const folderHasPreview = isFolder && hasVisualPreview && (asset.count ?? 0) > 0
   const loading = asset.status === 'loading'
   const failed = asset.status === 'error'
   const isPromptCard = Boolean(asset.promptCard)
-  const subtitle = browserAssetDisplaySubtitle(asset)
-  const listMeta = isFolder ? '文件夹' : asset.duration || getAssetTypeLabel(asset)
+  const title = translateDisplayText(locale, asset.title)
+  const subtitle = browserAssetDisplaySubtitle(asset, locale)
+  const listMeta = isFolder ? translateDisplayText(locale, '文件夹') : asset.duration || getAssetTypeLabel(asset, locale)
   const isVideo = asset.type === 'video' || asset.previewMediaType === 'video'
 
   const commonProps = {
@@ -199,10 +203,10 @@ export const BrowserAssetTile = React.memo(function BrowserAssetTile({
     draggable: isBrowserAssetDraggable(asset, renaming),
     'data-browser-asset-tile': 'true',
     'data-asset-id': asset.id,
-    'aria-label': asset.title,
+    'aria-label': title,
     'aria-selected': selected,
     'aria-grabbed': selected,
-    title: asset.subtitle ? `${asset.title} · ${asset.subtitle}` : asset.title,
+    title: subtitle ? `${title} · ${subtitle}` : title,
     onClick,
     onDoubleClick,
     onContextMenu,
@@ -335,7 +339,7 @@ export const BrowserAssetTile = React.memo(function BrowserAssetTile({
           {loading ? (
             <div
               className="absolute inset-0 grid place-items-center bg-nomi-paper/70 text-nomi-ink-40 backdrop-blur-[1px]"
-              aria-label={isPromptCard ? '提取中' : '下载中'}
+              aria-label={isPromptCard ? translateDisplayText(locale, '提取中...') : translateDisplayText(locale, '下载中...')}
             >
               <span
                 className="size-5 animate-spin rounded-pill border-2 border-nomi-ink-20 border-t-nomi-accent"
@@ -358,7 +362,7 @@ export const BrowserAssetTile = React.memo(function BrowserAssetTile({
           {isVideo && !failed ? (
             <span className="absolute right-1 top-1 inline-flex h-4 items-center gap-0.5 rounded-pill bg-nomi-accent px-1 text-micro font-semibold leading-none text-nomi-paper shadow-nomi-sm ring-1 ring-nomi-paper/80">
               <IconPlayerPlayFilled size={9} aria-hidden="true" />
-              视频
+              {t('mediaType.video')}
             </span>
           ) : null}
           {asset.duration ? (

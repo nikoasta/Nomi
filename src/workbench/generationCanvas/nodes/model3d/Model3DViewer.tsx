@@ -2,6 +2,7 @@ import React from 'react'
 import { FencedCanvas } from '../fencedCanvas'
 import { Bounds, Center, OrbitControls, useGLTF } from '@react-three/drei'
 import { cn } from '../../../../utils/cn'
+import { useI18n } from '../../../../i18n/i18nContext'
 
 /**
  * 生成出的 3D 模型（.glb）的卡内交互预览。
@@ -37,12 +38,13 @@ class GlbBoundary extends React.Component<
 }
 
 export default function Model3DViewer({ url }: { url: string }): JSX.Element {
+  const { t } = useI18n()
   return (
     <div className={cn('w-full h-full bg-nomi-ink-05')}>
       <GlbBoundary
         fallback={
           <div className={cn('flex h-full w-full items-center justify-center text-caption text-nomi-ink-40')}>
-            模型加载失败
+            {t('model3d.loadFailed')}
           </div>
         }
       >

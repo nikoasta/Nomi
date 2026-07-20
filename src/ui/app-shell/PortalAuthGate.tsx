@@ -4,9 +4,10 @@ import { NomiLogoMark, WorkbenchButton } from '../../design'
 import { isDesktopRuntime } from '../../desktop/bridge'
 import { LanguageSwitcher } from '../../i18n/LanguageSwitcher'
 import { useI18n } from '../../i18n/i18nContext'
-import { requestWebPortalMagicLink } from '../../platform/webPortalSession'
+import { readWebPortalRuntimeEnv, requestWebPortalMagicLink } from '../../platform/webPortalSession'
 import { cn } from '../../utils/cn'
 import { usePortalAuthState } from './portalAuthState'
+import { PortalTelegramLogin } from './PortalTelegramLogin'
 
 type PortalAuthMessageKey =
   | 'portal.auth.configMissing'
@@ -15,6 +16,9 @@ type PortalAuthMessageKey =
   | 'portal.auth.linkSentByMailer'
   | 'portal.auth.rateLimited'
   | 'portal.auth.sendError'
+  | 'portal.auth.telegramError'
+  | 'portal.auth.telegramExpired'
+  | 'portal.auth.telegramDenied'
   | null
 
 export function PortalAuthGate({ children }: { children: React.ReactNode }): JSX.Element {
@@ -23,6 +27,7 @@ export function PortalAuthGate({ children }: { children: React.ReactNode }): JSX
   const [email, setEmail] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
   const [messageKey, setMessageKey] = React.useState<PortalAuthMessageKey>(null)
+  const hasTelegramLogin = Boolean(readWebPortalRuntimeEnv()?.telegramBotUsername)
 
   React.useEffect(() => {
     setMessageKey((current) => {
@@ -75,6 +80,30 @@ export function PortalAuthGate({ children }: { children: React.ReactNode }): JSX
             </p>
           </div>
           <form className="grid gap-3" onSubmit={(event) => void submit(event)}>
+            {hasTelegramLogin ? (
+              <div className="grid justify-center gap-3">
+                <PortalTelegramLogin
+                  disabled={authState === 'unconfigured' || submitting}
+                  onStart={() => {
+                    setSubmitting(true)
+                    setMessageKey(null)
+                  }}
+                  onFinish={(result) => {
+                    setSubmitting(false)
+                    if (result.ok) return
+                    if (result.error.code === 'TELEGRAM_AUTH_EXPIRED') setMessageKey('portal.auth.telegramExpired')
+                    else if (result.error.code === 'PERMISSION_DENIED') setMessageKey('portal.auth.telegramDenied')
+                    else if (result.error.code === 'UNCONFIGURED') setMessageKey('portal.auth.configMissing')
+                    else setMessageKey('portal.auth.telegramError')
+                  }}
+                />
+                <div className="flex items-center gap-3 text-caption text-[var(--nomi-ink-40)]">
+                  <span className="h-px flex-1 bg-workbench-border" />
+                  <span>{t('portal.auth.or')}</span>
+                  <span className="h-px flex-1 bg-workbench-border" />
+                </div>
+              </div>
+            ) : null}
             <label className="grid gap-1.5 text-caption font-medium text-[var(--nomi-ink-60)]">
               <span>{t('portal.auth.emailLabel')}</span>
               <span className="relative block">

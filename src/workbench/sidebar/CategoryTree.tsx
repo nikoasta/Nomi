@@ -9,6 +9,7 @@ import CategoryItem from './CategoryItem'
 import GroupItem from './GroupItem'
 import NodeItem from './NodeItem'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 
 type Props = {
   categories?: ProjectCategory[]
@@ -34,7 +35,7 @@ const DEFAULT_GROUP_COLOR = '#d8c3a5'
  * 仅在面板展开 + 「分类」tab 激活时挂载，故始终按展开态渲染。
  */
 export default function CategoryTree({ categories, createCategoryNonce = 0 }: Props): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const activeCategoryId = useWorkbenchStore((s) => s.activeCategoryId)
   const setActiveCategoryId = useWorkbenchStore((s) => s.setActiveCategoryId)
   const addCategory = useWorkbenchStore((s) => s.addCategory)
@@ -195,9 +196,9 @@ export default function CategoryTree({ categories, createCategoryNonce = 0 }: Pr
     // E.2C-26: 跨分类拖拽 → 创建独立副本 + 5 秒可撤销 toast
     const copied = copyNodeToCategory(nodeId, categoryId)
     if (copied) {
-      const targetName = getBuiltinCategoryById(categoryId)?.name || categoryId
+      const targetName = translateDisplayText(locale, getBuiltinCategoryById(categoryId)?.name || categoryId)
       showUndoToast({
-        message: `已复制到 ${targetName}`,
+        message: t('categoryTree.copiedTo', { target: targetName }),
         onUndo: () => deleteNode(copied.id),
       })
     }
@@ -215,9 +216,9 @@ export default function CategoryTree({ categories, createCategoryNonce = 0 }: Pr
     const copied = copyNodeToCategory(nodeId, group.categoryId)
     if (copied) {
       moveNodeToGroup(copied.id, groupId)
-      const targetName = getBuiltinCategoryById(group.categoryId)?.name || group.categoryId
+      const targetName = translateDisplayText(locale, getBuiltinCategoryById(group.categoryId)?.name || group.categoryId)
       showUndoToast({
-        message: `已复制到 ${targetName} · ${group.name}`,
+        message: t('categoryTree.copiedTo', { target: `${targetName} · ${translateDisplayText(locale, group.name)}` }),
         onUndo: () => deleteNode(copied.id),
       })
     }
@@ -273,16 +274,16 @@ export default function CategoryTree({ categories, createCategoryNonce = 0 }: Pr
 
   const handleDeleteCategory = React.useCallback(async (categoryId: string) => {
     const category = (categories || BUILTIN_CATEGORIES).find((c) => c.id === categoryId)
-    const label = category?.name || categoryId
+    const label = translateDisplayText(locale, category?.name || categoryId)
     closeMenu()
     const confirmed = await confirmDialog({
-      title: '删除分组',
-      message: `删除分组「${label}」？里面的节点会移回「分镜」，不会丢失。`,
-      confirmLabel: '删除',
+      title: t('categoryTree.deleteCategory.title'),
+      message: t('categoryTree.deleteCategory.message', { label, fallback: translateDisplayText(locale, '分镜') }),
+      confirmLabel: t('categoryTree.confirmDelete'),
       danger: true,
     })
     if (confirmed) deleteCategory(categoryId)
-  }, [categories, closeMenu, deleteCategory])
+  }, [categories, closeMenu, deleteCategory, locale, t])
 
   const handleCopyNode = React.useCallback((nodeId: string) => {
     const node = nodeById.get(nodeId)
@@ -295,9 +296,9 @@ export default function CategoryTree({ categories, createCategoryNonce = 0 }: Pr
     const node = nodeById.get(nodeId)
     if (!node) return
     closeMenu()
-    const title = await promptDialog({ title: '节点名称', initialValue: node.title || node.id })
+    const title = await promptDialog({ title: t('categoryTree.nodeName'), initialValue: node.title || node.id })
     if (title !== null && title.trim()) updateNode(nodeId, { title: title.trim() })
-  }, [closeMenu, nodeById, updateNode])
+  }, [closeMenu, nodeById, t, updateNode])
 
   const handleRegenerateDerivedNode = React.useCallback((nodeId: string) => {
     duplicateNodeForRegeneration(nodeId)
@@ -306,16 +307,16 @@ export default function CategoryTree({ categories, createCategoryNonce = 0 }: Pr
 
   const handleDeleteNode = React.useCallback(async (nodeId: string) => {
     const node = nodeById.get(nodeId)
-    const label = node?.title || nodeId
+    const label = translateDisplayText(locale, node?.title || nodeId)
     closeMenu()
     const confirmed = await confirmDialog({
-      title: '删除节点',
-      message: `删除节点「${label}」？跨分组副本不会受影响。`,
-      confirmLabel: '删除',
+      title: t('categoryTree.deleteNode.title'),
+      message: t('categoryTree.deleteNode.message', { label }),
+      confirmLabel: t('categoryTree.confirmDelete'),
       danger: true,
     })
     if (confirmed) deleteNode(nodeId)
-  }, [closeMenu, deleteNode, nodeById])
+  }, [closeMenu, deleteNode, locale, nodeById, t])
 
   const handleRenameGroup = React.useCallback((groupId: string) => {
     setEditingGroupId(groupId) // 与新建走同一行内改名，不再弹 window.prompt
@@ -326,9 +327,13 @@ export default function CategoryTree({ categories, createCategoryNonce = 0 }: Pr
     const group = groups.find((candidate) => candidate.id === groupId)
     if (!group) return
     closeMenu()
-    const color = await promptDialog({ title: '组颜色', message: '输入 CSS 颜色值', initialValue: group.color || DEFAULT_GROUP_COLOR })
+    const color = await promptDialog({
+      title: t('categoryTree.groupColor'),
+      message: t('categoryTree.groupColorMessage'),
+      initialValue: group.color || DEFAULT_GROUP_COLOR,
+    })
     if (color !== null) setGroupColor(groupId, color)
-  }, [closeMenu, groups, setGroupColor])
+  }, [closeMenu, groups, setGroupColor, t])
 
   const handleUngroup = React.useCallback((groupId: string) => {
     ungroup(groupId)

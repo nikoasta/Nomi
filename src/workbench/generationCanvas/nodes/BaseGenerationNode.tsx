@@ -51,7 +51,6 @@ import { TechnicalReviewBadge } from './TechnicalReviewBadge'
 import { canDragGenerationNodeToTimeline } from '../model/timelineDragAffordance'
 import { useResultDownload } from './useResultDownload'
 import {
-  STATUS_LABEL,
   RESIZE_DIRECTIONS,
   getNodeSizeBounds,
   FOCUS_GENERATION_NODE_EVENT,
@@ -63,7 +62,7 @@ import { NodeInlineImageTitle, NodeResultHeaderActions } from './NodeImagePrevie
 import { useNodeDisplayPrompt } from './useNodeDisplayPrompt'
 import { useNodeMediaPreview } from './useNodeMediaPreview'
 import { useI18n } from '../../../i18n/i18nContext'
-
+import { translateDisplayText } from '../../../i18n/displayText'
 export type BaseGenerationNodeProps = {
   node: GenerationCanvasNode
   selected: boolean
@@ -88,7 +87,7 @@ function BaseGenerationNodeImpl({
   focusFlash = false,
   appear = false,
 }: BaseGenerationNodeProps): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const selectNode = useGenerationCanvasStore((state) => state.selectNode)
   const captureHistory = useGenerationCanvasStore((state) => state.captureHistory)
   const commitPersistedChange = useGenerationCanvasStore((state) => state.commitPersistedChange)
@@ -448,7 +447,8 @@ function BaseGenerationNodeImpl({
             )}
             data-status={status}
           >
-            {(isGenerating && node.progress?.message) || STATUS_LABEL[status] || status}
+            {(isGenerating && node.progress?.message ? translateDisplayText(locale, node.progress.message) : null) ||
+              (status === 'queued' ? t('node.status.queued') : status === 'running' ? t('node.status.running') : status === 'error' ? t('node.status.error') : status)}
           </span>
         ) : null}
         <TechnicalReviewBadge meta={node.meta} />

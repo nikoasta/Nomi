@@ -70,8 +70,9 @@ function TimelineTrack({ track, variant = 'primary' }: TimelineTrackProps): JSX.
       startFrame,
       scale,
       fps,
+      locale,
     })
-  }, [resolveFrame, fps, scale, track])
+  }, [resolveFrame, fps, locale, scale, track])
 
   // 素材库音频拖到音频轨：payload 同步可读，时长离屏探测后落 clip（核心逻辑共用 dropAudioAssetToTimeline）。
   const handleAssetAudioDrop = React.useCallback((event: React.DragEvent<HTMLDivElement>): boolean => {

@@ -38,17 +38,19 @@ import { currentArchetypeMode } from './controls/archetypeMeta'
 import { getTextGenMode, type TextGenMode } from '../runner/textActions'
 import { useI18n } from '../../../i18n/i18nContext'
 import { localizeLegacyFixationPrompt } from '../fixation/fixationPromptTemplates'
+import { translateDemoProjectText } from '../../onboarding/demoProject'
+import type { TranslationKey } from '../../../i18n/translations'
 
 // C5 P2：文本节点的三种生成模式。
-const TEXT_GEN_MODES: { value: TextGenMode; label: string }[] = [
-  { value: 'append', label: '续写' },
-  { value: 'rewrite', label: '改写' },
-  { value: 'replace', label: '重写' },
+const TEXT_GEN_MODES: { value: TextGenMode; labelKey: TranslationKey }[] = [
+  { value: 'append', labelKey: 'nodeComposer.textMode.append' },
+  { value: 'rewrite', labelKey: 'nodeComposer.textMode.rewrite' },
+  { value: 'replace', labelKey: 'nodeComposer.textMode.replace' },
 ]
-const TEXT_MODE_PLACEHOLDER: Record<TextGenMode, string> = {
-  append: '续写要求…（留空＝直接接着往下写）',
-  rewrite: '改写要求…（先在正文里选中要改的文字）',
-  replace: '重写要求…（替换整篇）',
+const TEXT_MODE_PLACEHOLDER_KEY: Record<TextGenMode, TranslationKey> = {
+  append: 'nodeComposer.textMode.appendPlaceholder',
+  rewrite: 'nodeComposer.textMode.rewritePlaceholder',
+  replace: 'nodeComposer.textMode.replacePlaceholder',
 }
 
 // 翻转滞回带（屏幕 px）：已翻上后要等下方明显够放才切回朝下，杜绝边界反复横跳（用户反馈①）。
@@ -277,6 +279,13 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
     if (node.locked) return
     const localizedPrompt = localizeLegacyFixationPrompt(node.prompt, locale)
     if (!localizedPrompt || localizedPrompt === node.prompt) return
+    updateNode(node.id, { prompt: localizedPrompt })
+    void persistActiveWorkbenchProjectNow().catch(() => {})
+  }, [locale, node.id, node.locked, node.prompt, updateNode])
+  React.useEffect(() => {
+    if (node.locked) return
+    const localizedPrompt = translateDemoProjectText(locale, node.prompt)
+    if (!localizedPrompt || localizedPrompt === (node.prompt || '')) return
     updateNode(node.id, { prompt: localizedPrompt })
     void persistActiveWorkbenchProjectNow().catch(() => {})
   }, [locale, node.id, node.locked, node.prompt, updateNode])
@@ -619,7 +628,7 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
                 'data-[active=true]:bg-nomi-accent-soft data-[active=true]:text-nomi-accent',
               )}
             >
-              {option.label}
+              {t(option.labelKey)}
             </button>
           ))}
         </div>
@@ -638,7 +647,7 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
           <PromptEditor
             className={cn('min-h-[72px]')}
             value={node.prompt || ''}
-            placeholder={isTextKind ? TEXT_MODE_PLACEHOLDER[textGenMode] : getGenerationNodePromptPlaceholder(node.kind)}
+            placeholder={isTextKind ? t(TEXT_MODE_PLACEHOLDER_KEY[textGenMode]) : getGenerationNodePromptPlaceholder(node.kind)}
             editable={!node.locked}
             onChange={(next) => updateNode(node.id, { prompt: next })}
             onBlur={() => { void persistActiveWorkbenchProjectNow().catch(() => {}) }}
@@ -665,16 +674,16 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
           const disabledReason = !canGenerateNow && !isGenerating
             ? nodeExecutionKind === 'video'
               ? acceptsDrop
-                ? '需要先添加参考素材（拖入 / 连线 / 点 +）'
-                : '需要先连接一个图片节点作为首帧'
+                ? t('nodeComposer.disabled.videoNeedsReference')
+                : t('nodeComposer.disabled.videoNeedsFirstFrame')
               : nodeExecutionKind === 'image'
                 ? acceptsDrop
-                  ? '图生图需要参考图（拖入 / 连线 / 点 +），或切回「文生图」'
-                  : '图生图需要参考图：请连接图片节点或添加参考，或切回「文生图」'
-                : `「${node.kind}」类型暂不支持直接生成`
+                  ? t('nodeComposer.disabled.imageNeedsReference')
+                  : t('nodeComposer.disabled.imageNeedsReferenceDetailed')
+                : t('nodeComposer.disabled.unsupported', { kind: node.kind })
             : undefined
           const title = disabledReason
-            ?? (isGenerating ? '生成中…' : hasPendingRefs ? '先生成参考，再生成本镜' : hasResult ? '重新生成' : '生成')
+            ?? (isGenerating ? t('nodeComposer.generating') : hasPendingRefs ? t('nodeComposer.generateReferencesFirst') : hasResult ? t('nodeComposer.regenerate') : t('nodeComposer.generate'))
           return (
             <span title={title} style={{ display: 'contents' }}>
               {/* 原生 button：避开 WorkbenchButton(Mantine)对 radius/bg 的覆盖,确保样张 v4 的深色圆形主行动钮。
@@ -682,7 +691,7 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
               <button
                 type="button"
                 className={cn(GENERATE_BUTTON_CLASS, 'ml-auto')}
-                aria-label={hasResult ? '重新生成' : '生成素材'}
+                aria-label={hasResult ? t('nodeComposer.regenerate') : t('nodeComposer.generateAsset')}
                 disabled={!canGenerateNow}
                 onClick={handleGenerate}
               >
@@ -704,8 +713,8 @@ export default function NodeGenerationComposer({ node, visualSize }: Props): JSX
         >
           {/* pending 规范 #1:上传中统一品牌转圈,不再纯文字 */}
           <span className={cn('inline-flex items-center gap-1.5 text-caption text-nomi-ink-60')}>
-            {isUploading ? <NomiLoadingMark size={14} label="上传中" /> : null}
-            {isUploading ? '上传中…' : '松手添加为参考'}
+            {isUploading ? <NomiLoadingMark size={14} label={t('nodeComposer.uploadingLabel')} /> : null}
+            {isUploading ? t('nodeComposer.uploading') : t('nodeComposer.dropReference')}
           </span>
         </div>
       ) : null}

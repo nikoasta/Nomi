@@ -5,8 +5,10 @@ import React from 'react'
 import { IconLock, IconLockOpen } from '@tabler/icons-react'
 import { cn } from '../../../utils/cn'
 import { useGenerationCanvasStore } from '../store/generationCanvasStore'
+import { useI18n } from '../../../i18n/i18nContext'
 
 export function NodeLockBadge({ nodeId, locked, selected }: { nodeId: string; locked?: boolean; selected?: boolean }): JSX.Element | null {
+  const { t } = useI18n()
   if (!locked && !selected) return null
   return (
     <button
@@ -18,8 +20,8 @@ export function NodeLockBadge({ nodeId, locked, selected }: { nodeId: string; lo
           ? 'bg-nomi-ink text-nomi-paper hover:bg-nomi-ink-80'
           : 'bg-nomi-paper/[0.82] text-nomi-ink-40 hover:text-nomi-ink',
       )}
-      aria-label={locked ? '解锁节点(AI 将恢复可修改)' : '锁定节点(AI 不能改它,引用照常)'}
-      title={locked ? '已锁定:AI 不能修改此节点 — 点击解锁' : '锁定:AI 不能改它(提示词/删除/接线),作为参考引用照常'}
+      aria-label={locked ? t('node.lock.unlockAria') : t('node.lock.lockAria')}
+      title={locked ? t('node.lock.unlockTitle') : t('node.lock.lockTitle')}
       data-node-lock={locked ? 'locked' : 'unlocked'}
       onClick={(event) => {
         event.stopPropagation()

@@ -509,7 +509,7 @@ export function CaptureBinder({
       captureViewport: () => {
         const width = Math.max(1, Math.round(gl.domElement.width || size.width))
         const height = Math.max(1, Math.round(gl.domElement.height || size.height))
-        return captureScene(gl, scene, camera, width, height, '3D截图 - 当前视口', 'scene3d-viewport')
+        return captureScene(gl, scene, camera, width, height, '3D screenshot - current viewport', 'scene3d-viewport')
       },
       captureCamera: (sceneCamera) => {
         const dimensions = aspectDimensions(sceneCamera.aspectRatio)
@@ -526,7 +526,7 @@ export function CaptureBinder({
           captureCamera,
           dimensions.width,
           dimensions.height,
-          `3D截图 - ${sceneCamera.name}`,
+          `3D screenshot - ${sceneCamera.name}`,
           'scene3d-camera',
           true,
         )

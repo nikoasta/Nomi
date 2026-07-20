@@ -131,12 +131,12 @@ export function resolveExecutableImageModelFromOptions(
   }
 
   if (options.length === 0) {
-    throw new Error('未找到可用图片模型：请先在系统模型管理中启用 image 模型。')
+    throw new Error('No image models are available. Enable an image model in model setup first.')
   }
 
   if (!requestedValue) {
-    throw new Error('未选择图片模型：请在节点参数中选择一个已启用的 image 模型。')
+    throw new Error('No image model is selected. Choose an enabled image model in the node parameters.')
   }
 
-  throw new Error(`图片模型不可用：${requestedValue}。请在系统模型管理中启用该模型，或在节点参数中重新选择模型。`)
+  throw new Error(`Image model is unavailable: ${requestedValue}. Enable it in model setup or choose another model in the node parameters.`)
 }

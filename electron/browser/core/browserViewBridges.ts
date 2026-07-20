@@ -110,8 +110,8 @@ export async function installBrowserPromptHoverBridge(record: BrowserViewRecord)
       seen.add(id);
       output.push({ id, label });
     };
-    push('image', '图片提示词');
-    push('video', '视频提示词');
+    push('image', 'Image prompt');
+    push('video', 'Video prompt');
     if (Array.isArray(input)) {
       input.forEach((item) => {
         if (!item || typeof item !== 'object') return;
@@ -136,8 +136,8 @@ export async function installBrowserPromptHoverBridge(record: BrowserViewRecord)
   };
   const button = document.createElement('button');
   button.type = 'button';
-  button.setAttribute('aria-label', 'Nomi 获取提示词');
-  button.innerHTML = '<span class="nomi-prompt-mark">N</span><span>获取提示词</span>';
+  button.setAttribute('aria-label', 'Nomi extract prompt');
+  button.innerHTML = '<span class="nomi-prompt-mark">N</span><span>Extract prompt</span>';
   button.style.cssText = [
     'position:fixed',
     'z-index:2147483647',
@@ -164,7 +164,7 @@ export async function installBrowserPromptHoverBridge(record: BrowserViewRecord)
   document.documentElement.appendChild(button);
   const menu = document.createElement('div');
   menu.setAttribute('role', 'menu');
-  menu.setAttribute('aria-label', '选择提示词提取方式');
+  menu.setAttribute('aria-label', 'Choose prompt extraction mode');
   menu.style.cssText = [
     'position:fixed',
     'z-index:2147483647',
@@ -187,8 +187,8 @@ export async function installBrowserPromptHoverBridge(record: BrowserViewRecord)
     option.innerHTML = '<span class="nomi-prompt-mode-icon">' + (mode === 'style' ? 'S' : 'R') + '</span><span><span class="nomi-prompt-mode-title">' + title + '</span><span class="nomi-prompt-mode-desc">' + description + '</span></span>';
     return option;
   };
-  menu.appendChild(createModeOption('replicate', '画面复刻', '还原主体、构图、光影与细节'));
-  menu.appendChild(createModeOption('style', '画面风格', '提取配色、字体、构图与效果 JSON'));
+  menu.appendChild(createModeOption('replicate', 'Replicate image', 'Recover subject, composition, lighting, and detail'));
+  menu.appendChild(createModeOption('style', 'Extract style', 'Extract color, typography, composition, and effects JSON'));
   document.documentElement.appendChild(menu);
 
   const cleanTitle = (value) => String(value || '').replace(/\\s+/g, ' ').trim();
@@ -340,8 +340,8 @@ export async function installBrowserPromptHoverBridge(record: BrowserViewRecord)
   const textState = { text: '', rect: null, cardOpen: false };
   const textButton = document.createElement('button');
   textButton.type = 'button';
-  textButton.setAttribute('aria-label', 'Nomi 保存提示词');
-  textButton.innerHTML = '<span class="nomi-prompt-mark">N</span><span>保存提示词</span>';
+  textButton.setAttribute('aria-label', 'Nomi save prompt');
+  textButton.innerHTML = '<span class="nomi-prompt-mark">N</span><span>Save prompt</span>';
   textButton.style.cssText = [
     'position:fixed',
     'z-index:2147483647',
@@ -365,7 +365,7 @@ export async function installBrowserPromptHoverBridge(record: BrowserViewRecord)
 
   const textCard = document.createElement('div');
   textCard.setAttribute('role', 'dialog');
-  textCard.setAttribute('aria-label', '保存提示词');
+  textCard.setAttribute('aria-label', 'Save prompt');
   textCard.style.cssText = [
     'position:fixed',
     'z-index:2147483647',
@@ -382,14 +382,14 @@ export async function installBrowserPromptHoverBridge(record: BrowserViewRecord)
   ].join(';');
   textCard.innerHTML =
     '<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px">' +
-      '<strong style="font-size:14px">保存提示词</strong>' +
+      '<strong style="font-size:14px">Save prompt</strong>' +
       '<button type="button" data-nomi-text-close style="border:0;background:transparent;color:rgba(23,32,51,.55);font-size:18px;line-height:1;cursor:pointer">×</button>' +
     '</div>' +
     '<div style="display:grid;gap:10px">' +
-      '<div style="display:grid;place-items:center;min-height:72px;border-radius:12px;background:rgba(23,32,51,.06);color:rgba(23,32,51,.48);font-size:12px">无参考图</div>' +
-      '<label style="display:grid;gap:5px"><span style="color:rgba(23,32,51,.62);font-size:12px">提示词类型</span><select data-nomi-text-type style="height:34px;border:1px solid rgba(23,32,51,.14);border-radius:10px;background:white;padding:0 8px;color:#172033"><option value="image">图片提示词</option><option value="video">视频提示词</option></select></label>' +
-      '<label style="display:grid;gap:5px"><span style="color:rgba(23,32,51,.62);font-size:12px">选中文字</span><textarea data-nomi-text-value style="min-height:110px;resize:vertical;border:1px solid rgba(23,32,51,.14);border-radius:10px;background:white;padding:8px;color:#172033;font:500 13px/1.55 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif"></textarea></label>' +
-      '<div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" data-nomi-text-cancel style="height:32px;border:1px solid rgba(23,32,51,.14);border-radius:10px;background:white;color:rgba(23,32,51,.72);padding:0 12px;cursor:pointer">取消</button><button type="button" data-nomi-text-save style="height:32px;border:0;border-radius:10px;background:#172033;color:white;padding:0 12px;font-weight:700;cursor:pointer">保存</button></div>' +
+      '<div style="display:grid;place-items:center;min-height:72px;border-radius:12px;background:rgba(23,32,51,.06);color:rgba(23,32,51,.48);font-size:12px">No reference image</div>' +
+      '<label style="display:grid;gap:5px"><span style="color:rgba(23,32,51,.62);font-size:12px">Prompt type</span><select data-nomi-text-type style="height:34px;border:1px solid rgba(23,32,51,.14);border-radius:10px;background:white;padding:0 8px;color:#172033"><option value="image">Image prompt</option><option value="video">Video prompt</option></select></label>' +
+      '<label style="display:grid;gap:5px"><span style="color:rgba(23,32,51,.62);font-size:12px">Selected text</span><textarea data-nomi-text-value style="min-height:110px;resize:vertical;border:1px solid rgba(23,32,51,.14);border-radius:10px;background:white;padding:8px;color:#172033;font:500 13px/1.55 -apple-system,BlinkMacSystemFont,Segoe UI,sans-serif"></textarea></label>' +
+      '<div style="display:flex;justify-content:flex-end;gap:8px"><button type="button" data-nomi-text-cancel style="height:32px;border:1px solid rgba(23,32,51,.14);border-radius:10px;background:white;color:rgba(23,32,51,.72);padding:0 12px;cursor:pointer">Cancel</button><button type="button" data-nomi-text-save style="height:32px;border:0;border-radius:10px;background:#172033;color:white;padding:0 12px;font-weight:700;cursor:pointer">Save</button></div>' +
     '</div>';
   document.documentElement.appendChild(textCard);
 

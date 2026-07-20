@@ -2,12 +2,14 @@ import React from 'react'
 import type { GenerationCanvasNode } from '../model/generationCanvasTypes'
 import NodeMediaPreviewDialog from './NodeMediaPreviewDialog'
 import NodeResultDownloadButton from './NodeResultDownloadButton'
+import { useI18n } from '../../../i18n/i18nContext'
 
 /** 图片工具条与视频结果浮条共用的预览状态/渲染出口。 */
 export function useNodeMediaPreview(
   node: GenerationCanvasNode,
   resultActionsSelected: boolean,
 ): { openMediaPreview: () => void; mediaPreviewControls: JSX.Element } {
+  const { t } = useI18n()
   const [open, setOpen] = React.useState(false)
   const openMediaPreview = React.useCallback(() => setOpen(true), [])
   const closeMediaPreview = React.useCallback(() => setOpen(false), [])
@@ -21,7 +23,7 @@ export function useNodeMediaPreview(
           <NodeMediaPreviewDialog
             mediaType={result.type}
             url={result.url}
-            title={node.title || (result.type === 'video' ? '视频' : '图片')}
+            title={node.title || (result.type === 'video' ? t('browserAsset.type.video') : t('browserAsset.type.image'))}
             onClose={closeMediaPreview}
           />
         ) : null}

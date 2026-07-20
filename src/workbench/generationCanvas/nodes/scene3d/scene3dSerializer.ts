@@ -134,7 +134,7 @@ export function createDefaultScene3DState(): Scene3DState {
     objects: [
       {
         id: createScene3DObjectId(),
-        name: '假人',
+        name: 'Mannequin',
         type: 'mannequin',
         visible: true,
         position: [0, MANNEQUIN_DEFAULT_SCALE[1] * 0.5, 0],
@@ -146,7 +146,7 @@ export function createDefaultScene3DState(): Scene3DState {
     cameras: [
       {
         id: createScene3DCameraId(),
-        name: '相机1',
+        name: 'Camera 1',
         visible: true,
         position: [4, 2.4, 5],
         rotation: [-0.36, 0.68, 0],
@@ -197,7 +197,7 @@ function normalizeObject(value: unknown, index: number): Scene3DObject | null {
   const lightType = LIGHT_TYPES.has(raw.lightType as Scene3DLightType) ? raw.lightType as Scene3DLightType : 'point'
   return {
     id,
-    name: stringValue(raw.name, `${type === 'light' ? '灯光' : '对象'}${index + 1}`),
+    name: stringValue(raw.name, `${type === 'light' ? 'Light' : 'Object'} ${index + 1}`),
     type,
     visible: raw.visible !== false,
     // prop 的 origin 在地面中心 → 默认落 y=0 贴地。
@@ -229,7 +229,7 @@ function normalizeCamera(value: unknown, index: number): Scene3DCamera | null {
   const followTargetId = stringValue(raw.followTargetId, '')
   return {
     id,
-    name: stringValue(raw.name, `相机${index + 1}`),
+    name: stringValue(raw.name, `Camera ${index + 1}`),
     visible: raw.visible !== false,
     position: finiteVector(raw.position, [4, 2.4, 5]),
     rotation: finiteVector(raw.rotation, [-0.35, 0.65, 0]),
@@ -292,7 +292,7 @@ function normalizeTrajectory(value: unknown, index: number): Scene3DTrajectory |
     : []
   return {
     id,
-    name: stringValue(raw.name, `轨迹${index + 1}`),
+    name: stringValue(raw.name, `Trajectory ${index + 1}`),
     points,
     curveControls,
     tension: Math.min(1, Math.max(0, finiteNumber(raw.tension, 0.5))),
@@ -351,7 +351,7 @@ function normalizeTrajectoryGroup(value: unknown, index: number, trajectoryIds: 
     : []
   return {
     id,
-    name: stringValue(raw.name, `组${index + 1}`),
+    name: stringValue(raw.name, `Group ${index + 1}`),
     trajectoryIds: groupTrajectoryIds,
   }
 }

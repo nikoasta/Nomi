@@ -19,6 +19,7 @@ import {
   upsertWorkbenchModelCatalogModel,
 } from '../api/modelCatalogApi'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 
 type Recoverable = { vendorKey: string; modelKey: string; labelZh: string }
 type CardState = 'prompt' | 'enabling' | 'done'
@@ -41,7 +42,7 @@ async function findRecoverableBrain(): Promise<Recoverable | null> {
 export function NoTextModelRecoveryCard({ onResolved }: { onResolved?: () => void }): JSX.Element {
   const [state, setState] = React.useState<CardState>('prompt')
   const [recoverable, setRecoverable] = React.useState<Recoverable | null>(null)
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   React.useEffect(() => {
     let alive = true
@@ -101,7 +102,7 @@ export function NoTextModelRecoveryCard({ onResolved }: { onResolved?: () => voi
                 onClick={() => void enableBrain()}
               >
                 <IconBulb />
-                <span className="min-w-0 truncate">{t('noTextModel.enable', { name: recoverable.labelZh })}</span>
+                <span className="min-w-0 truncate">{t('noTextModel.enable', { name: translateDisplayText(locale, recoverable.labelZh) })}</span>
               </WorkbenchButton>
             ) : null}
             <WorkbenchButton variant="default" className="w-full" onClick={openSettings}>

@@ -15,7 +15,7 @@ type TimelineClipProps = {
 }
 
 function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const scale = useWorkbenchStore((state) => state.timeline.scale)
   // 仅订阅"本 clip 是否选中"（布尔），避免选区变化时所有 clip 重渲染
   const isSelected = useWorkbenchStore((state) => state.selectedTimelineClipIds.includes(clip.id))
@@ -78,7 +78,7 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
       let deltaFrame = Math.round((moveEvent.clientX - startX) / scaleNow)
       if (!moveEvent.shiftKey) {
         const timeline = useWorkbenchStore.getState().timeline
-        const points = buildSnapPoints(timeline, { excludeClipIds: new Set([clip.id]) })
+        const points = buildSnapPoints(timeline, { excludeClipIds: new Set([clip.id]), locale })
         const snap = resolveSnap(originEdge + deltaFrame, points, pixelThresholdToFrames(scaleNow))
         if (snap) deltaFrame = snap.frame - originEdge
         applySnapGuide(snap)
@@ -110,7 +110,7 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
     }
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
-  }, [applySnapGuide, clip.endFrame, clip.id, clip.startFrame])
+  }, [applySnapGuide, clip.endFrame, clip.id, clip.startFrame, locale])
 
   const beginDrag = React.useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     // 剪刀模式下不拖动（点击 = 在光标处分割，由 onClick 处理）
@@ -164,7 +164,7 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
       if (!moveEvent.shiftKey) {
         const timeline = useWorkbenchStore.getState().timeline
         // 排除整个选区（成组同速平移，不互相吸附）
-        const points = buildSnapPoints(timeline, { excludeClipIds: selectionSet })
+        const points = buildSnapPoints(timeline, { excludeClipIds: selectionSet, locale })
         const threshold = pixelThresholdToFrames(scaleNow)
         const snapStart = resolveSnap(desiredStart, points, threshold)
         const snapEnd = resolveSnap(desiredStart + draggedLen, points, threshold)
@@ -209,7 +209,7 @@ function TimelineClip({ clip }: TimelineClipProps): JSX.Element {
     }
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
-  }, [applySnapGuide, clip.endFrame, clip.id, clip.startFrame])
+  }, [applySnapGuide, clip.endFrame, clip.id, clip.startFrame, locale])
 
   const clipWidth = Math.max(36, frameToPixel(clip.frameCount, scale))
 

@@ -134,7 +134,7 @@ describe('applyCameraMovePreset · 追加与串联', () => {
     const result = applyCameraMovePreset(stateWithCamera(), 'cam1', { move: 'push_in', duration: 4, amplitude: 0.6 })!
     expect(result.state.trajectories).toHaveLength(1)
     expect(result.state.trajectoryBindings).toHaveLength(1)
-    expect(result.state.trajectories[0].name).toBe('推近')
+    expect(result.state.trajectories[0].name).toBe('Push in')
     expect(result.state.trajectoryBindings[0].objects[0].objectId).toBe('cam1')
     expect(result.startTime).toBe(0)
     expect(result.endTime).toBe(4)

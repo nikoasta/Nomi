@@ -5,6 +5,7 @@ import { listWorkbenchModelCatalogModels, type ModelCatalogModelDto } from '../a
 import { getAssistantModelPref, setAssistantModelPref } from './assistantModelPref'
 import { NomiSelect, NomiSkeleton } from '../../design'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 
 // 与后端 chooseTextModel 一致的"像通用对话模型"判定：vision/preview 等不可靠发 tool_use 的降权，
 // 选默认时排到最后。让默认就是一个具体的、能用的模型（而不是看不懂的「自动选模型」）。
@@ -21,7 +22,7 @@ export default function AssistantModelPicker({ className }: { className?: string
   const [models, setModels] = React.useState<ModelCatalogModelDto[]>([])
   const [loaded, setLoaded] = React.useState(false)
   const [modelKey, setModelKey] = React.useState<string>(() => getAssistantModelPref()?.modelKey || '')
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   React.useEffect(() => {
     let alive = true
@@ -66,7 +67,7 @@ export default function AssistantModelPicker({ className }: { className?: string
       className={className}
       triggerMaxWidth={160}
       value={modelKey}
-      options={models.map((m) => ({ value: m.modelKey, label: m.labelZh || m.modelKey }))}
+      options={models.map((m) => ({ value: m.modelKey, label: translateDisplayText(locale, m.labelZh || m.modelKey) }))}
       onChange={handleChange}
     />
   )

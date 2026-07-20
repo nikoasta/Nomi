@@ -55,13 +55,13 @@ describe('buildStagingScene', () => {
     expect(studio.environment.showGrid).toBe(false)
   })
 
-  it('facing 标签缺省自动编号 角色A/B，facing override 生效', () => {
+  it('uses English default labels for facing characters and applies facing override', () => {
     const state = buildStagingScene({
       characters: [{ facing: 'camera' }, { facing: 'away' }],
       layout: 'facing',
     })
-    expect(state.objects[0].name).toBe('角色A')
-    expect(state.objects[1].name).toBe('角色B')
+    expect(state.objects[0].name).toBe('Character A')
+    expect(state.objects[1].name).toBe('Character B')
     expect(state.objects[0].rotation[1]).toBeCloseTo(0, 5) // camera = 朝 +Z
     expect(Math.abs(state.objects[1].rotation[1])).toBeCloseTo(Math.PI, 5) // away = 180°
   })

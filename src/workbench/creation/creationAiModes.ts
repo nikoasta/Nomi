@@ -152,22 +152,22 @@ export function buildCreationAiPrompt(input: {
     return [
       input.mode.prompt,
       '',
-      '需要时可调用 read_full_text 读取当前文稿、read_selection 读取选区作为上下文；本模式不要改写文档。',
+      'When needed, call read_full_text to read the current draft or read_selection to read the selected text as context. Do not rewrite the document in this mode.',
       '',
-      '用户问题：',
-      request || '（用户未输入文字，请礼貌询问需要什么帮助）',
+      'User question:',
+      request || '(The user did not type a request. Politely ask how you can help.)',
     ].join('\n')
   }
   return [
     input.mode.prompt,
     '',
-    '工具使用规则（真实工具调用，用户会在卡片上确认每一次写入）：',
-    '- 读取上下文：需要现有正文时调用 read_full_text；只针对选中片段操作时调用 read_selection。不要假设你已经知道文稿内容，先读再写。',
-    '- 写入文档：改写/润色选中片段用 replace_selection；在光标处续写或补充用 insert_at_cursor；交付完整结果追加到文末用 append_to_end。',
-    '- 写入工具的 content 字段只放最终正文，不要写使用说明或解释。',
-    '- 只有用户明确要求写入/插入/替换/追加时才调用写入工具；否则用自然语言回答即可。',
+    'Tool-use rules (real tool calls; the user confirms every write in a card):',
+    '- Read context: call read_full_text when you need the existing draft; call read_selection when you only need the selected passage. Do not assume you know the document. Read before writing.',
+    '- Write document: use replace_selection to rewrite or polish selected text; use insert_at_cursor to continue or add text at the cursor; use append_to_end to deliver a complete result at the end.',
+    '- The content field of write tools must contain only the final document text. Do not include usage notes or explanations.',
+    '- Call write tools only when the user explicitly asks to write, insert, replace, or append. Otherwise, answer naturally.',
     '',
-    '当前任务：',
-    request || `请按“${input.mode.label}”模式处理当前材料。`,
+    'Current task:',
+    request || `Use "${input.mode.label}" mode to work on the current material.`,
   ].join('\n')
 }

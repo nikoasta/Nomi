@@ -36,10 +36,11 @@ function NumberBadge({ index }: { index: number }): JSX.Element {
 }
 
 function RemoveButton({ label, onRemove }: { label: string; onRemove: () => void }): JSX.Element {
+  const { t } = useI18n()
   return (
     <button
       type="button"
-      aria-label={`移除${label}`}
+      aria-label={t('assetTile.remove', { name: label })}
       className={cn('absolute -top-[5px] -right-[5px] w-[16px] h-[16px] rounded-pill bg-nomi-paper border border-nomi-line text-nomi-ink-60 text-micro leading-none flex items-center justify-center cursor-pointer z-[2]')}
       onClick={(event) => { event.stopPropagation(); onRemove() }}
     >×</button>
@@ -48,6 +49,7 @@ function RemoveButton({ label, onRemove }: { label: string; onRemove: () => void
 
 // 形态自明的内层渲染,被 56px 参考块和 48px picker 项共用(单一真相源,避免两份渲染逻辑)。
 export function AssetThumb({ asset, playSize = 22 }: { asset: AssetRef; playSize?: number }): JSX.Element {
+  const { t } = useI18n()
   if (asset.kind === 'audio') {
     return (
       <span className={cn('flex items-center gap-[2px] h-[22px]')} aria-hidden>
@@ -76,8 +78,8 @@ export function AssetThumb({ asset, playSize = 22 }: { asset: AssetRef; playSize
       alt={asset.name}
       // 参考语境的失效占位说「怎么办」：泛化的「加载失败」会被当成无害缩略图问题忽略，
       // 而这张图随后就是发不出去（预览与发送同一份 URL 口径）。
-      fallbackLabel="图已失效"
-      fallbackTitle={`参考图已失效（源文件缺失或链接过期）：${asset.renderUrl}。点「×」移除后重新添加，或重新生成源节点。`}
+      fallbackLabel={t('assetTile.imageExpired')}
+      fallbackTitle={t('assetTile.imageExpiredTitle', { url: asset.renderUrl })}
     />
   )
 }

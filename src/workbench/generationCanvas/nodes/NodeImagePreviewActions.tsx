@@ -4,12 +4,14 @@ import { cn } from '../../../utils/cn'
 import { NodeImageLightbox } from './NodeImageLightbox'
 import { EditableNodeTitle } from './render/EditableNodeTitle'
 import { useI18n } from '../../../i18n/i18nContext'
+import { translateDisplayText } from '../../../i18n/displayText'
 
 export function NodeImagePreviewButton({ src, title }: { src: string; title?: string }): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [open, setOpen] = React.useState(false)
   const close = React.useCallback(() => setOpen(false), [])
-  const label = title || t('mediaPreview.image')
+  const displayTitle = title ? translateDisplayText(locale, title) : ''
+  const label = displayTitle || t('mediaPreview.image')
   return (
     <>
       <button
@@ -32,7 +34,7 @@ export function NodeImagePreviewButton({ src, title }: { src: string; title?: st
       >
         <IconMaximize size={14} stroke={1.6} aria-hidden="true" />
       </button>
-      <NodeImageLightbox open={open} src={src} title={title} onClose={close} />
+      <NodeImageLightbox open={open} src={src} title={displayTitle || title} onClose={close} />
     </>
   )
 }
@@ -82,7 +84,8 @@ export function NodeInlineImageTitle({
   value: string
   selected: boolean
 }): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  const displayTitle = translateDisplayText(locale, value)
   return (
     <div
       className={cn(
@@ -97,6 +100,7 @@ export function NodeInlineImageTitle({
       <EditableNodeTitle
         nodeId={nodeId}
         value={value}
+        displayValue={displayTitle}
         placeholder={t('mediaPreview.unnamedImage')}
         className="max-w-full text-caption font-semibold text-nomi-paper"
       />

@@ -1,5 +1,7 @@
 /* global Buffer, fetch, process, URL, URLSearchParams */
 
+import crypto from 'node:crypto'
+
 const RPC_ALLOWLIST = new Set([
   'nomi_portal_list_organizations',
   'nomi_portal_list_workspaces',
@@ -104,13 +106,21 @@ function readPortalEnv() {
     clean(process.env.SUPABASE_PUBLISHABLE_KEY) || clean(process.env.VITE_SUPABASE_PUBLISHABLE_KEY)
   const serviceRoleKey = clean(process.env.SUPABASE_SERVICE_ROLE_KEY)
   const resendApiKey = clean(process.env.RESEND_API_KEY)
+  const telegramBotToken = clean(process.env.TELEGRAM_BOT_TOKEN)
   const portalAuthFrom = clean(process.env.PORTAL_AUTH_FROM_EMAIL) || 'Everville Team <notifications@everville.estate>'
   if (!endpoint || !publishableKey) return null
   try {
     const url = new URL(endpoint.replace(/\/+$/, ''))
     if (url.protocol !== 'https:') return null
     if (!publishableKey.startsWith('sb_publishable_')) return null
-    return { endpoint: url.toString().replace(/\/+$/, ''), publishableKey, serviceRoleKey, resendApiKey, portalAuthFrom }
+    return {
+      endpoint: url.toString().replace(/\/+$/, ''),
+      publishableKey,
+      serviceRoleKey,
+      resendApiKey,
+      telegramBotToken,
+      portalAuthFrom,
+    }
   } catch {
     return null
   }
@@ -173,6 +183,30 @@ function safeEmail(value) {
   const parts = email.split('@')
   if (parts.length !== 2 || !parts[0] || !parts[1].includes('.')) return null
   return email.toLowerCase()
+}
+
+function safeTelegramUsername(value) {
+  const username = clean(value)
+  if (!username) return null
+  const normalized = username.replace(/^@+/, '')
+  return /^[A-Za-z0-9_]{5,32}$/.test(normalized) ? normalized : null
+}
+
+function safeTelegramAuthData(value) {
+  const input = value && typeof value === 'object' ? value : {}
+  const id = Number(input.id)
+  const authDate = Number(input.auth_date)
+  const hash = clean(input.hash)
+  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(authDate) || !hash) return null
+  return {
+    id,
+    first_name: clean(input.first_name),
+    last_name: clean(input.last_name),
+    username: safeTelegramUsername(input.username),
+    photo_url: clean(input.photo_url),
+    auth_date: authDate,
+    hash,
+  }
 }
 
 function queryValue(req, name) {
@@ -254,6 +288,20 @@ async function findPortalMemberByEmail(env, email) {
   return { ok: true, member: rows[0] || null }
 }
 
+async function findPortalMemberByTelegram(env, authData) {
+  const result = await supabaseServiceRequest({
+    env,
+    path: '/rest/v1/rpc/nomi_portal_find_or_create_member_by_telegram',
+    body: {
+      request_telegram_id: String(authData.id),
+      request_telegram_username: authData.username,
+    },
+  })
+  if (!result.ok) return { ok: false, status: result.status }
+  const rows = Array.isArray(result.payload) ? result.payload : []
+  return { ok: true, member: rows[0] || null }
+}
+
 async function generatePortalMagicLink(env, email) {
   const result = await supabaseServiceRequest({
     env,
@@ -278,6 +326,23 @@ function confirmUrlForRequest(redirectTo, hashedToken) {
   confirmUrl.searchParams.set('type', 'magiclink')
   confirmUrl.searchParams.set('redirectTo', redirectTo)
   return confirmUrl.toString()
+}
+
+async function createPortalSessionForEmail(env, email) {
+  const link = await generatePortalMagicLink(env, email)
+  if (!link.ok || !link.hashedToken) return { ok: false, status: link.status || 502 }
+
+  const result = await supabaseRequest({
+    env,
+    path: '/auth/v1/verify',
+    body: {
+      token_hash: link.hashedToken,
+      type: 'magiclink',
+    },
+  })
+  const session = result.ok ? sessionPayload(result.payload) : null
+  if (!session) return { ok: false, status: result.status || 502 }
+  return { ok: true, session }
 }
 
 function escapeHtml(value) {
@@ -367,6 +432,30 @@ function sessionRedirectUrl(redirectTo, session) {
   return url.toString()
 }
 
+function verifyTelegramAuth(authData, botToken, nowSeconds = Math.floor(Date.now() / 1000)) {
+  if (!botToken) return { ok: false, code: 'UNCONFIGURED' }
+  if (!authData) return { ok: false, code: 'INVALID_TELEGRAM_AUTH' }
+  const maxAgeSeconds = 5 * 60
+  if (authData.auth_date > nowSeconds + 60 || nowSeconds - authData.auth_date > maxAgeSeconds) {
+    return { ok: false, code: 'TELEGRAM_AUTH_EXPIRED' }
+  }
+
+  const checkString = Object.entries(authData)
+    .filter(([key, value]) => key !== 'hash' && value !== null && value !== undefined)
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([key, value]) => `${key}=${value}`)
+    .join('\n')
+  const secretKey = crypto.createHash('sha256').update(botToken).digest()
+  const expectedHash = crypto.createHmac('sha256', secretKey).update(checkString).digest('hex')
+  if (!/^[a-f0-9]{64}$/i.test(authData.hash)) return { ok: false, code: 'INVALID_TELEGRAM_AUTH' }
+  const provided = Buffer.from(authData.hash, 'hex')
+  const expected = Buffer.from(expectedHash, 'hex')
+  if (provided.length !== expected.length || !crypto.timingSafeEqual(provided, expected)) {
+    return { ok: false, code: 'INVALID_TELEGRAM_AUTH' }
+  }
+  return { ok: true }
+}
+
 function authFailureRedirectUrl(redirectTo) {
   const url = new URL(redirectTo)
   const params = new URLSearchParams()
@@ -413,6 +502,41 @@ export async function handlePortalRequest(req, res, pathInput = null) {
         return json(res, result.status, { error: { code, message: 'Portal auth request failed' } })
       }
       return json(res, 200, { email, redirectTo, delivery: 'accepted_by_auth_provider' })
+    }
+
+    if (req.method === 'POST' && path.join('/') === 'auth/telegram') {
+      const body = await readJson(req)
+      const authData = safeTelegramAuthData(body.authData || body)
+      if (!env.serviceRoleKey || !env.telegramBotToken) {
+        return json(res, 503, { error: { code: 'UNCONFIGURED', message: 'Telegram auth is not configured' } })
+      }
+
+      const verification = verifyTelegramAuth(authData, env.telegramBotToken)
+      if (!verification.ok) {
+        const status = verification.code === 'TELEGRAM_AUTH_EXPIRED' ? 401 : 400
+        return json(res, status, { error: { code: verification.code, message: 'Telegram auth was rejected' } })
+      }
+
+      const membership = await findPortalMemberByTelegram(env, authData)
+      if (!membership.ok) {
+        const status = membership.status === 401 || membership.status === 403 ? membership.status : 502
+        return json(res, status, { error: { code: 'MEMBERSHIP_LOOKUP_FAILED', message: 'Portal member lookup failed' } })
+      }
+      if (!membership.member || !safeEmail(membership.member.email)) {
+        return json(res, 403, { error: { code: 'PERMISSION_DENIED', message: 'Telegram user is not a portal member' } })
+      }
+
+      const sessionResult = await createPortalSessionForEmail(env, membership.member.email)
+      if (!sessionResult.ok) {
+        return json(res, sessionResult.status === 429 ? 429 : 502, {
+          error: { code: sessionResult.status === 429 ? 'RATE_LIMITED' : 'SESSION_CREATE_FAILED', message: 'Portal session failed' },
+        })
+      }
+      return json(res, 200, {
+        email: safeEmail(membership.member.email),
+        delivery: 'telegram_verified',
+        session: sessionResult.session,
+      })
     }
 
     if (req.method === 'GET' && path.join('/') === 'auth/confirm') {

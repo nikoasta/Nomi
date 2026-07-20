@@ -41,15 +41,20 @@ import { COMPOSER_ATTACHMENT_ACCEPT, useComposerAttachments } from '../ai/compos
 import { useRafCoalesce } from '../ai/useRafCoalesce'
 import StoryboardNudge from './storyboard/StoryboardNudge'
 import { useI18n } from '../../i18n/i18nContext'
+import type { TranslationKey } from '../../i18n/translations'
 
 
 // The creation agent's write tools map 1:1 to the editor's document mutations.
 // Read tools auto-confirm without a card; write tools queue a confirmation card.
 // 写工具名/类型/守卫/待批卡形态已收口到 creationTurnController（turn 控制器单一真相源）。
-function writeToolLabel(name: WriteToolName): string {
-  if (name === 'insert_at_cursor') return '插入到光标'
-  if (name === 'replace_selection') return '替换选区'
-  return '追加到文末'
+function creationModeKey(modeId: CreationAiModeId, field: 'label' | 'shortLabel' | 'title' | 'description' | 'prompt'): TranslationKey {
+  return `creationAi.mode.${modeId}.${field}` as TranslationKey
+}
+
+function writeToolLabel(name: WriteToolName, t: (key: TranslationKey) => string): string {
+  if (name === 'insert_at_cursor') return t('creationAssistant.write.insert')
+  if (name === 'replace_selection') return t('creationAssistant.write.replace')
+  return t('creationAssistant.write.append')
 }
 
 
@@ -131,6 +136,14 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
   documentToolsRef.current = documentTools
 
   const activeMode = getCreationAiMode(modeId as CreationAiModeId)
+  const localizedActiveMode = React.useMemo(() => ({
+    ...activeMode,
+    label: t(creationModeKey(activeMode.id, 'label')),
+    shortLabel: t(creationModeKey(activeMode.id, 'shortLabel')),
+    title: t(creationModeKey(activeMode.id, 'title')),
+    description: t(creationModeKey(activeMode.id, 'description')),
+    prompt: t(creationModeKey(activeMode.id, 'prompt')),
+  }), [activeMode, t])
   // 同理:send 是空依赖 useCallback（稳定），不能直接闭包 activeSkill/activeMode（会捕获首渲染的旧值
   // → 点「AI 写技能」后 send 永远看不到）。用 live ref 让 send 取最新的技能选择。
   const skillSelRef = React.useRef({ activeSkill, activeMode })
@@ -165,7 +178,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
     return <IconFilePlus size={13} />
   }, [])
 
-  const launchStoryboardPlanning = React.useCallback((displayPrompt = '🎬 拆镜头', revisionRequest?: string, shotMode: 'image' | 'video' = 'image') => {
+  const launchStoryboardPlanning = React.useCallback((displayPrompt = t('creationAssistant.defaultStoryboardPrompt'), revisionRequest?: string, shotMode: 'image' | 'video' = 'image') => {
     // P0-9 Slice 3：已有未落画布的方案 + 用户给了修改要求 → 进「改方案」模式（基于现方案改，不从头拆）。
     const store = useWorkbenchStore.getState()
     const currentPlan = store.storyboardPlan
@@ -185,7 +198,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
     setMessages((prev) => [
       ...prev,
       { id: userId, role: 'user', content: displayPrompt },
-      { id: assistantId, role: 'assistant', content: isRevision ? '正在按你的要求修改方案…' : '正在拆镜头，整理分镜方案…', status: 'pending' as const },
+      { id: assistantId, role: 'assistant', content: isRevision ? t('creationAssistant.revisingPlan') : t('creationAssistant.planningStoryboard'), status: 'pending' as const },
     ])
     setDraft('')
     setError('')
@@ -200,7 +213,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
           onContent: (streamed) => {
             if (!handle.isCurrent()) return
             pushStreamFrame(() =>
-              setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: streamed || '正在拆镜头…', status: 'streaming' as const } : m))),
+              setMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, content: streamed || t('creationAssistant.planningStoryboardStream'), status: 'streaming' as const } : m))),
             )
           },
           onCancelReady: (cancel) => turn.getState().attachCancel(handle.id, cancel),
@@ -208,7 +221,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
         if (!handle.isCurrent()) return // 轮次已被切项目/新对话作废:别把旧项目内容写进新项目
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantId ? { ...m, content: text || (isRevision ? '方案已按你的要求更新，见下方编辑器。' : '分镜方案已生成，见下方卡片——可打开编辑、修改后确认落画布。'), status: 'done' as const } : m,
+            m.id === assistantId ? { ...m, content: text || (isRevision ? t('creationAssistant.planUpdated') : t('creationAssistant.planReady')), status: 'done' as const } : m,
           ),
         )
       } catch (error: unknown) {
@@ -216,7 +229,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
         setMessages((prev) =>
           prev.map((m) =>
             m.id === assistantId
-              ? { ...m, content: `拆镜头失败：${error instanceof Error && error.message ? error.message : '未知错误'}`, status: 'error' as const }
+              ? { ...m, content: t('creationAssistant.storyboardFailed', { message: error instanceof Error && error.message ? error.message : t('creationAssistant.unknownError') }), status: 'error' as const }
               : m,
           ),
         )
@@ -228,7 +241,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
   }, [cancelStreamFrame, documentText, pushStreamFrame, selectedText, setDraft, setError, setMessages, t, turn])
 
   // Tier2 定妆：把剧本交给 AI，按剧本为主要角色/场景建卡 + 注入身份板提示词（与拆镜头同构）。
-  const launchFixationPlanning = React.useCallback((displayPrompt = '🎭 立角色卡') => {
+  const launchFixationPlanning = React.useCallback((displayPrompt = t('creationAssistant.defaultFixationPrompt')) => {
     const storyText = (selectedText || documentText).trim()
     if (!storyText) {
       setError(t('creationAi.error.needScriptForFixation'))
@@ -237,7 +250,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
     setMessages((prev) => [
       ...prev,
       { id: turn.getState().nextMessageId('user'), role: 'user', content: displayPrompt },
-      { id: turn.getState().nextMessageId('assistant'), role: 'assistant', content: '已切到生成区，正在让 AI 按剧本为角色/场景定妆。', status: 'done' as const },
+      { id: turn.getState().nextMessageId('assistant'), role: 'assistant', content: t('creationAssistant.fixationPlanning'), status: 'done' as const },
     ])
     setDraft('')
     setError('')
@@ -280,15 +293,15 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
       const actionId = turn.getState().nextMessageId('assistant')
       setMessages((prev) => [
         ...prev,
-        { id: userId, role: 'user', content: userRequest || (intent === 'storyboard' ? '🎬 拆镜头' : '🎭 立角色卡') },
+        { id: userId, role: 'user', content: userRequest || (intent === 'storyboard' ? t('creationAssistant.defaultStoryboardPrompt') : t('creationAssistant.defaultFixationPrompt')) },
         { id: actionId, role: 'assistant', content: '', status: 'done' as const, action: { kind: intent, prompt: userRequest } },
       ])
       setDraft('')
       setError('')
       return
     }
-    const prompt = buildCreationAiPrompt({ mode: activeMode, userRequest })
-    const displayPrompt = userRequest || (readyAttachments.length ? '请看这些附件' : `${activeMode.label}：处理当前文稿`)
+    const prompt = buildCreationAiPrompt({ mode: localizedActiveMode, userRequest })
+    const displayPrompt = userRequest || (readyAttachments.length ? t('creationAssistant.attachmentPrompt') : t('creationAssistant.processCurrentDocument', { mode: localizedActiveMode.label }))
     const attachmentPayload = readyAttachments.map((item) => ({
       url: item.url as string,
       contentType: item.contentType,
@@ -316,7 +329,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
         projectId: readWindowUrlParam('projectId'),
         // 手动锁定的 active skill 优先（如「品牌宣传片」playbook）；否则回退创作模式推导。
         skillKey: skillSelRef.current.activeSkill ? skillSelRef.current.activeSkill.key : `workbench.creation.${skillSelRef.current.activeMode.id}`,
-        skillName: skillSelRef.current.activeSkill ? skillSelRef.current.activeSkill.name : skillSelRef.current.activeMode.title,
+        skillName: skillSelRef.current.activeSkill ? skillSelRef.current.activeSkill.name : localizedActiveMode.title,
         onContent: (_delta, streamedText) => {
           if (!handle.isCurrent()) return
           pushStreamFrame(() =>
@@ -400,15 +413,15 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
       if (cancelled) {
         setMessages((prev) => prev.map((message) => (
           message.id === pendingId
-            ? { ...message, content: streamed || '（已停止）', status: 'cancelled' as const }
+            ? { ...message, content: streamed || t('creationAssistant.cancelled'), status: 'cancelled' as const }
             : message
         )))
       } else {
-        const base = streamed || '（空响应：AI 没有返回文本）'
+        const base = streamed || t('creationAssistant.emptyResponse')
         // finishReason=length 且真有正文 = 这条被模型单次输出上限切断,标出来别当完整(空文本不标)。
         const truncated = response.finishReason === 'length' && streamed.trim() !== ''
         const reply = truncated
-          ? `${base}\n\n⚠️ 这条回复可能没说完（达到模型单次输出上限被截断）。需要的话直接说「继续」。`
+          ? `${base}\n\n${t('creationAssistant.truncated')}`
           : base
         setMessages((prev) => prev.map((message) => (
           message.id === pendingId
@@ -418,17 +431,17 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
       }
     } catch (err) {
       if (!handle.isCurrent()) return // 轮次已被作废:错误属于旧项目,丢弃不写
-      const message = err instanceof Error ? err.message : '创作 AI 调用失败'
+      const message = err instanceof Error ? err.message : t('creationAssistant.unknownError')
       // 不再 setError(底部红 banner)——agent 错误只在对话内渲成红色错误卡(避免上下双显);
       // 底部 banner 仅留给 composer 校验提示(「先写段故事」「附件还在上传」)。
       setMessages((prev) => prev.map((item) => (
-        item.id === pendingId ? { ...item, content: `（错误）${message}`, status: 'error' as const } : item
+        item.id === pendingId ? { ...item, content: t('creationAssistant.errorPrefix', { message }), status: 'error' as const } : item
       )))
     } finally {
       cancelStreamFrame() // 终态已落定，丢弃任何挂起的流式合帧，别用过期文本盖掉终态
       turn.getState().finish(handle.id)
     }
-  }, [activeMode, activeSkill, attachments, cancelStreamFrame, clearAttachments, documentText, draft, launchStoryboardPlanning, launchFixationPlanning, pushStreamFrame, selectedText, setDraft, setError, setMessages, t, turn])
+  }, [activeMode, activeSkill, attachments, cancelStreamFrame, clearAttachments, documentText, draft, launchStoryboardPlanning, launchFixationPlanning, localizedActiveMode, pushStreamFrame, selectedText, setDraft, setError, setMessages, t, turn])
 
   // 通用创作动作，贴 Nomi 视频创作调性、不绑小说题材（旧的「悬疑开场/童话语气」在产品/宣传项目里调性错配）。
   const suggestions = React.useMemo(() => [
@@ -489,7 +502,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
           <span className={cn('text-body-sm font-semibold text-nomi-ink')}>{t('creationAi.title')}</span>
         </div>
         <div className={cn('inline-flex items-center gap-2 ml-auto min-w-0')}>
-          <ActiveSkillChip activeSkill={activeSkill} autoLabel={activeMode.title} onSelect={setActiveSkill} />
+          <ActiveSkillChip activeSkill={activeSkill} autoLabel={localizedActiveMode.title} onSelect={setActiveSkill} />
           <WorkbenchAiHeaderActions
             area="creation"
             className={cn('inline-flex items-center flex-nowrap gap-1')}
@@ -506,7 +519,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
               'p-0 border-0 rounded-nomi-sm bg-transparent text-nomi-ink-60 cursor-pointer',
               'hover:bg-nomi-ink-05 hover:text-nomi-ink',
             )}
-            label={expanded ? '缩小' : '放大对话'}
+            label={expanded ? t('creationAssistant.shrink') : t('creationAssistant.expand')}
             aria-label={expanded ? t('creationAi.shrinkAria') : t('creationAi.expandAria')}
             onClick={() => setExpanded((value) => !value)}
             icon={expanded ? <IconMinimize size={15} /> : <IconMaximize size={15} />}
@@ -531,7 +544,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
         {/* 对齐画布助手:项目记忆「AI 记得 N 条」(N=0 不渲染);删工具条(与记忆条重复的灰杠)。 */}
         <MemoryFold refreshKey={memoryRefreshKey} />
         {/* 情景卡自动浮现：写好故事还没拆镜头时，把「拆成镜头」入口在对的时机端到眼前（治「没有可点入口」）。 */}
-        <StoryboardNudge busy={sending} onRun={(shotMode) => launchStoryboardPlanning('🎬 拆镜头', undefined, shotMode)} />
+        <StoryboardNudge busy={sending} onRun={(shotMode) => launchStoryboardPlanning(t('creationAssistant.defaultStoryboardPrompt'), undefined, shotMode)} />
       </div>
 
       <div
@@ -583,8 +596,8 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
                     if (resolvedActionIds.has(message.id)) return
                     setResolvedActionIds((prev) => new Set(prev).add(message.id))
                     const prompt = message.action!.prompt
-                    if (message.action!.kind === 'storyboard') launchStoryboardPlanning(prompt || '🎬 拆镜头', undefined, shotMode)
-                    else launchFixationPlanning(prompt || '🎭 立角色卡')
+                    if (message.action!.kind === 'storyboard') launchStoryboardPlanning(prompt || t('creationAssistant.defaultStoryboardPrompt'), undefined, shotMode)
+                    else launchFixationPlanning(prompt || t('creationAssistant.defaultFixationPrompt'))
                   }}
                 />
               ) : message.status === 'error' && (hasTextModel === false || recoveryShownIds.has(message.id)) ? (
@@ -630,17 +643,17 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
               >
                 <div className={cn('workbench-creation-ai__tool-call-head', 'inline-flex items-center gap-[6px] text-nomi-accent text-caption font-medium')}>
                   {writeToolIcon(call.toolName)}
-                  {writeToolLabel(call.toolName)}
+                  {writeToolLabel(call.toolName, t)}
                 </div>
                 <div className={cn('workbench-creation-ai__tool-call-body', 'max-h-[160px] overflow-auto text-nomi-ink text-body-sm leading-[1.5] whitespace-pre-wrap')}>
-                  {call.content || '（空内容）'}
+                  {call.content || t('creationAssistant.emptyContent')}
                 </div>
                 <div className={cn('flex items-center justify-end gap-2 mt-1')}>
                   <WorkbenchButton
                     className={cn('h-7 px-3 rounded-nomi-sm border border-nomi-line bg-nomi-paper text-nomi-ink-80 text-caption cursor-pointer hover:bg-nomi-ink-05')}
                     onClick={() => resolvePending(call.toolCallId, { ok: false, message: 'rejected by user' })}
                   >
-                    拒绝
+                    {t('creationAssistant.reject')}
                   </WorkbenchButton>
                   <WorkbenchButton
                     className={cn('h-7 px-3 rounded-nomi-sm border-0 bg-nomi-ink text-nomi-paper text-caption cursor-pointer hover:bg-nomi-accent disabled:cursor-not-allowed disabled:opacity-45')}
@@ -648,7 +661,7 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
                     disabled={!documentTools}
                     onClick={() => applyWriteTool(call)}
                   >
-                    应用
+                    {t('creationAssistant.apply')}
                   </WorkbenchButton>
                 </div>
               </div>
@@ -718,12 +731,12 @@ export default function CreationAiPanel({ onCollapse }: { onCollapse?: () => voi
               icon={<IconPaperclip size={16} />}
             />
             <NomiSelect
-              ariaLabel="创作模式"
-              leadingLabel="模式"
+              ariaLabel={t('creationAssistant.modeAria')}
+              leadingLabel={t('creationAi.modeLabel')}
               size="sm"
-              title={activeMode.description}
+              title={localizedActiveMode.description}
               value={activeMode.id}
-              options={CREATION_AI_MODES.map((mode) => ({ value: mode.id, label: mode.shortLabel }))}
+              options={CREATION_AI_MODES.map((mode) => ({ value: mode.id, label: t(creationModeKey(mode.id, 'shortLabel')) }))}
               onChange={(value) => setModeId(value as CreationAiModeId)}
             />
             <AssistantModelPicker />

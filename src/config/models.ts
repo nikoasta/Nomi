@@ -63,7 +63,7 @@ export const VIDEO_MODELS: ModelOption[] = [
 // 声音模型（apimart 同步族）：合 1 个 catalog 条目，档案两模式（配音 TTS / 转写 Whisper）经 modelEnum
 // 注入真实模型名。meta.archetypeId 指针让档案驱动模式切换 + 参数/槽（仿 HappyHorse）。
 export const AUDIO_MODELS: ModelOption[] = [
-  { value: 'nomi-audio', label: '声音', vendor: 'apimart', modelKey: 'nomi-audio', meta: { archetypeId: 'nomi-audio' } },
+  { value: 'nomi-audio', label: 'Audio', vendor: 'apimart', modelKey: 'nomi-audio', meta: { archetypeId: 'nomi-audio' } },
 ]
 
 export type NodeKind =

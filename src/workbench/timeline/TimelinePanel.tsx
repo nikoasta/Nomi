@@ -78,7 +78,7 @@ type TimelinePanelProps = {
 }
 
 export default function TimelinePanel({ density = 'compact', regionLabel, actionLabelPrefix, showTextTrack = false, onCollapse }: TimelinePanelProps): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const timeline = useWorkbenchStore((state) => state.timeline)
   const selectedClipIds = useWorkbenchStore((state) => state.selectedTimelineClipIds)
   const selectedTextClipId = useWorkbenchStore((state) => state.selectedTextClipId)
@@ -228,7 +228,7 @@ export default function TimelinePanel({ density = 'compact', regionLabel, action
       const store = useWorkbenchStore.getState()
       let frame = frameFromClientX(clientX)
       if (!shiftKey) {
-        const points = buildSnapPoints(store.timeline, { includePlayhead: false })
+        const points = buildSnapPoints(store.timeline, { includePlayhead: false, locale })
         const snap = resolveSnap(frame, points, pixelThresholdToFrames(store.timeline.scale))
         if (snap) {
           frame = snap.frame
@@ -252,7 +252,7 @@ export default function TimelinePanel({ density = 'compact', regionLabel, action
     }
     window.addEventListener('pointermove', handlePointerMove)
     window.addEventListener('pointerup', handlePointerUp)
-  }, [frameFromClientX])
+  }, [frameFromClientX, locale])
 
   return (
     <section

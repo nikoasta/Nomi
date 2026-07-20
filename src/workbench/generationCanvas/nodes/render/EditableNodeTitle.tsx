@@ -14,11 +14,12 @@ import { useI18n } from '../../../../i18n/i18nContext'
 type Props = {
   nodeId: string
   value: string
+  displayValue?: string
   placeholder?: string
   className?: string
 }
 
-export function EditableNodeTitle({ nodeId, value, placeholder, className }: Props): JSX.Element {
+export function EditableNodeTitle({ nodeId, value, displayValue, placeholder, className }: Props): JSX.Element {
   const updateNode = useGenerationCanvasStore((state) => state.updateNode)
   const [editing, setEditing] = React.useState(false)
   const [draft, setDraft] = React.useState(value)
@@ -80,6 +81,7 @@ export function EditableNodeTitle({ nodeId, value, placeholder, className }: Pro
   }
 
   const isEmpty = !value || value.trim().length === 0
+  const visibleValue = displayValue || value
   return (
     <span
       onClick={handleStart}
@@ -93,7 +95,7 @@ export function EditableNodeTitle({ nodeId, value, placeholder, className }: Pro
         className,
       )}
     >
-      {isEmpty ? resolvedPlaceholder : value}
+      {isEmpty ? resolvedPlaceholder : visibleValue}
     </span>
   )
 }

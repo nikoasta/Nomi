@@ -7,6 +7,7 @@ import {
   type LibraryPrompt,
   type PromptMediaType,
 } from '../api/promptLibraryApi'
+import { runtimeT } from '../../i18n/runtimeTranslate'
 
 type State = { items: LibraryPrompt[]; loading: boolean; error: string | null }
 
@@ -41,7 +42,7 @@ export function useUserPrompts(opened: boolean): UseUserPrompts {
       fetchUserPrompts()
         .then(apply)
         .catch((error: unknown) =>
-          setState({ items: cached ?? [], loading: false, error: error instanceof Error ? error.message : '加载失败' }),
+          setState({ items: cached ?? [], loading: false, error: error instanceof Error ? error.message : runtimeT('promptLibrary.fetchEmpty.title') }),
         )
     },
     [apply],

@@ -1,6 +1,7 @@
 import React from 'react'
 import { cn } from '../../utils/cn'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 import type { GenerationCanvasNode, NodeGroup } from '../generationCanvas/model/generationCanvasTypes'
 import NodeItem from './NodeItem'
 
@@ -22,9 +23,10 @@ type Props = {
 }
 
 export default function GroupItem({ group, nodes, selectedNodeIds, editing = false, onCommitName, onCancelEdit, onSelectNode, onDropNode, onDropGroup, onContextMenu, onNodeContextMenu }: Props): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [expanded, setExpanded] = React.useState(!group.collapsed)
   const [dragOver, setDragOver] = React.useState(false)
+  const displayName = translateDisplayText(locale, group.name)
   // 已提交/取消标记：避免 Enter/Escape 后 input 再 blur 触发二次提交。
   const settledRef = React.useRef(false)
   React.useEffect(() => { if (editing) settledRef.current = false }, [editing])
@@ -98,7 +100,7 @@ export default function GroupItem({ group, nodes, selectedNodeIds, editing = fal
             'w-full flex items-center gap-2 px-2 py-1.5 text-left rounded-nomi-sm',
             'text-micro text-nomi-ink-60 hover:text-nomi-ink hover:bg-nomi-ink-05',
           )}
-          title={group.name}
+          title={displayName}
         >
           <span className="w-3 text-micro text-nomi-ink-40" aria-hidden>{expanded ? '▾' : '▸'}</span>
           <span
@@ -106,7 +108,7 @@ export default function GroupItem({ group, nodes, selectedNodeIds, editing = fal
             style={{ backgroundColor: group.color || DEFAULT_GROUP_TINT }}
             aria-hidden
           />
-          <span className="min-w-0 flex-1 truncate">{group.name}</span>
+          <span className="min-w-0 flex-1 truncate">{displayName}</span>
           <span className="shrink-0 tabular-nums text-micro text-nomi-ink-40">{nodes.length}</span>
         </button>
       )}

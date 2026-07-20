@@ -64,8 +64,8 @@ describe('browser asset tile status', () => {
 
   it('turns download failures into actionable user-facing reasons', () => {
     expect(browserAssetImportErrorMessage('来源页面会话已失效', 'https://cdn.example.com/a.png')).toBe('来源网页已关闭，请重新拖入')
-    expect(browserAssetImportErrorMessage('网页素材下载失败（HTTP 403）', 'https://cdn.example.com/a.png')).toBe('网站拒绝下载（可能需要登录）')
+    expect(browserAssetImportErrorMessage('网页素材下载失败（HTTP 403）', 'https://cdn.example.com/a.png')).toBe('被网站拒绝（防盗链）')
     expect(browserAssetImportErrorMessage('网页返回的不是图片或视频（text/html）', 'https://cdn.example.com/a.png')).toBe('网站返回的不是图片或视频')
-    expect(browserAssetImportErrorMessage('anything', 'blob:https://example.com/id')).toBe('网页临时资源已失效')
+    expect(browserAssetImportErrorMessage('anything', 'blob:https://example.com/id')).toBe('这张图无法直接下载')
   })
 })

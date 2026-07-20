@@ -46,7 +46,7 @@ function firstIssueLabel(issue: PlanIssue, t: (key: TranslationKey, params?: Rec
 }
 
 export default function StoryboardPlanEditor(): JSX.Element | null {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const plan = useWorkbenchStore((s) => s.storyboardPlan)
   const setStoryboardPlan = useWorkbenchStore((s) => s.setStoryboardPlan)
   const commitStoryboardPlan = useWorkbenchStore((s) => s.commitStoryboardPlan)
@@ -93,6 +93,7 @@ export default function StoryboardPlanEditor(): JSX.Element | null {
         ...(imageDefault.refModeId ? { defaultImageRefModeId: imageDefault.refModeId } : {}),
         ...(videoDefault.modelKey ? { defaultVideoModelKey: videoDefault.modelKey } : {}),
         ...(videoDefault.modeId ? { defaultVideoModeId: videoDefault.modeId } : {}),
+        promptLocale: locale,
       })
       await applyCanvasToolCall('create_canvas_nodes', args)
       // 不再即焚:方案保留、转「已落画布」、收起编辑器 → 卡片留在对话流可回看/再编辑。

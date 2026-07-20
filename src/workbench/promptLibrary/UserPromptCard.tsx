@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn'
 import { Tooltip, TooltipContent, TooltipTrigger } from '../../design'
 import type { LibraryPrompt } from '../api/promptLibraryApi'
 import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 
 type Props = {
   prompt: LibraryPrompt
@@ -14,8 +15,9 @@ type Props = {
 
 // 我的库卡片:文字卡(无成品封面)——正文显提示词摘要 + 「我的」徽章 + 悬停编辑/删除。点开走同一预览浮层。
 export const UserPromptCard = React.memo(function UserPromptCard({ prompt, onSelect, onEdit, onDelete }: Props): JSX.Element {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const isVideo = prompt.promptType === 'video'
+  const promptTitle = prompt.title ? translateDisplayText(locale, prompt.title) : ''
 
   return (
     <Tooltip>
@@ -48,8 +50,8 @@ export const UserPromptCard = React.memo(function UserPromptCard({ prompt, onSel
 
           <p className={cn('flex-1 min-h-0 overflow-hidden text-caption leading-relaxed text-nomi-ink-80')}>{prompt.prompt}</p>
 
-          {prompt.title && prompt.title !== '未命名提示词' ? (
-            <span className={cn('block mt-1.5 text-micro text-nomi-ink-40 truncate')}>{prompt.title}</span>
+          {promptTitle && promptTitle !== translateDisplayText(locale, '未命名提示词') ? (
+            <span className={cn('block mt-1.5 text-micro text-nomi-ink-40 truncate')}>{promptTitle}</span>
           ) : null}
 
           <div className={cn('absolute top-1.5 right-1.5 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity')}>
@@ -73,7 +75,7 @@ export const UserPromptCard = React.memo(function UserPromptCard({ prompt, onSel
         </div>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-56 whitespace-normal leading-snug">
-        {prompt.title}
+        {promptTitle}
       </TooltipContent>
     </Tooltip>
   )

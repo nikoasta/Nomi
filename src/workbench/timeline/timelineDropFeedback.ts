@@ -1,6 +1,7 @@
 import { canPlaceClip, frameToPixel, withClipStartFrame } from './timelineEdit'
 import type { TimelineClip, TimelineTrack } from './timelineTypes'
 import { getTrackTypeForClipType } from './timelineTypes'
+import { translate, type SupportedLocale } from '../../i18n/translations'
 
 export type TimelineDropPreview = {
   clip: TimelineClip
@@ -13,11 +14,11 @@ export type TimelineDropPreview = {
   reason?: string
 }
 
-function trackTypeLabel(type: TimelineClip['type']): string {
-  if (type === 'image') return '图片轨'
-  if (type === 'video') return '视频轨'
-  if (type === 'audio') return '音频轨'
-  return '对应轨道'
+function trackTypeLabel(locale: SupportedLocale, type: TimelineClip['type']): string {
+  if (type === 'image') return translate(locale, 'timeline.track.image')
+  if (type === 'video') return translate(locale, 'timeline.track.video')
+  if (type === 'audio') return translate(locale, 'timeline.track.audio')
+  return translate(locale, 'timeline.track.matching')
 }
 
 export function formatTimelineDropTimecode(frame: number, fps: number): string {
@@ -34,7 +35,9 @@ export function buildTimelineDropPreview(params: {
   startFrame: number
   scale: number
   fps: number
+  locale?: SupportedLocale
 }): TimelineDropPreview {
+  const locale = params.locale ?? 'zh-CN'
   const startFrame = Math.max(0, Math.floor(Number(params.startFrame) || 0))
   const placed = withClipStartFrame(params.clip, startFrame)
   // v0.7.1: audio clip 落到 video 轨；getTrackTypeForClipType 做映射
@@ -43,8 +46,8 @@ export function buildTimelineDropPreview(params: {
   const reason = canPlace
     ? undefined
     : typeMatches
-      ? '这里已有片段，试试拖到空白位置'
-      : `这个素材需要放到${trackTypeLabel(placed.type)}`
+      ? translate(locale, 'timeline.dropOccupied')
+      : translate(locale, 'timeline.dropNeedsTrack', { track: trackTypeLabel(locale, placed.type) })
 
   return {
     clip: placed,

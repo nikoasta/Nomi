@@ -221,7 +221,7 @@ export default function AssistantTimeline(props: AssistantTimelineProps): JSX.El
             content={isPending ? '' : message.content}
             attachments={message.attachments}
             streaming={isPending}
-            pendingLabel={isPending ? '处理中' : undefined}
+            pendingLabel={isPending ? t('assistant.pending') : undefined}
             cancelled={message.status === 'cancelled'}
           />
         )}

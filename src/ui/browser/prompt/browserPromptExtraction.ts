@@ -1,4 +1,6 @@
 import type { TaskResultDto } from '../../../workbench/api/taskApi'
+import { getRuntimeLocale } from '../../../i18n/runtimeLocale'
+import type { SupportedLocale } from '../../../i18n/translations'
 
 export type BrowserPromptExtraction = {
   title: string
@@ -13,40 +15,40 @@ export const BROWSER_PROMPT_EXTRACTION_MODE_LABELS: Record<BrowserPromptExtracti
 }
 
 export const BROWSER_IMAGE_REPLICATE_PROMPT_EXTRACTION_PROMPT = [
-  '你是 Nomi 的资深 AI 视觉提示词工程师，擅长把参考图拆解为可复现的图片生成提示词。',
-  '目标：根据用户提供的参考图，生成高保真、商业安全、可编辑的图片提示词。优先忠实还原可见画面，不猜测不可见信息。',
-  '安全原则：如果画面疑似包含品牌、名人、版权角色或在世艺术家风格，只描述可观察的中性视觉特征，不要求复制受保护身份、标志或风格。',
-  '分析维度：主体、数量、姿态/朝向、构图与空间关系、镜头/视角、光线方向与质感、阴影/反射、色彩、材质纹理、环境背景、道具、可见文字位置、画面情绪、风格、画幅比例线索。',
-  '请同时给出简体中文和英文结果；简体中文 faithful 提示词需要最详细，约 180-320 个中文字符，足够让另一个图片模型重建画面。',
-  'negativePrompt 用于减少低质量、结构错误、错误文字、多余物体、模糊、坏裁切、过饱和和生成瑕疵。',
-  '只返回 JSON，不要 Markdown，不要代码块。JSON 结构：',
+  'You are a senior AI visual prompt engineer for Nomi. Break reference images into reproducible image-generation prompts.',
+  'Goal: generate high-fidelity, commercially safe, editable prompts from the reference image. Faithfully describe visible details and do not invent hidden information.',
+  'Safety: if the image may include brands, public figures, copyrighted characters, or living-artist style, describe neutral observable visual traits instead of asking to copy protected identity, logos, or style.',
+  'Analyze: subject, count, pose/facing, composition, camera/viewpoint, lighting direction and quality, shadows/reflections, color, material texture, environment, props, visible text placement, mood, style, and aspect-ratio clues.',
+  'Return English as the primary result. You may include localized English and Chinese variants, but the top-level prompt/prompts fields must be English.',
+  'negativePrompt reduces low quality, structural errors, wrong text, extra objects, blur, bad crop, oversaturation, and artifacts.',
+  'Return JSON only. No Markdown, no code fence. JSON shape:',
   '{',
-  '  "title": "8个字以内的图片主题",',
-  '  "localizedTitles": { "en": "English topic under 8 words", "zh-CN": "8个字以内中文主题" },',
-  '  "summary": "一句话概括画面和必须保留的视觉重点",',
+  '  "title": "English topic under 8 words",',
+  '  "localizedTitles": { "en": "English topic under 8 words", "zh-CN": "Chinese topic under 8 words" },',
+  '  "summary": "One-sentence summary of the image and the visual details that must be preserved",',
   '  "prompts": {',
-  '    "faithful": "高保真还原提示词，覆盖主体、构图、光线、材质、背景、镜头和细节",',
-  '    "commercial": "商业可用提示词，保留相同主体、构图、光线和细节层级",',
-  '    "creative": "更有创意但仍保留核心主体、构图、色彩、光线和材质线索的提示词"',
+  '    "faithful": "High-fidelity English reconstruction prompt covering subject, composition, lighting, material, background, camera, and details",',
+  '    "commercial": "Commercial-safe English prompt preserving subject, composition, lighting, and detail level",',
+  '    "creative": "More creative English prompt preserving the core subject, composition, color, lighting, and material clues"',
   '  },',
   '  "platformPrompts": {',
-  '    "openai": "适合 OpenAI 图片模型的自然语言高细节提示词",',
+  '    "openai": "natural-language high-detail English prompt for OpenAI image models",',
   '    "midjourney": "English Midjourney prompt with useful parameters such as --ar when inferable",',
   '    "flux": "clear Flux reconstruction prompt emphasizing subject, material, lighting, composition, and texture",',
   '    "stableDiffusion": "positive Stable Diffusion prompt without negative terms"',
   '  },',
   '  "localizedPrompts": {',
   '    "en": { "faithful": "English faithful prompt", "commercial": "English commercial prompt", "creative": "English creative prompt" },',
-  '    "zh-CN": { "faithful": "简体中文高保真还原提示词", "commercial": "简体中文商业提示词", "creative": "简体中文创意提示词" }',
+  '    "zh-CN": { "faithful": "Simplified Chinese faithful prompt", "commercial": "Simplified Chinese commercial prompt", "creative": "Simplified Chinese creative prompt" }',
   '  },',
   '  "components": {',
-  '    "subject": "主体和动作",',
-  '    "composition": "构图和镜头",',
-  '    "lighting": "光线",',
-  '    "color": "色彩",',
-  '    "material": "材质纹理",',
-  '    "background": "背景环境",',
-  '    "style": "视觉风格"',
+  '    "subject": "subject and action",',
+  '    "composition": "composition and camera",',
+  '    "lighting": "lighting",',
+  '    "color": "color",',
+  '    "material": "material and texture",',
+  '    "background": "background and environment",',
+  '    "style": "visual style"',
   '  },',
   '  "negativePrompt": "low quality, blurry, distorted, extra objects, wrong text, bad crop, oversaturation, artifacts",',
   '  "promptType": "image"',
@@ -56,25 +58,25 @@ export const BROWSER_IMAGE_REPLICATE_PROMPT_EXTRACTION_PROMPT = [
 export const BROWSER_IMAGE_PROMPT_EXTRACTION_PROMPT = BROWSER_IMAGE_REPLICATE_PROMPT_EXTRACTION_PROMPT
 
 export const BROWSER_IMAGE_STYLE_PROMPT_EXTRACTION_PROMPT = [
-  '你是 Nomi 的资深视觉风格分析师，擅长把参考图拆解为可迁移、可复用的视觉风格规格。',
-  '目标：将这张图的视觉风格提取为 JSON 结构数据：配色、字体、构图、效果等。',
-  '只分析可观察的视觉风格，不复刻品牌标志、名人身份、版权角色或在世艺术家的个人风格。',
-  '不要描述需要保留的具体主体身份；重点提取可迁移的设计语言、镜头语言、质感和氛围。',
-  '只返回 JSON，不要 Markdown，不要代码块。JSON 结构：',
+  'You are a senior visual style analyst for Nomi. Break reference images into transferable, reusable visual style specifications.',
+  'Goal: extract the image style as JSON: palette, typography, composition, effects, and related design language.',
+  'Analyze only observable visual style. Do not copy brand logos, public-figure identity, copyrighted characters, or living-artist personal style.',
+  'Do not require preserving the original subject identity. Focus on transferable design language, camera language, texture, and mood.',
+  'Return JSON only. No Markdown, no code fence. JSON shape:',
   '{',
-  '  "title": "8个字以内的风格名称",',
-  '  "summary": "一句话概括整体视觉风格",',
-  '  "stylePrompt": "可直接用于生成相同视觉风格的中文提示词，强调配色、字体、构图、效果、光影、材质、氛围，不绑定原图主体",',
+  '  "title": "English style name under 8 words",',
+  '  "summary": "One-sentence summary of the overall visual style",',
+  '  "stylePrompt": "English prompt for generating the same visual style, emphasizing palette, typography, composition, effects, lighting, material, and mood without binding to the original subject",',
   '  "style": {',
-  '    "colorPalette": [{ "name": "颜色名称", "hex": "#RRGGBB", "usage": "用途" }],',
-  '    "typography": { "fontStyle": "字体风格", "weight": "字重", "spacing": "字距/排版节奏", "textTreatment": "文字效果" },',
-  '    "composition": { "layout": "版式结构", "framing": "取景/留白", "hierarchy": "视觉层级", "balance": "平衡方式" },',
-  '    "lighting": { "direction": "光线方向", "contrast": "明暗对比", "mood": "光影情绪" },',
-  '    "materials": ["材质和纹理"],',
-  '    "effects": ["后期/滤镜/特效/颗粒/模糊/描边等"],',
-  '    "mood": "氛围关键词",',
-  '    "dos": ["复用该风格时应该保留的规则"],',
-  '    "donts": ["复用该风格时应避免的偏差"]',
+  '    "colorPalette": [{ "name": "color name", "hex": "#RRGGBB", "usage": "usage" }],',
+  '    "typography": { "fontStyle": "font style", "weight": "weight", "spacing": "spacing / layout rhythm", "textTreatment": "text treatment" },',
+  '    "composition": { "layout": "layout structure", "framing": "framing / negative space", "hierarchy": "visual hierarchy", "balance": "balance method" },',
+  '    "lighting": { "direction": "lighting direction", "contrast": "contrast", "mood": "lighting mood" },',
+  '    "materials": ["materials and textures"],',
+  '    "effects": ["post-processing / filters / effects / grain / blur / outline, etc."],',
+  '    "mood": "mood keywords",',
+  '    "dos": ["rules to preserve when reusing this style"],',
+  '    "donts": ["deviations to avoid when reusing this style"]',
   '  },',
   '  "promptType": "image",',
   '  "extractionMode": "style"',
@@ -164,37 +166,45 @@ function parseJsonObject(text: string): Record<string, unknown> | null {
   }
 }
 
-function promptFromNestedAnalysis(record: Record<string, unknown>): string {
+function promptFromNestedAnalysis(record: Record<string, unknown>, locale: SupportedLocale): string {
   const localizedPrompts = record.localizedPrompts as Record<string, unknown> | undefined
+  const localePrompts = localizedPrompts?.[locale] as Record<string, unknown> | undefined
+  const enPrompts = localizedPrompts?.en as Record<string, unknown> | undefined
   const zhPrompts = localizedPrompts?.['zh-CN'] as Record<string, unknown> | undefined
   const prompts = record.prompts as Record<string, unknown> | undefined
   const platformPrompts = record.platformPrompts as Record<string, unknown> | undefined
   return firstText(
     record.prompt,
-    zhPrompts?.faithful,
-    zhPrompts?.commercial,
+    localePrompts?.faithful,
+    localePrompts?.commercial,
+    enPrompts?.faithful,
+    enPrompts?.commercial,
     prompts?.faithful,
     prompts?.commercial,
     platformPrompts?.openai,
+    zhPrompts?.faithful,
+    zhPrompts?.commercial,
   )
 }
 
 function stylePromptFromAnalysis(record: Record<string, unknown>): string {
   const formatted = JSON.stringify(record, null, 2)
-  return formatted || firstText(record.stylePrompt, record.prompt)
+  return firstText(record.stylePrompt, record.prompt, formatted)
 }
 
 export function parseBrowserPromptExtraction(
   text: string,
   mode: BrowserPromptExtractionMode = 'replicate',
 ): BrowserPromptExtraction {
+  const locale = getRuntimeLocale()
   const parsed = parseJsonObject(text)
   if (parsed) {
-    const prompt = mode === 'style' ? stylePromptFromAnalysis(parsed) : promptFromNestedAnalysis(parsed)
+    const localizedTitles = parsed.localizedTitles as Record<string, unknown> | undefined
+    const prompt = mode === 'style' ? stylePromptFromAnalysis(parsed) : promptFromNestedAnalysis(parsed, locale)
     if (prompt) {
       return {
         title:
-          firstText(parsed.title, (parsed.localizedTitles as Record<string, unknown> | undefined)?.['zh-CN']) ||
+          firstText(localizedTitles?.[locale], localizedTitles?.en, parsed.title, localizedTitles?.['zh-CN']) ||
           (mode === 'style' ? 'Visual style' : 'Image prompt'),
         prompt,
       }

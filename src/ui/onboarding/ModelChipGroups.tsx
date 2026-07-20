@@ -10,6 +10,8 @@ import React from 'react'
 import { IconCheck, IconX } from '@tabler/icons-react'
 import { cn } from '../../utils/cn'
 import { groupModelsByKind, sortEnabledFirst, type ModelChipKind } from './modelChipGrouping'
+import { useI18n } from '../../i18n/i18nContext'
+import { translateDisplayText } from '../../i18n/displayText'
 
 export type ChipModel = {
   modelKey: string
@@ -31,6 +33,7 @@ type ModelChipGroupsProps = {
 }
 
 export function ModelChipGroups({ models, connected, onToggle, onDelete }: ModelChipGroupsProps): JSX.Element | null {
+  const { t, locale } = useI18n()
   if (models.length === 0) return null
 
   return (
@@ -42,13 +45,14 @@ export function ModelChipGroups({ models, connected, onToggle, onDelete }: Model
         return (
           <div key={kind} className="flex flex-col gap-2">
             <div className="text-micro font-semibold text-nomi-ink-60">
-              {label}{' '}
+              {translateDisplayText(locale, label)}{' '}
               <span className="font-normal text-nomi-ink-40">
                 {onToggle ? `${enabledN} / ${list.length}` : list.length}
               </span>
             </div>
             <div className="flex flex-wrap gap-2">
               {ordered.map((m) => {
+                const modelLabel = translateDisplayText(locale, m.labelZh)
                 const chipInner = (
                   <>
                     {onToggle && m.enabled ? (
@@ -56,13 +60,13 @@ export function ModelChipGroups({ models, connected, onToggle, onDelete }: Model
                     ) : (
                       <span className={cn('w-1.5 h-1.5 rounded-full', connected && m.enabled ? 'bg-workbench-success' : 'bg-nomi-ink-20')} />
                     )}
-                    {m.labelZh}
+                    {modelLabel}
                     {onDelete ? (
                       // span role=button 而非 <button>：chip 在 toggle 模式下本身是 button，嵌套 button 非法。
                       <span
                         role="button"
                         tabIndex={0}
-                        aria-label={`删除 ${m.labelZh}`}
+                        aria-label={t('modelEnable.removeModel', { name: modelLabel })}
                         onClick={(event) => {
                           event.stopPropagation()
                           onDelete(m)
@@ -96,7 +100,7 @@ export function ModelChipGroups({ models, connected, onToggle, onDelete }: Model
                     key={`${m.vendorKey}-${m.modelKey}`}
                     type="button"
                     aria-pressed={m.enabled}
-                    title={m.enabled ? '已启用 · 点击隐藏（不再出现在节点模型列表）' : '已隐藏 · 点击启用（出现在节点模型列表）'}
+                    title={t(m.enabled ? 'modelEnable.enabledTitle' : 'modelEnable.disabledTitle')}
                     onClick={() => onToggle(m, !m.enabled)}
                     className={cn(
                       'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-caption cursor-pointer',

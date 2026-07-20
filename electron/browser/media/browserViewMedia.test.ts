@@ -123,6 +123,6 @@ describe("browser media session download", () => {
 
   it("rejects prompt-reference base64 before a huge file can be read into main-process memory", () => {
     expect(() => assertPromptReferenceDataUrlSize(16 * 1024 * 1024)).not.toThrow();
-    expect(() => assertPromptReferenceDataUrlSize(16 * 1024 * 1024 + 1)).toThrow(/提示词|过大/);
+    expect(() => assertPromptReferenceDataUrlSize(16 * 1024 * 1024 + 1)).toThrow(/prompt extraction|too large/i);
   });
 });

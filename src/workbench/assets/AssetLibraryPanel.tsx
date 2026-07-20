@@ -451,7 +451,7 @@ export function AssetLibraryContent({
       onClick={() => uploadInputRef.current?.click()}
     >
       <IconPlus size={compact ? 12 : 13} stroke={2} />
-      上传
+      {t('assetLibrary.upload')}
     </button>
   )
 
@@ -617,11 +617,11 @@ export function AssetLibraryContent({
             <DesignEmptyState
               density="inline"
               icon={<IconPhoto size={34} stroke={1.4} className="text-nomi-ink-30" />}
-              title={sourceEmpty ? (sourceFilter === 'project' ? '还没有项目素材' : '还没有素材') : '没有匹配的素材'}
+              title={sourceEmpty ? (sourceFilter === 'project' ? t('assetLibrary.empty.project') : t('assetLibrary.empty.all')) : t('assetLibrary.empty.noMatch')}
               description={
                 sourceEmpty
-                  ? '点「上传」导入图片、视频或音频，或在生成区生成后会自动出现在这里。'
-                : '换个筛选或搜索词试试。'
+                  ? t('assetLibrary.empty.description')
+                : t('assetLibrary.empty.noMatchDescription')
               }
             />
           ) : compact ? (
