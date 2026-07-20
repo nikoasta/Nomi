@@ -29,6 +29,7 @@ import { HiggsfieldCliCard, HIGGSFIELD_VENDOR_KEY, type HiggsfieldStatus } from 
 import { ComfyuiLocalCard, COMFYUI_VENDOR_KEY } from './ComfyuiLocalCard'
 import { KNOWN_VENDORS, isKnownVendor } from '../../config/knownVendors'
 import { getDesktopBridge } from '../../desktop/bridge'
+import { listWorkbenchModelCatalogModels, listWorkbenchModelCatalogVendors } from '../../workbench/api/modelCatalogApi'
 import { notifyModelOptionsRefresh } from '../../config/useModelOptions'
 import { alertDialog, confirmDialog } from '../../design'
 import { useI18n } from '../../i18n/i18nContext'
@@ -67,33 +68,49 @@ export function OnboardingDrawer(): JSX.Element {
 
   React.useEffect(() => {
     const bridge = getDesktopBridge()
-    if (!bridge) return
+    let alive = true
+    setLoaded(false)
     // 生成模型目录（同步）。
-    try {
-      const ms = bridge.modelCatalog.listModels() as Array<Record<string, unknown>>
-      const vs = bridge.modelCatalog.listVendors() as Array<Record<string, unknown>>
-      const metaMap = new Map<string, VendorMeta>()
-      for (const v of vs) {
-        metaMap.set(String(v.key), {
-          name: String(v.name || v.key),
-          hasApiKey: Boolean(v.hasApiKey),
-          baseUrl: String(v.baseUrlHint || ''),
-          enabled: v.enabled !== false,
-        })
+    ;(async () => {
+      try {
+        const [ms, vs] = await Promise.all([
+          listWorkbenchModelCatalogModels(),
+          listWorkbenchModelCatalogVendors(),
+        ])
+        if (!alive) return
+        const metaMap = new Map<string, VendorMeta>()
+        for (const v of vs as Array<Record<string, unknown>>) {
+          metaMap.set(String(v.key), {
+            name: String(v.name || v.key),
+            hasApiKey: Boolean(v.hasApiKey),
+            baseUrl: String(v.baseUrlHint || ''),
+            enabled: v.enabled !== false,
+          })
+        }
+        const rows: ChipModel[] = (ms as Array<Record<string, unknown>>).map((m) => ({
+          modelKey: String(m.modelKey),
+          vendorKey: String(m.vendorKey),
+          labelZh: String(m.labelZh || m.modelKey),
+          kind: m.kind as ChipModel['kind'],
+          // enabled 缺省视为 true（老快照/DTO 未带时不误停用）。
+          enabled: m.enabled !== false,
+        }))
+        setVendorMeta(metaMap)
+        setModels(rows)
+      } catch {
+        if (!alive) return
+        setVendorMeta(new Map())
+        setModels([])
+      } finally {
+        if (alive) setLoaded(true)
       }
-      const rows: ChipModel[] = ms.map((m) => ({
-        modelKey: String(m.modelKey),
-        vendorKey: String(m.vendorKey),
-        labelZh: String(m.labelZh || m.modelKey),
-        kind: m.kind as ChipModel['kind'],
-        // enabled 缺省视为 true（老快照/DTO 未带时不误停用）。
-        enabled: m.enabled !== false,
-      }))
-      setVendorMeta(metaMap)
-      setModels(rows)
-    } catch {
-      setVendorMeta(new Map())
-      setModels([])
+    })()
+
+    if (!bridge) {
+      setMcpInfo(null)
+      setDreaminaStatus(null)
+      setHiggsfieldStatus(null)
+      return () => { alive = false }
     }
     // 编程助手 MCP 状态（同步）。
     try {
@@ -101,9 +118,7 @@ export function OnboardingDrawer(): JSX.Element {
     } catch {
       setMcpInfo(null)
     }
-    setLoaded(true) // 同步数据已就位 → 可挂分组（自适应默认按真实 hasConnected 算）。
     // 即梦状态（异步）。
-    let alive = true
     const dreamina = bridge.dreamina
     if (dreamina) {
       dreamina.status()

@@ -1,6 +1,7 @@
 // 渲染层取提示词库的唯一入口(镜像 skillApi 的 requireDesktopRuntime 范式)。
 // 主进程已聚合+缓存;这里取全量,搜索/分类过滤是平凡纯函数,放渲染层(不重复后端逻辑)。
 import { getDesktopBridge, type DesktopBridge } from '../../desktop/bridge'
+import { listWorkbenchModelCatalogModels, listWorkbenchModelCatalogVendors } from './modelCatalogApi'
 
 export type PromptMediaType = 'image' | 'video'
 
@@ -93,7 +94,20 @@ export async function deleteUserPrompt(id: string): Promise<LibraryPrompt[]> {
 
 /** 节点提示词优化用的文本大脑键(与创作助手同脑);未配文本模型返回 null。 */
 export async function getTextBrain(): Promise<{ vendor: string; modelKey: string } | null> {
-  const desktop = requireDesktopRuntime('prompt optimize')
+  const desktop = getDesktopBridge()
+  if (!desktop?.promptLibrary) {
+    const [models, vendors] = await Promise.all([
+      listWorkbenchModelCatalogModels({ kind: 'text', enabled: true }),
+      listWorkbenchModelCatalogVendors(),
+    ]).catch(() => [[], []] as const)
+    const usable = new Set(
+      vendors
+        .filter((vendor) => vendor.enabled && (vendor.authType === 'none' || vendor.hasApiKey))
+        .map((vendor) => vendor.key),
+    )
+    const model = models.find((candidate) => candidate.enabled && usable.has(candidate.vendorKey))
+    return model ? { vendor: model.vendorKey, modelKey: model.modelKey } : null
+  }
   const res = await desktop.promptLibrary!.textBrain()
   return res?.ok && res.brain ? res.brain : null
 }

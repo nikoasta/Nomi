@@ -1,5 +1,6 @@
 import { getDesktopBridge, type DesktopBridge } from '../../desktop/bridge'
 import type { BillingModelKind } from '../../api/desktopClient'
+import { portalRuntimeRequest } from './portalRuntimeApi'
 
 // 单一真相源：复用 desktopClient 的 BillingModelKind（含 'audio'），避免两份定义漂移。
 export type { BillingModelKind }
@@ -86,11 +87,15 @@ function requireDesktopRuntime(feature: string): DesktopBridge {
 }
 
 export async function listWorkbenchModelCatalogVendors(): Promise<ModelCatalogVendorDto[]> {
-  return requireDesktopRuntime('model catalog').modelCatalog.listVendors() as ModelCatalogVendorDto[]
+  const desktop = getDesktopBridge()
+  if (desktop) return desktop.modelCatalog.listVendors() as ModelCatalogVendorDto[]
+  return portalRuntimeRequest<ModelCatalogVendorDto[]>('model-catalog/vendors', { method: 'GET' })
 }
 
 export async function getWorkbenchModelCatalogHealth(): Promise<ModelCatalogHealthDto> {
-  return requireDesktopRuntime('model catalog').modelCatalog.health() as ModelCatalogHealthDto
+  const desktop = getDesktopBridge()
+  if (desktop) return desktop.modelCatalog.health() as ModelCatalogHealthDto
+  return portalRuntimeRequest<ModelCatalogHealthDto>('model-catalog/health', { method: 'GET' })
 }
 
 export async function listWorkbenchModelCatalogModels(params?: {
@@ -98,7 +103,9 @@ export async function listWorkbenchModelCatalogModels(params?: {
   kind?: BillingModelKind
   enabled?: boolean
 }): Promise<ModelCatalogModelDto[]> {
-  return requireDesktopRuntime('model catalog').modelCatalog.listModels(params) as ModelCatalogModelDto[]
+  const desktop = getDesktopBridge()
+  if (desktop) return desktop.modelCatalog.listModels(params) as ModelCatalogModelDto[]
+  return portalRuntimeRequest<ModelCatalogModelDto[]>('model-catalog/models', { body: params ?? {} })
 }
 
 /** 启用/更新一个已存在的目录模型（恢复卡「一键启用被禁用的文本大脑」用）。 */

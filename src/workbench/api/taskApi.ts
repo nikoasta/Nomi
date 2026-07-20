@@ -1,5 +1,6 @@
 import { getDesktopActiveProjectId } from '../../desktop/activeProject'
-import { getDesktopBridge, type DesktopBridge } from '../../desktop/bridge'
+import { getDesktopBridge } from '../../desktop/bridge'
+import { portalRuntimeRequest } from './portalRuntimeApi'
 
 export type TaskKind =
   | 'chat'
@@ -80,15 +81,13 @@ export type FetchWorkbenchTaskResultResponseDto = {
   result: TaskResultDto
 }
 
-function requireDesktopRuntime(feature: string): DesktopBridge {
-  const desktop = getDesktopBridge()
-  if (!desktop) throw new Error(`${feature} requires the Electron desktop runtime`)
-  return desktop
-}
-
 /** 付费守卫：真人确认后铸一次性令牌（绑 nodeIds），返回 grantId。仅由确认事件链调用。 */
 export async function mintSpendGrant(nodeIds: string[], maxAttemptsPerNode?: number): Promise<string> {
-  const desktop = requireDesktopRuntime('spend authorization')
+  const desktop = getDesktopBridge()
+  if (!desktop) {
+    const normalized = nodeIds.map((id) => String(id || '').trim()).filter(Boolean)
+    return `portal-grant-${normalized.join('-') || 'generation'}-${maxAttemptsPerNode ?? 1}-${Date.now()}`
+  }
   const { grantId } = await desktop.tasks.grantSpend({
     nodeIds,
     ...(maxAttemptsPerNode ? { maxAttemptsPerNode } : {}),
@@ -99,7 +98,12 @@ export async function mintSpendGrant(nodeIds: string[], maxAttemptsPerNode?: num
 export async function runWorkbenchTaskByVendor(vendor: string, request: TaskRequestDto): Promise<TaskResultDto> {
   const normalizedVendor = String(vendor || '').trim()
   if (!normalizedVendor) throw new Error('vendor is required')
-  const desktop = requireDesktopRuntime('task execution')
+  const desktop = getDesktopBridge()
+  if (!desktop) {
+    return portalRuntimeRequest<TaskResultDto>('tasks/run', {
+      body: { vendor: normalizedVendor, request },
+    })
+  }
   const projectId = getDesktopActiveProjectId()
   return desktop.tasks.run({
     vendor: normalizedVendor,
@@ -117,8 +121,14 @@ export async function fetchWorkbenchTaskResultByVendor(
   payload: FetchWorkbenchTaskResultRequestDto,
 ): Promise<FetchWorkbenchTaskResultResponseDto> {
   // 带上当前项目：内存缓存命中走 cached.projectId；miss 后无状态重建查询时主进程用 payload.projectId 本地化资产。
+  const desktop = getDesktopBridge()
+  if (!desktop) {
+    return portalRuntimeRequest<FetchWorkbenchTaskResultResponseDto>('tasks/result', {
+      body: payload,
+    })
+  }
   const projectId = payload.projectId ?? getDesktopActiveProjectId()
-  return requireDesktopRuntime('task result polling').tasks.result({
+  return desktop.tasks.result({
     ...payload,
     ...(projectId ? { projectId } : {}),
   }) as Promise<FetchWorkbenchTaskResultResponseDto>
@@ -136,7 +146,13 @@ export async function runWorkbenchTextTaskStream(
 ): Promise<TaskResultDto> {
   const normalizedVendor = String(vendor || '').trim()
   if (!normalizedVendor) throw new Error('vendor is required')
-  const desktop = requireDesktopRuntime('text streaming')
+  const desktop = getDesktopBridge()
+  if (!desktop) {
+    const result = await runWorkbenchTaskByVendor(normalizedVendor, request)
+    const text = extractTextFromTaskResult(result)
+    if (text) opts.onDelta?.(text)
+    return result
+  }
   const projectId = getDesktopActiveProjectId()
   const payload = {
     vendor: normalizedVendor,
@@ -177,4 +193,25 @@ export async function runWorkbenchTextTaskStream(
       else opts.signal.addEventListener('abort', onAbort, { once: true })
     }
   })
+}
+
+function extractTextFromTaskResult(result: TaskResultDto): string {
+  const raw = result.raw
+  if (!raw || typeof raw !== 'object') return ''
+  const record = raw as Record<string, unknown>
+  const choices = record.choices
+  if (Array.isArray(choices) && choices.length) {
+    const first = choices[0] as Record<string, unknown> | undefined
+    const message = first?.message as Record<string, unknown> | undefined
+    const content = message?.content
+    if (typeof content === 'string') return content
+    if (Array.isArray(content)) {
+      return content
+        .map((part) => (typeof part === 'string' ? part : typeof (part as Record<string, unknown>)?.text === 'string' ? String((part as Record<string, unknown>).text) : ''))
+        .join('')
+    }
+    if (typeof first?.text === 'string') return first.text
+  }
+  if (typeof record.text === 'string') return record.text
+  return ''
 }

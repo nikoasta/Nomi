@@ -126,6 +126,15 @@ function readPortalEnv() {
   }
 }
 
+function readPortalGenerationEnv() {
+  return {
+    kieApiKey: clean(process.env.KIE_API_KEY) || clean(process.env.KIEAI_API_KEY) || clean(process.env.KIE_AI_API_KEY),
+    deepseekApiKey: clean(process.env.DEEPSEEK_API_KEY),
+    openaiApiKey: clean(process.env.OPENAI_API_KEY),
+    anthropicApiKey: clean(process.env.ANTHROPIC_API_KEY),
+  }
+}
+
 function clean(value) {
   return typeof value === 'string' && value.trim() ? value.trim() : null
 }
@@ -275,6 +284,293 @@ async function callRpc({ env, bearerToken, functionName, body }) {
     path: `/rest/v1/rpc/${functionName}`,
     body,
   })
+}
+
+async function requirePortalSession(env, bearerToken) {
+  const result = await supabaseRequest({ env, bearerToken, path: '/auth/v1/user', method: 'GET' })
+  if (result.ok) return { ok: true, payload: result.payload }
+  return {
+    ok: false,
+    status: result.status === 401 || result.status === 403 ? result.status : 401,
+    payload: { error: { code: 'PERMISSION_DENIED', message: 'Authentication is required' } },
+  }
+}
+
+function nowIso() {
+  return new Date().toISOString()
+}
+
+function portalCatalogRows(generationEnv) {
+  const createdAt = nowIso()
+  const vendor = (key, name, hasApiKey, extra = {}) => ({
+    key,
+    name,
+    enabled: true,
+    hasApiKey: Boolean(hasApiKey),
+    authType: 'bearer',
+    baseUrlHint: extra.baseUrlHint || null,
+    createdAt,
+    updatedAt: createdAt,
+    ...(extra.meta ? { meta: extra.meta } : {}),
+  })
+  const model = (vendorKey, modelKey, labelZh, kind, meta = {}) => ({
+    vendorKey,
+    modelKey,
+    labelZh,
+    kind,
+    enabled: true,
+    meta,
+    createdAt,
+    updatedAt: createdAt,
+  })
+  const vendors = [
+    vendor('kie', 'Kie.ai', generationEnv.kieApiKey, { baseUrlHint: 'https://api.kie.ai' }),
+    vendor('deepseek', 'DeepSeek', generationEnv.deepseekApiKey, { baseUrlHint: 'https://api.deepseek.com/v1' }),
+    vendor('openai', 'OpenAI', generationEnv.openaiApiKey, { baseUrlHint: 'https://api.openai.com/v1' }),
+    vendor('anthropic', 'Anthropic', generationEnv.anthropicApiKey, { baseUrlHint: 'https://api.anthropic.com' }),
+  ]
+  const models = [
+    model('kie', 'gpt-image-2-text-to-image', 'GPT Image 2 · Text to image', 'image', { archetypeId: 'gpt-image-2' }),
+    model('kie', 'gpt-image-2-image-to-image', 'GPT Image 2 · Image to image', 'image', { archetypeId: 'gpt-image-2' }),
+    model('kie', 'seedream', 'Seedream 4.5', 'image', { archetypeId: 'seedream' }),
+    model('kie', 'nano-banana', 'Nano Banana', 'image', { archetypeId: 'nano-banana' }),
+    model('kie', 'bytedance/seedance-2', 'Seedance 2.0', 'video', { archetypeId: 'seedance-2' }),
+    model('deepseek', 'deepseek-chat', 'DeepSeek Chat', 'text'),
+    model('deepseek', 'deepseek-reasoner', 'DeepSeek Reasoner', 'text'),
+    model('openai', 'gpt-5.2', 'GPT-5.2', 'text'),
+    model('openai', 'gpt-5.1', 'GPT-5.1', 'text'),
+    model('anthropic', 'claude-sonnet-4-5', 'Claude Sonnet 4.5', 'text'),
+  ]
+  return { vendors, models }
+}
+
+function filterCatalogModels(models, query) {
+  let rows = models
+  if (query && typeof query === 'object') {
+    if (query.vendorKey) rows = rows.filter((row) => row.vendorKey === query.vendorKey)
+    if (query.kind) rows = rows.filter((row) => row.kind === query.kind)
+    if (typeof query.enabled === 'boolean') rows = rows.filter((row) => row.enabled === query.enabled)
+  }
+  return rows
+}
+
+function portalCatalogHealth(catalog) {
+  const enabledVendors = catalog.vendors.filter((vendor) => vendor.enabled)
+  const enabledModels = catalog.models.filter((model) => model.enabled)
+  const usableVendorKeys = new Set(enabledVendors.filter((vendor) => vendor.authType === 'none' || vendor.hasApiKey).map((vendor) => vendor.key))
+  const kinds = ['text', 'image', 'video', 'audio', 'model3d']
+  const byKind = kinds.map((kind) => {
+    const rows = enabledModels.filter((model) => model.kind === kind)
+    return {
+      kind,
+      enabledModels: rows.length,
+      executableModels: rows.filter((model) => usableVendorKeys.has(model.vendorKey)).length,
+    }
+  })
+  const issues = []
+  if (!catalog.vendors.some((vendor) => vendor.hasApiKey)) {
+    issues.push({
+      code: 'vendor_api_key_missing',
+      severity: 'warning',
+      message: 'No portal generation provider API key is configured on the server',
+    })
+  }
+  return {
+    ok: issues.every((issue) => issue.severity !== 'error'),
+    counts: {
+      vendors: catalog.vendors.length,
+      enabledVendors: enabledVendors.length,
+      models: catalog.models.length,
+      enabledModels: enabledModels.length,
+      mappings: 0,
+      enabledMappings: 0,
+      enabledApiKeys: enabledVendors.filter((vendor) => vendor.hasApiKey).length,
+    },
+    byKind,
+    issues,
+  }
+}
+
+function getByPath(value, path) {
+  return String(path || '').split('.').reduce((current, segment) => {
+    if (current == null || segment === '') return undefined
+    if (/^\d+$/.test(segment) && Array.isArray(current)) return current[Number(segment)]
+    return current[segment]
+  }, value)
+}
+
+function normalizeTaskStatus(value, hasAssets) {
+  const text = String(value || '').trim().toLowerCase()
+  if (hasAssets) return 'succeeded'
+  if (['success', 'succeeded', 'completed'].includes(text)) return 'succeeded'
+  if (['fail', 'failed', 'error', 'expired'].includes(text)) return 'failed'
+  if (['generating', 'processing', 'running'].includes(text)) return 'running'
+  return 'queued'
+}
+
+function taskAsset(kind, url) {
+  if (!url) return null
+  if (kind === 'text_to_video' || kind === 'image_to_video') return { type: 'video', url, providerUrl: url }
+  if (kind === 'text_to_audio' || kind === 'image_to_audio') return { type: 'audio', url, providerUrl: url }
+  return { type: 'image', url, providerUrl: url }
+}
+
+function taskResultFromKieResponse(payload, request, fallbackId) {
+  const resultUrl = getByPath(payload, 'data.resultJson.resultUrls.0') || getByPath(payload, 'data.resultUrls.0')
+  const asset = taskAsset(request.kind, clean(resultUrl))
+  const status = normalizeTaskStatus(getByPath(payload, 'data.state') || getByPath(payload, 'state'), Boolean(asset))
+  const taskId = clean(getByPath(payload, 'data.taskId')) || clean(getByPath(payload, 'taskId')) || fallbackId
+  return {
+    id: taskId,
+    kind: request.kind,
+    status,
+    assets: asset ? [asset] : [],
+    raw: payload,
+    ...(status === 'succeeded' ? {
+      provenance: {
+        provider: 'kie',
+        modelKey: clean(request.extras?.modelKey) || undefined,
+        prompt: request.prompt,
+        vendorRequestId: taskId,
+        timestamp: Date.now(),
+      },
+    } : {}),
+  }
+}
+
+function firstNonEmpty(...values) {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim()
+    if (Array.isArray(value) && value.length) return value
+    if (typeof value === 'number' || typeof value === 'boolean') return value
+  }
+  return undefined
+}
+
+function cleanObject(input) {
+  const out = {}
+  for (const [key, value] of Object.entries(input)) {
+    if (value === undefined || value === null || value === '') continue
+    if (Array.isArray(value) && value.length === 0) continue
+    out[key] = value
+  }
+  return out
+}
+
+function defaultKieModelEnum(modelKey, taskKind) {
+  if (modelKey === 'gpt-image-2-image-to-image' || taskKind === 'image_edit') return 'gpt-image-2-image-to-image'
+  if (modelKey === 'seedream') return taskKind === 'image_edit' ? 'seedream/4.5-edit' : 'seedream/4.5-text-to-image'
+  if (modelKey === 'nano-banana') return taskKind === 'image_edit' ? 'google/nano-banana-edit' : 'google/nano-banana'
+  if (modelKey === 'bytedance/seedance-2') return 'bytedance/seedance-2'
+  return modelKey || 'gpt-image-2-text-to-image'
+}
+
+async function runKieTask(generationEnv, request) {
+  if (!generationEnv.kieApiKey) return { ok: false, status: 503, payload: { error: { code: 'UNCONFIGURED', message: 'Kie.ai API key is not configured' } } }
+  const extras = request.extras && typeof request.extras === 'object' ? request.extras : {}
+  const params = extras.archetypeInput && typeof extras.archetypeInput === 'object' ? extras.archetypeInput : extras
+  const modelKey = clean(extras.modelKey) || clean(extras.modelAlias)
+  const model = firstNonEmpty(params.model, defaultKieModelEnum(modelKey, request.kind))
+  const input = cleanObject({
+    prompt: request.prompt,
+    aspect_ratio: firstNonEmpty(params.aspect_ratio, '16:9'),
+    resolution: firstNonEmpty(params.resolution, request.kind.includes('image') ? '2K' : undefined),
+    quality: firstNonEmpty(params.quality),
+    output_format: firstNonEmpty(params.output_format),
+    input_urls: firstNonEmpty(params.input_urls),
+    image_urls: firstNonEmpty(params.image_urls),
+    first_frame_url: firstNonEmpty(params.first_frame_url, params.firstFrameUrl),
+    last_frame_url: firstNonEmpty(params.last_frame_url, params.lastFrameUrl),
+    reference_image_urls: firstNonEmpty(params.reference_image_urls),
+    'reference_video_urls ': firstNonEmpty(params.reference_video_urls),
+    reference_audio_urls: firstNonEmpty(params.reference_audio_urls),
+    duration: firstNonEmpty(params.duration),
+    generate_audio: firstNonEmpty(params.generate_audio),
+  })
+  const response = await fetch('https://api.kie.ai/api/v1/jobs/createTask', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${generationEnv.kieApiKey}`,
+      'content-type': 'application/json',
+      accept: 'application/json',
+    },
+    body: JSON.stringify({ model, input }),
+  })
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) return { ok: false, status: response.status, payload: { error: { code: 'PROVIDER_ERROR', message: 'Kie.ai task request failed', provider: payload } } }
+  return { ok: true, payload: taskResultFromKieResponse(payload, request, `task-${crypto.randomUUID()}`) }
+}
+
+async function fetchKieTaskResult(generationEnv, request) {
+  const taskId = clean(request.taskId)
+  if (!taskId) return { ok: false, status: 400, payload: { error: { code: 'INVALID_ARGUMENT', message: 'taskId is required' } } }
+  if (!generationEnv.kieApiKey) return { ok: false, status: 503, payload: { error: { code: 'UNCONFIGURED', message: 'Kie.ai API key is not configured' } } }
+  const response = await fetch(`https://api.kie.ai/api/v1/jobs/recordInfo?taskId=${encodeURIComponent(taskId)}`, {
+    headers: {
+      authorization: `Bearer ${generationEnv.kieApiKey}`,
+      accept: 'application/json',
+    },
+  })
+  const payload = await response.json().catch(() => null)
+  if (!response.ok) return { ok: false, status: response.status, payload: { error: { code: 'PROVIDER_ERROR', message: 'Kie.ai task polling failed', provider: payload } } }
+  const taskKind = clean(request.taskKind) || 'text_to_image'
+  const result = taskResultFromKieResponse(payload, { kind: taskKind, prompt: clean(request.prompt) || '', extras: { modelKey: clean(request.modelKey) || null } }, taskId)
+  return { ok: true, payload: { vendor: 'kie', result } }
+}
+
+function extractTextFromOpenAiLike(payload) {
+  const content = getByPath(payload, 'choices.0.message.content') || getByPath(payload, 'choices.0.text')
+  if (typeof content === 'string') return content.trim()
+  if (Array.isArray(content)) return content.map((part) => typeof part === 'string' ? part : clean(part?.text)).filter(Boolean).join('').trim()
+  return ''
+}
+
+async function runTextTask(generationEnv, vendor, request) {
+  const prompt = clean(request.prompt)
+  if (!prompt) return { ok: false, status: 400, payload: { error: { code: 'INVALID_ARGUMENT', message: 'prompt is required' } } }
+  const model = clean(request.extras?.modelKey) || clean(request.extras?.modelAlias) || (vendor === 'deepseek' ? 'deepseek-chat' : vendor === 'anthropic' ? 'claude-sonnet-4-5' : 'gpt-5.1')
+  let response
+  let payload
+  if (vendor === 'deepseek') {
+    if (!generationEnv.deepseekApiKey) return { ok: false, status: 503, payload: { error: { code: 'UNCONFIGURED', message: 'DeepSeek API key is not configured' } } }
+    response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${generationEnv.deepseekApiKey}`, 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], stream: false }),
+    })
+    payload = await response.json().catch(() => null)
+  } else if (vendor === 'anthropic') {
+    if (!generationEnv.anthropicApiKey) return { ok: false, status: 503, payload: { error: { code: 'UNCONFIGURED', message: 'Anthropic API key is not configured' } } }
+    response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'x-api-key': generationEnv.anthropicApiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ model, max_tokens: 2048, messages: [{ role: 'user', content: prompt }] }),
+    })
+    payload = await response.json().catch(() => null)
+    const text = Array.isArray(payload?.content) ? payload.content.map((part) => clean(part?.text)).filter(Boolean).join('') : ''
+    payload = { ...payload, choices: [{ message: { content: text } }] }
+  } else {
+    if (!generationEnv.openaiApiKey) return { ok: false, status: 503, payload: { error: { code: 'UNCONFIGURED', message: 'OpenAI API key is not configured' } } }
+    response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${generationEnv.openaiApiKey}`, 'content-type': 'application/json', accept: 'application/json' },
+      body: JSON.stringify({ model, messages: [{ role: 'user', content: prompt }], stream: false }),
+    })
+    payload = await response.json().catch(() => null)
+  }
+  if (!response.ok) return { ok: false, status: response.status, payload: { error: { code: 'PROVIDER_ERROR', message: `${vendor} text request failed`, provider: payload } } }
+  const text = extractTextFromOpenAiLike(payload)
+  return {
+    ok: true,
+    payload: {
+      id: `task-${crypto.randomUUID()}`,
+      kind: request.kind,
+      status: text ? 'succeeded' : 'failed',
+      assets: [],
+      raw: payload,
+      provenance: { provider: vendor, modelKey: model, prompt, vendorRequestId: clean(payload?.id) || undefined, timestamp: Date.now() },
+    },
+  }
 }
 
 async function findPortalMemberByEmail(env, email) {
@@ -565,6 +861,59 @@ export async function handlePortalRequest(req, res, pathInput = null) {
     if (req.method === 'GET' && path.join('/') === 'identity/session') {
       const result = await supabaseRequest({ env, bearerToken: token, path: '/auth/v1/user', method: 'GET' })
       return json(res, result.status, result.payload)
+    }
+
+    if (path[0] === 'model-catalog') {
+      const session = await requirePortalSession(env, token)
+      if (!session.ok) return json(res, session.status, session.payload)
+
+      const generationEnv = readPortalGenerationEnv()
+      const catalog = portalCatalogRows(generationEnv)
+      if (req.method === 'POST' && path[1] === 'models') {
+        const body = await readJson(req)
+        return json(res, 200, filterCatalogModels(catalog.models, body || {}))
+      }
+      if (req.method === 'GET' && path[1] === 'models') {
+        return json(res, 200, filterCatalogModels(catalog.models, req.query || {}))
+      }
+      if (req.method === 'GET' && path[1] === 'vendors') {
+        return json(res, 200, catalog.vendors)
+      }
+      if (req.method === 'GET' && path[1] === 'health') {
+        return json(res, 200, portalCatalogHealth(catalog))
+      }
+    }
+
+    if (req.method === 'POST' && path.join('/') === 'tasks/run') {
+      const session = await requirePortalSession(env, token)
+      if (!session.ok) return json(res, session.status, session.payload)
+
+      const generationEnv = readPortalGenerationEnv()
+      const body = await readJson(req)
+      const vendor = clean(body.vendor)
+      const request = body.request && typeof body.request === 'object' ? body.request : null
+      if (!vendor || !request || !clean(request.prompt) || !clean(request.kind)) {
+        return json(res, 400, { error: { code: 'INVALID_ARGUMENT', message: 'vendor and request are required' } })
+      }
+      const result = request.kind === 'chat' || request.kind === 'prompt_refine' || request.kind === 'image_to_prompt'
+        ? await runTextTask(generationEnv, vendor, request)
+        : vendor === 'kie'
+          ? await runKieTask(generationEnv, request)
+          : { ok: false, status: 404, payload: { error: { code: 'UNSUPPORTED_PROVIDER', message: `${vendor} is not available in the web portal runtime` } } }
+      return json(res, result.ok ? 200 : result.status, result.payload)
+    }
+
+    if (req.method === 'POST' && path.join('/') === 'tasks/result') {
+      const session = await requirePortalSession(env, token)
+      if (!session.ok) return json(res, session.status, session.payload)
+
+      const generationEnv = readPortalGenerationEnv()
+      const body = await readJson(req)
+      const vendor = clean(body.vendor)
+      const result = vendor === 'kie'
+        ? await fetchKieTaskResult(generationEnv, body)
+        : { ok: false, status: 404, payload: { error: { code: 'UNSUPPORTED_PROVIDER', message: `${vendor || 'provider'} is not available in the web portal runtime` } } }
+      return json(res, result.ok ? 200 : result.status, result.payload)
     }
 
     if (req.method === 'POST' && path[0] === 'query') {

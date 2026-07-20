@@ -365,4 +365,82 @@ describe('Vercel portal API handler', () => {
     expect(res.statusCode).toBe(404)
     expect(fetchMock).not.toHaveBeenCalled()
   })
+
+  it('serves portal model catalog status from server-side provider env without exposing keys', async () => {
+    process.env.KIE_API_KEY = 'kie-secret'
+    process.env.DEEPSEEK_API_KEY = 'deepseek-secret'
+    delete process.env.OPENAI_API_KEY
+    delete process.env.ANTHROPIC_API_KEY
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe('https://project.supabase.co/auth/v1/user')
+      expect(init?.headers).toEqual(expect.objectContaining({ authorization: 'Bearer user-jwt' }))
+      return new Response(JSON.stringify({ id: 'user-1' }), { status: 200 })
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(request('GET', ['model-catalog', 'health'], undefined, { authorization: 'Bearer user-jwt' }), res)
+
+    expect(res.statusCode).toBe(200)
+    const payload = JSON.parse(res.body)
+    expect(payload.counts.enabledApiKeys).toBe(2)
+    expect(payload.byKind).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kind: 'image', executableModels: expect.any(Number) }),
+        expect.objectContaining({ kind: 'text', executableModels: expect.any(Number) }),
+      ]),
+    )
+    expect(JSON.stringify(payload)).not.toMatch(/kie-secret|deepseek-secret/i)
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('runs portal text tasks through server-side DeepSeek credentials', async () => {
+    process.env.DEEPSEEK_API_KEY = 'deepseek-secret'
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === 'https://project.supabase.co/auth/v1/user') {
+        expect(init?.headers).toEqual(expect.objectContaining({ authorization: 'Bearer user-jwt' }))
+        return new Response(JSON.stringify({ id: 'user-1' }), { status: 200 })
+      }
+      if (url === 'https://api.deepseek.com/v1/chat/completions') {
+        expect(init?.headers).toEqual(expect.objectContaining({ authorization: 'Bearer deepseek-secret' }))
+        expect(JSON.parse(String(init?.body))).toEqual({
+          model: 'deepseek-chat',
+          messages: [{ role: 'user', content: 'Improve this prompt' }],
+          stream: false,
+        })
+        return new Response(JSON.stringify({ id: 'chat-1', choices: [{ message: { content: 'Improved prompt' } }] }), { status: 200 })
+      }
+      throw new Error(`Unexpected URL ${url}`)
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(
+      request(
+        'POST',
+        ['tasks', 'run'],
+        {
+          vendor: 'deepseek',
+          request: {
+            kind: 'prompt_refine',
+            prompt: 'Improve this prompt',
+            extras: { modelKey: 'deepseek-chat' },
+          },
+        },
+        { authorization: 'Bearer user-jwt' },
+      ),
+      res,
+    )
+
+    expect(res.statusCode).toBe(200)
+    const payload = JSON.parse(res.body)
+    expect(payload).toEqual(expect.objectContaining({
+      kind: 'prompt_refine',
+      status: 'succeeded',
+      assets: [],
+      raw: expect.objectContaining({ choices: [{ message: { content: 'Improved prompt' } }] }),
+    }))
+    expect(JSON.stringify(payload)).not.toMatch(/deepseek-secret/i)
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })
