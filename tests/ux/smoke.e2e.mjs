@@ -1,6 +1,6 @@
-// Electron + renderer smoke e2e（规则 13/14）—— 可断言、可重复、零额度。
-// 启动真实 Electron 主进程并等待 renderer 完成加载；随后用同一个 Vite renderer
-// 断言主链路关键 UI（项目库 → 开项目 → 画布工具栏/导出入口）。
+// Electron + web renderer smoke e2e（规则 13/14）—— 可断言、可重复、零额度。
+// 启动真实 Electron 主进程并等待 desktop runtime 完成加载；随后用同一个 Vite renderer
+// 断言普通浏览器 runtime 会被 web portal auth gate 保护。
 // 不触发真实 AI 生成/导出（不花额度）。
 //
 // 用法：pnpm run test:e2e
@@ -30,14 +30,10 @@ function assert(cond, label) {
 }
 
 const UI_TEXT = {
-  libraryTitle: /项目库|Project Library|Библиотека проектов/,
-  newBlankProject: /新建空白项目|New blank project|Новый пустой проект/,
-  toolbar: [
-    ["workspace creation", /创作|Create|Создать/],
-    ["workspace generation", /生成|Generate|Генерация/],
-    ["workspace preview", /预览|Preview|Просмотр/],
-    ["export", /导出|Export|Экспорт|前往预览导出|Go to preview export|Перейти к экспорту/],
-  ],
+  webGateTitle: /Everville media portal|Everville 媒体门户|Медиа-портал Everville/,
+  webGateBadge: /Private workspace|私有工作区|Закрытая рабочая область/,
+  workEmail: /Work email|工作邮箱|Рабочая почта/,
+  sendMagicLink: /Send magic link|发送登录链接|Отправить magic link/,
 };
 
 function wait(ms) {
@@ -164,81 +160,26 @@ try {
   await waitForElectronRendererReady(electronProcess, () => electronLog);
   assert(true, "Electron 主进程加载 renderer 到 dom-ready / finish-load");
 
-  console.log("  → checking renderer UI in browser");
+  console.log("  → checking web portal auth gate in browser");
   browser = await chromium.launch();
   const page = await browser.newPage();
   await page.goto(rendererUrl, { waitUntil: "domcontentloaded" });
-  await page.getByText(UI_TEXT.libraryTitle).first().waitFor({ timeout: 10000 });
+  await page.getByText(UI_TEXT.webGateTitle).first().waitFor({ timeout: 10000 });
   assert((await page.title()).toLowerCase().includes("nomi"), "窗口标题含 Nomi");
-
-  const primaryCard = page.locator('[data-variant="primary"]', { hasText: UI_TEXT.newBlankProject });
-  assert((await primaryCard.count()) > 0, "项目库主入口动作卡片「新建空白项目」可见（i18n）");
-
-  const projectCard = page.locator("[data-project-card]").first();
-  if ((await projectCard.count()) > 0) {
-    await projectCard.click();
-  } else {
-    await page.getByText(UI_TEXT.newBlankProject).first().click();
-  }
-  await page.waitForTimeout(2500);
-
-  for (const [label, name] of UI_TEXT.toolbar) {
-    assert(await page.getByRole("button", { name }).first().isVisible(), `工作台工具栏 ${label} 可见（i18n）`);
-  }
-  assert(/projectId=/.test(page.url()), "工作台 URL 含 projectId");
-
-  // 4) 生成画布 composer：超长提示词必须在编辑区内部滚动、底栏生成钮永远可点
-  //（回归 2026-07-15：滚动容器无高度上限 → 长 prompt 溢出盖住底栏，提交钮点不到）。
-  await page.getByRole("button", { name: /生成|Generate|Генерация/ }).first().click();
-  await page.waitForTimeout(800);
-  await page.getByRole("button", { name: /添加图片节点|Add Image node|Добавить узел Изображение/ }).first().click();
-  const composer = page.locator(".generation-canvas-v2-node__composer-card").first();
-  await composer.waitFor({ timeout: 5000 });
-  const longPrompt = Array.from({ length: 14 }, (_, i) => `第${i + 1}段：超长提示词溢出回归压测，逐行填满编辑区直到超过卡片高度上限，验证底栏不被盖住。`).join("\n");
-  const promptInput = composer.locator(".generation-canvas-v2-node__prompt-input").first();
-  await promptInput.click();
-  await promptInput.fill(longPrompt);
-  await page.waitForTimeout(500);
-  // 画布平移：把 composer 拉进「AppBar 之下、窗口底之上」的可视带（节点落点随机，卡可能伸出窗口
-  // → elementFromPoint 打在视口外恒 null，误报被挡）。wheel 落在远离卡片的空白区。
-  for (let i = 0; i < 6; i++) {
-    const box = await composer.boundingBox();
-    if (!box) break;
-    const vp = await page.evaluate(() => ({
-      w: window.innerWidth,
-      h: window.innerHeight,
-      appbarBottom: document.querySelector(".nomi-appbar")?.getBoundingClientRect().bottom ?? 0,
-    }));
-    let dy = 0;
-    if (box.y < vp.appbarBottom + 8) dy = box.y - (vp.appbarBottom + 8);
-    else if (box.y + box.height > vp.h - 16) dy = Math.min(box.y + box.height - (vp.h - 16), box.y - (vp.appbarBottom + 8));
-    if (Math.abs(dy) < 4) break;
-    await page.mouse.move(vp.w - 80, Math.max(vp.appbarBottom + 40, 200));
-    await page.mouse.wheel(0, dy);
-    await page.waitForTimeout(250);
-  }
-  const composerCheck = await composer.evaluate((card) => {
-    const editorEl = card.querySelector(".generation-canvas-v2-node__prompt-input");
-    let scroller = editorEl;
-    while (scroller && scroller !== card && !/(auto|scroll)/.test(window.getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
-    const scrolls = Boolean(scroller && scroller !== card && scroller.scrollHeight > scroller.clientHeight);
-    const btn = card.querySelector('button[aria-label="生成素材"], button[aria-label="Generate asset"], button[aria-label="Создать материал"], button[aria-label="重新生成"], button[aria-label="Regenerate"], button[aria-label="Создать заново"]');
-    const r = btn?.getBoundingClientRect();
-    const hitEl = r ? document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) : null;
-    return { scrolls, btnClickable: Boolean(btn && hitEl && (btn === hitEl || btn.contains(hitEl))) };
-  });
-  assert(composerCheck.scrolls, "超长提示词在编辑区内部滚动（不撑爆卡片）");
-  assert(composerCheck.btnClickable, "超长提示词下生成钮 hit-test 可点（底栏未被溢出文字盖住）");
+  assert(await page.getByText(UI_TEXT.webGateBadge).first().isVisible(), "web runtime 显示私有工作区 gate（i18n）");
+  assert(await page.getByText(UI_TEXT.workEmail).first().isVisible(), "web runtime 显示工作邮箱字段（i18n）");
+  assert(await page.getByRole("button", { name: UI_TEXT.sendMagicLink }).first().isVisible(), "web runtime 显示 magic-link 登录按钮（i18n）");
+  assert(await page.locator("input[type='email']").first().isVisible(), "web runtime 登录 email input 可见");
 
   const languageSwitcher = page
     .getByRole("button", { name: /切换界面语言|Switch interface language|Переключить язык интерфейса/ })
     .first();
-  assert(await languageSwitcher.isVisible(), "工作台语言切换器可见");
+  assert(await languageSwitcher.isVisible(), "web runtime 语言切换器可见");
   await languageSwitcher.click();
   await page.getByRole("option", { name: "Русский" }).click();
-  await page.getByRole("button", { name: "Создать" }).first().waitFor({ timeout: 4000 });
+  await page.getByText("Медиа-портал Everville").first().waitFor({ timeout: 4000 });
   assert((await page.evaluate(() => localStorage.getItem("nomi.interface-language"))) === "ru", "语言选择保存为 ru");
-  assert(await page.getByRole("button", { name: "Генерация" }).first().isVisible(), "切换到俄语后工作台立即刷新");
+  assert(await page.getByRole("button", { name: "Отправить magic link" }).first().isVisible(), "切换到俄语后 web gate 立即刷新");
 
   console.log(`\nSMOKE PASS: ${passed} assertions`);
 } catch (error) {
