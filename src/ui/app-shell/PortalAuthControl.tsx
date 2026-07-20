@@ -6,23 +6,13 @@ import { useI18n } from '../../i18n/i18nContext'
 import { cn } from '../../utils/cn'
 import {
   clearWebPortalSession,
-  getBrowserWebPortalClientConfig,
-  readWebPortalRuntimeEnv,
   requestWebPortalMagicLink,
-  WEB_PORTAL_AUTH_CHANGE_EVENT,
-  WEB_PORTAL_SESSION_STORAGE_KEY,
 } from '../../platform/webPortalSession'
-
-type PortalAuthState = 'unconfigured' | 'anonymous' | 'authenticated'
-
-function readPortalAuthState(): PortalAuthState {
-  if (!readWebPortalRuntimeEnv()) return 'unconfigured'
-  return getBrowserWebPortalClientConfig() ? 'authenticated' : 'anonymous'
-}
+import { usePortalAuthState } from './portalAuthState'
 
 export function PortalAuthControl(): JSX.Element | null {
   const { t } = useI18n()
-  const [authState, setAuthState] = React.useState<PortalAuthState>(() => readPortalAuthState())
+  const authState = usePortalAuthState()
   const [open, setOpen] = React.useState(false)
   const [email, setEmail] = React.useState('')
   const [submitting, setSubmitting] = React.useState(false)
@@ -36,18 +26,11 @@ export function PortalAuthControl(): JSX.Element | null {
   >(authState === 'unconfigured' ? 'portal.auth.configMissing' : null)
 
   React.useEffect(() => {
-    const sync = () => setAuthState(readPortalAuthState())
-    sync()
-    const onStorage = (event: StorageEvent) => {
-      if (!event.key || event.key === WEB_PORTAL_SESSION_STORAGE_KEY) sync()
-    }
-    window.addEventListener(WEB_PORTAL_AUTH_CHANGE_EVENT, sync)
-    window.addEventListener('storage', onStorage)
-    return () => {
-      window.removeEventListener(WEB_PORTAL_AUTH_CHANGE_EVENT, sync)
-      window.removeEventListener('storage', onStorage)
-    }
-  }, [])
+    setMessageKey((current) => {
+      if (authState === 'unconfigured') return 'portal.auth.configMissing'
+      return current === 'portal.auth.configMissing' ? null : current
+    })
+  }, [authState])
 
   if (isDesktopRuntime()) return null
 
@@ -111,7 +94,6 @@ export function PortalAuthControl(): JSX.Element | null {
                 className="inline-flex h-8 items-center justify-center gap-1.5 rounded-[var(--nomi-radius-sm)] border border-workbench-border bg-workbench-bg px-2.5 text-body-sm text-[var(--nomi-ink-80)]"
                 onClick={() => {
                   clearWebPortalSession()
-                  setAuthState(readPortalAuthState())
                   setMessageKey(null)
                 }}
               >

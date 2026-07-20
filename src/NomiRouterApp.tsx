@@ -5,6 +5,7 @@ import { buildStudioUrl } from './utils/appRoutes'
 import { getAppRoutePath } from './utils/routes'
 import { lazyWithChunkBoundary } from './ui/chunkBoundary'
 import { useI18n } from './i18n/i18nContext'
+import { PortalAuthGate } from './ui/app-shell/PortalAuthGate'
 
 const NomiStudioApp = lazyWithChunkBoundary('Main interface', () => import('./workbench/NomiStudioApp'))
 
@@ -31,19 +32,21 @@ function RouteLoading(): JSX.Element {
 export default function NomiRouterApp(): JSX.Element {
   return (
     <HashRouter>
-      <Routes>
-        <Route
-          path={getAppRoutePath('NomiStudioApp')}
-          element={(
-            <React.Suspense fallback={<RouteLoading />}>
-              <NomiStudioApp />
-            </React.Suspense>
-          )}
-        />
-        <Route path={getAppRoutePath('RedirectToStudio', '/')} element={<RedirectToStudio />} />
-        <Route path={getAppRoutePath('RedirectToStudio', '/workspace/*')} element={<RedirectToStudio />} />
-        <Route path={getAppRoutePath('RedirectToStudio', '*')} element={<RedirectToStudio />} />
-      </Routes>
+      <PortalAuthGate>
+        <Routes>
+          <Route
+            path={getAppRoutePath('NomiStudioApp')}
+            element={(
+              <React.Suspense fallback={<RouteLoading />}>
+                <NomiStudioApp />
+              </React.Suspense>
+            )}
+          />
+          <Route path={getAppRoutePath('RedirectToStudio', '/')} element={<RedirectToStudio />} />
+          <Route path={getAppRoutePath('RedirectToStudio', '/workspace/*')} element={<RedirectToStudio />} />
+          <Route path={getAppRoutePath('RedirectToStudio', '*')} element={<RedirectToStudio />} />
+        </Routes>
+      </PortalAuthGate>
     </HashRouter>
   )
 }
