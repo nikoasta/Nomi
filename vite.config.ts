@@ -5,6 +5,20 @@ import { resolve } from 'node:path';
 
 const NOMI_TAILWIND_CSS_PATH = '/tailwind.generated.css';
 const NOMI_TAILWIND_CSS_FILE = resolve(__dirname, 'public', 'tailwind.generated.css');
+const NOMI_BUILD_ID = process.env.NOMI_BUILD_ID || process.env.VERCEL_GIT_COMMIT_SHA || `${Date.now()}`;
+
+function nomiBuildMetaPlugin(): Plugin {
+  return {
+    name: 'nomi-build-meta',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'build-meta.json',
+        source: JSON.stringify({ buildId: NOMI_BUILD_ID }),
+      });
+    },
+  };
+}
 
 function nomiStaticAssetPlugin(): Plugin {
   return {
@@ -173,7 +187,10 @@ export default defineConfig(async ({ command, mode }) => {
     base: './',
     cacheDir: resolve(__dirname, '.tmp/vite'),
     customLogger: createNomiLogger(),
-    plugins: [nomiStaticAssetPlugin(), react()],
+    plugins: [nomiStaticAssetPlugin(), nomiBuildMetaPlugin(), react()],
+    define: {
+      __NOMI_BUILD_ID__: JSON.stringify(NOMI_BUILD_ID),
+    },
     resolve: {
       dedupe: ['react', 'react-dom', 'scheduler', 'use-sync-external-store', 'three'],
       alias: [
