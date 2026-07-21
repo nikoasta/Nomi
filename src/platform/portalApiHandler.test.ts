@@ -170,6 +170,53 @@ describe('Vercel portal API handler', () => {
     expect(JSON.stringify(res.body)).not.toMatch(/service-role-secret|resend-secret|token-hash/i)
   })
 
+  it('sends corporate magic links that can return to the desktop app', async () => {
+    process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-secret'
+    process.env.RESEND_API_KEY = 'resend-secret'
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/rest/v1/rpc/nomi_portal_find_member_by_email')) {
+        return new Response(
+          JSON.stringify([
+            {
+              user_id: 'user-1',
+              email: 'desktop@everville.test',
+              organization_id: 'organization-1',
+              workspace_id: 'workspace-1',
+            },
+          ]),
+          { status: 200 },
+        )
+      }
+      if (url.endsWith('/auth/v1/admin/generate_link')) {
+        return new Response(JSON.stringify({ properties: { hashed_token: 'token-hash-1' } }), { status: 200 })
+      }
+      if (url === 'https://api.resend.com/emails') {
+        const payload = JSON.parse(String(init?.body))
+        expect(payload.text).toContain('https://cut.eva.mba/api/portal/auth/confirm?token_hash=token-hash-1')
+        expect(payload.text).toContain('redirectTo=nomi%3A%2F%2Fportal-auth')
+        return new Response(JSON.stringify({ id: 'email-1' }), { status: 200 })
+      }
+      throw new Error(`Unexpected URL ${url}`)
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(
+      request('POST', ['auth', 'magic-link'], {
+        email: 'Desktop@Everville.test',
+        redirectTo: 'nomi://portal-auth',
+      }),
+      res,
+    )
+
+    expect(res.statusCode).toBe(200)
+    expect(JSON.parse(res.body)).toEqual({
+      email: 'desktop@everville.test',
+      redirectTo: 'nomi://portal-auth',
+      delivery: 'sent_by_everville_mailer',
+    })
+  })
+
   it('does not generate or send corporate links for non-members', async () => {
     process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-role-secret'
     process.env.RESEND_API_KEY = 'resend-secret'
@@ -352,6 +399,47 @@ describe('Vercel portal API handler', () => {
     expect(res.statusCode).toBe(302)
     expect(res.headers.location).toBe(
       'https://cut.eva.mba/#access_token=access-token-1&refresh_token=refresh-token-1&expires_in=900&token_type=bearer&type=magiclink',
+    )
+  })
+
+  it('confirms desktop magic links into Nomi app callback sessions', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      expect(url).toBe('https://project.supabase.co/auth/v1/verify')
+      expect(JSON.parse(String(init?.body))).toEqual({
+        token_hash: 'token-hash-1',
+        type: 'magiclink',
+      })
+      return new Response(
+        JSON.stringify({
+          access_token: 'desktop-access-token',
+          refresh_token: 'desktop-refresh-token',
+          expires_in: 900,
+          token_type: 'bearer',
+        }),
+        { status: 200 },
+      )
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(
+      request(
+        'GET',
+        ['auth', 'confirm'],
+        undefined,
+        {},
+        {
+          token_hash: 'token-hash-1',
+          type: 'magiclink',
+          redirectTo: 'nomi://portal-auth',
+        },
+      ),
+      res,
+    )
+
+    expect(res.statusCode).toBe(302)
+    expect(res.headers.location).toBe(
+      'nomi://portal-auth#access_token=desktop-access-token&refresh_token=desktop-refresh-token&expires_in=900&token_type=bearer&type=magiclink',
     )
   })
 

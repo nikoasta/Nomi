@@ -77,7 +77,7 @@
   "portal.auth.desktopTokenInvalid": "This desktop sync token is invalid or expired.",
   "portal.auth.desktopTokenConnected": "Desktop portal sync is connected.",
   "portal.auth.desktopConnect": "Connect desktop sync",
-  "portal.auth.desktopConnectBody": "Open the web portal, copy a desktop sync token, then paste it here.",
+  "portal.auth.desktopConnectBody": "Send a secure link to this Mac, or paste a desktop sync token from the web portal.",
   "portal.auth.desktopTokenPlaceholder": "Paste desktop sync token",
   "portal.auth.connectDesktop": "Connect portal sync",
   "portal.auth.signOut": "Sign out",

@@ -12,6 +12,7 @@ import {
   requestWebPortalTelegramLogin,
   storeWebPortalSession,
   storeWebPortalDesktopSyncToken,
+  WEB_PORTAL_DESKTOP_REDIRECT_URL,
   WEB_PORTAL_SESSION_STORAGE_KEY,
   type WebPortalStoredSession,
 } from './webPortalSession'
@@ -69,6 +70,21 @@ describe('web portal browser session wiring', () => {
       refreshToken: 'refresh-1',
       tokenType: 'bearer',
       expiresAt: NOW + 60_000,
+    })
+  })
+
+  it('parses desktop portal auth callback sessions from the Nomi deep link', () => {
+    const parsed = parseWebPortalSessionFromUrl(
+      'nomi://portal-auth#access_token=desktop-token&refresh_token=desktop-refresh&expires_in=90&type=magiclink',
+      NOW,
+    )
+
+    expect(parsed).toEqual({
+      schemaVersion: 'web-portal-session.v1',
+      accessToken: 'desktop-token',
+      refreshToken: 'desktop-refresh',
+      tokenType: 'bearer',
+      expiresAt: NOW + 90_000,
     })
   })
 
@@ -139,6 +155,40 @@ describe('web portal browser session wiring', () => {
       }),
     })
     expect(JSON.stringify(request.mock.calls)).not.toMatch(/service|secret|refresh-token|user-access-token/i)
+  })
+
+  it('requests desktop magic links with the Nomi app callback redirect', async () => {
+    const request = vi.fn(async () => new Response('{"delivery":"sent_by_everville_mailer"}', { status: 200 }))
+
+    await expect(
+      requestWebPortalMagicLink({
+        email: 'desktop@everville.test',
+        redirectTo: WEB_PORTAL_DESKTOP_REDIRECT_URL,
+        env: {
+          VITE_PORTAL_API_BASE: 'https://cut.eva.mba/api/portal',
+        },
+        fetch: request as unknown as typeof fetch,
+      }),
+    ).resolves.toEqual({
+      ok: true,
+      value: {
+        email: 'desktop@everville.test',
+        redirectTo: 'nomi://portal-auth',
+        delivery: 'sent_by_everville_mailer',
+      },
+    })
+
+    expect(request).toHaveBeenCalledWith('https://cut.eva.mba/api/portal/auth/magic-link', {
+      method: 'POST',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: 'desktop@everville.test',
+        redirectTo: 'nomi://portal-auth',
+      }),
+    })
   })
 
   it('fails closed when magic-link auth is disabled or misconfigured', async () => {

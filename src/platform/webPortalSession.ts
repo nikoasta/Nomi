@@ -4,6 +4,7 @@ export const WEB_PORTAL_SESSION_STORAGE_KEY = 'nomi.portal.session.v1'
 export const WEB_PORTAL_SESSION_EXPIRY_SKEW_MS = 30_000
 export const WEB_PORTAL_AUTH_CHANGE_EVENT = 'nomi-web-portal-auth-change'
 export const WEB_PORTAL_DESKTOP_SYNC_TOKEN_VERSION = 'nomi-desktop-portal-sync-token.v1'
+export const WEB_PORTAL_DESKTOP_REDIRECT_URL = 'nomi://portal-auth'
 
 type WebPortalEnv = {
   VITE_PORTAL_API_BASE?: string
@@ -170,6 +171,7 @@ function normalizeTelegramBotUsername(value: unknown): string | null {
 function browserRedirectTo(): string | null {
   if (typeof window === 'undefined') return null
   try {
+    if (window.location.protocol === 'file:') return WEB_PORTAL_DESKTOP_REDIRECT_URL
     return `${window.location.origin}/`
   } catch {
     return null
@@ -181,6 +183,7 @@ function normalizeRedirectTo(value?: string): string | null {
   if (!candidate) return null
   try {
     const url = new URL(candidate)
+    if (url.protocol === 'nomi:' && url.hostname === 'portal-auth') return url.toString()
     if (url.protocol !== 'https:' && url.hostname !== '127.0.0.1' && url.hostname !== 'localhost') return null
     return url.toString()
   } catch {

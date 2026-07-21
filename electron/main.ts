@@ -46,6 +46,7 @@ import { readMcpInfo, installMcp, uninstallMcp } from "./capabilityCore/mcpConfi
 import { registerLocalProtocol } from "./protocol/localProtocol";
 import { installMainWindowInteractions } from "./mainWindowInteractions";
 import { registerMcpStdioGuiRelaunch } from "./mcpStdioGuiRelaunch";
+import { createPortalAuthDeepLinkController } from "./portalAuthDeepLinkController";
 // 尽早安装：捕获引导阶段起的 uncaughtException / unhandledRejection，落盘到 app logs（P0-8）。
 installCrashHandlers();
 const configuredUserDataDir = String(process.env.NOMI_ELECTRON_USER_DATA_DIR || "").trim();
@@ -63,11 +64,14 @@ if (configuredUserDataDir) {
 const isMcpStdio = process.env.NOMI_MCP_STDIO === "1";
 const allowE2eMultiInstance = process.env.NOMI_E2E_ALLOW_MULTI_INSTANCE === "1";
 const hasSingleInstanceLock = isMcpStdio ? false : allowE2eMultiInstance ? true : app.requestSingleInstanceLock();
+const portalAuthDeepLink = createPortalAuthDeepLinkController({ app, getRendererUrl, createWindow });
 if (!isMcpStdio && !allowE2eMultiInstance) {
   if (!hasSingleInstanceLock) {
     app.quit();
   } else {
-    app.on("second-instance", () => {
+    app.on("second-instance", (_event, commandLine) => {
+      const deepLinkUrl = portalAuthDeepLink.extractDeepLinkUrl(commandLine);
+      if (deepLinkUrl && portalAuthDeepLink.openDeepLink(deepLinkUrl)) return;
       const [existing] = BrowserWindow.getAllWindows();
       if (existing) {
         if (existing.isMinimized()) existing.restore();
@@ -88,6 +92,9 @@ if (isMcpStdio) {
       process.stderr.write(`[nomi:mcp-stdio] 启动失败: ${error instanceof Error ? error.message : String(error)}\n`);
       app.exit(1);
     });
+}
+if (!isMcpStdio) {
+  portalAuthDeepLink.registerProtocolClient();
 }
 protocol.registerSchemesAsPrivileged([
   {
@@ -739,7 +746,8 @@ if (hasSingleInstanceLock)
           console.error("[nomi:desktop] startCapabilityCore failed:", error);
         });
       }
-      await createWindow();
+      const initialRendererUrl = portalAuthDeepLink.consumePendingRendererUrl();
+      await createWindow({ ...(initialRendererUrl ? { rendererUrl: initialRendererUrl } : {}) });
       setTimeout(
         () => {
           void import("./systemProxy")

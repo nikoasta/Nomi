@@ -177,11 +177,20 @@ function safeRedirectTo(value, req) {
   const fallback = `https://${req.headers.host || 'cut.eva.mba'}/`
   try {
     const url = new URL(candidate || fallback)
+    if (url.protocol === 'nomi:' && url.hostname === 'portal-auth') return url.toString()
     if (url.protocol !== 'https:' && url.hostname !== 'localhost' && url.hostname !== '127.0.0.1') return null
     return url.toString()
   } catch {
     return null
   }
+}
+
+function portalRequestOrigin(req) {
+  const host = clean(req.headers.host) || 'cut.eva.mba'
+  if (host === 'localhost' || host.startsWith('localhost:') || host === '127.0.0.1' || host.startsWith('127.0.0.1:')) {
+    return `http://${host}`
+  }
+  return `https://${host}`
 }
 
 function safeEmail(value) {
@@ -617,9 +626,8 @@ async function generatePortalMagicLink(env, email) {
   return { ok: true, hashedToken, actionLink }
 }
 
-function confirmUrlForRequest(redirectTo, hashedToken) {
-  const redirectUrl = new URL(redirectTo)
-  const confirmUrl = new URL('/api/portal/auth/confirm', redirectUrl.origin)
+function confirmUrlForRequest(redirectTo, hashedToken, publicOrigin) {
+  const confirmUrl = new URL('/api/portal/auth/confirm', publicOrigin)
   confirmUrl.searchParams.set('token_hash', hashedToken)
   confirmUrl.searchParams.set('type', 'magiclink')
   confirmUrl.searchParams.set('redirectTo', redirectTo)
@@ -688,7 +696,7 @@ async function sendPortalLoginEmail(env, email, loginUrl) {
   return { status: result.status, ok: result.ok }
 }
 
-async function requestCorporateMagicLink({ env, email, redirectTo }) {
+async function requestCorporateMagicLink({ env, email, redirectTo, publicOrigin }) {
   const membership = await findPortalMemberByEmail(env, email)
   if (!membership.ok) return { ok: false, status: membership.status, code: 'MEMBERSHIP_LOOKUP_FAILED' }
   if (!membership.member) return { ok: true, delivery: 'not_sent_non_member' }
@@ -696,7 +704,7 @@ async function requestCorporateMagicLink({ env, email, redirectTo }) {
   const link = await generatePortalMagicLink(env, email)
   if (!link.ok) return { ok: false, status: link.status, code: 'MAGIC_LINK_FAILED' }
 
-  const loginUrl = link.hashedToken ? confirmUrlForRequest(redirectTo, link.hashedToken) : link.actionLink
+  const loginUrl = link.hashedToken ? confirmUrlForRequest(redirectTo, link.hashedToken, publicOrigin) : link.actionLink
   const emailResult = await sendPortalLoginEmail(env, email, loginUrl)
   if (!emailResult.ok) return { ok: false, status: emailResult.status, code: 'MAILER_ERROR' }
 
@@ -777,7 +785,7 @@ export async function handlePortalRequest(req, res, pathInput = null) {
       if (!email || !redirectTo) return json(res, 400, { error: { code: 'INVALID_EMAIL' } })
 
       if (shouldUseCorporateMailer(env)) {
-        const result = await requestCorporateMagicLink({ env, email, redirectTo })
+        const result = await requestCorporateMagicLink({ env, email, redirectTo, publicOrigin: portalRequestOrigin(req) })
         if (!result.ok) {
           const status = result.status === 429 ? 429 : result.status === 401 || result.status === 403 ? result.status : 502
           const code = result.status === 429 ? 'RATE_LIMITED' : result.code || 'NETWORK_ERROR'

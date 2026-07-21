@@ -77,7 +77,7 @@
   "portal.auth.desktopTokenInvalid": "Этот desktop sync token неверный или истек.",
   "portal.auth.desktopTokenConnected": "Desktop-синхронизация с порталом подключена.",
   "portal.auth.desktopConnect": "Подключить desktop sync",
-  "portal.auth.desktopConnectBody": "Откройте web-портал, скопируйте desktop sync token и вставьте его здесь.",
+  "portal.auth.desktopConnectBody": "Отправьте безопасную ссылку на этот Mac или вставьте desktop sync token из web-портала.",
   "portal.auth.desktopTokenPlaceholder": "Вставьте desktop sync token",
   "portal.auth.connectDesktop": "Подключить portal sync",
   "portal.auth.signOut": "Выйти",

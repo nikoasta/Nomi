@@ -10,6 +10,7 @@ import {
   readWebPortalRuntimeEnv,
   requestWebPortalMagicLink,
   storeWebPortalDesktopSyncToken,
+  WEB_PORTAL_DESKTOP_REDIRECT_URL,
 } from '../../platform/webPortalSession'
 import { usePortalAuthState } from './portalAuthState'
 import { PortalTelegramLogin } from './PortalTelegramLogin'
@@ -77,7 +78,10 @@ export function PortalAuthControl(): JSX.Element | null {
     event.preventDefault()
     setSubmitting(true)
     setMessageKey(null)
-    const result = await requestWebPortalMagicLink({ email })
+    const result = await requestWebPortalMagicLink({
+      email,
+      ...(desktopRuntime ? { redirectTo: WEB_PORTAL_DESKTOP_REDIRECT_URL } : {}),
+    })
     setSubmitting(false)
     if (result.ok) {
       setMessageKey(result.value.delivery === 'sent_by_everville_mailer' ? 'portal.auth.linkSentByMailer' : 'portal.auth.linkSent')
@@ -150,28 +154,61 @@ export function PortalAuthControl(): JSX.Element | null {
               </WorkbenchButton>
             </div>
           ) : desktopRuntime ? (
-            <form className="grid gap-2" onSubmit={connectDesktopSyncToken}>
+            <div className="grid gap-3">
               <div className="text-body-sm font-semibold text-[var(--nomi-ink)]">{t('portal.auth.desktopConnect')}</div>
               <p className="m-0 text-caption leading-snug text-[var(--nomi-ink-60)]">{t('portal.auth.desktopConnectBody')}</p>
-              <textarea
-                className={cn(
-                  'min-h-[76px] min-w-0 resize-y rounded-[var(--nomi-radius-sm)] border border-workbench-border bg-workbench-bg px-2.5 py-2',
-                  'font-mono text-caption leading-snug text-[var(--nomi-ink)] outline-none',
-                  'focus:border-[var(--nomi-accent)] focus:ring-2 focus:ring-[color-mix(in_oklch,var(--nomi-accent)_20%,transparent)]',
-                )}
-                value={desktopSyncToken}
-                placeholder={t('portal.auth.desktopTokenPlaceholder')}
-                onChange={(event) => setDesktopSyncToken(event.currentTarget.value)}
-              />
+              <form className="grid gap-2" onSubmit={(event) => void submit(event)}>
+                <label className="grid gap-1 text-caption text-[var(--nomi-ink-60)]">
+                  <span>{t('portal.auth.emailLabel')}</span>
+                  <input
+                    className={cn(
+                      'h-9 min-w-0 rounded-[var(--nomi-radius-sm)] border border-workbench-border bg-workbench-bg px-2.5',
+                      'font-inherit text-body-sm text-[var(--nomi-ink)] outline-none',
+                      'focus:border-[var(--nomi-accent)] focus:ring-2 focus:ring-[color-mix(in_oklch,var(--nomi-accent)_20%,transparent)]',
+                    )}
+                    type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    value={email}
+                    placeholder={t('portal.auth.emailPlaceholder')}
+                    disabled={authState === 'unconfigured' || submitting}
+                    onChange={(event) => setEmail(event.currentTarget.value)}
+                  />
+                </label>
+                <WorkbenchButton
+                  type="submit"
+                  className="inline-flex h-8 items-center justify-center rounded-[var(--nomi-radius-sm)] border border-transparent bg-[var(--nomi-ink)] px-2.5 text-body-sm text-[var(--nomi-paper)] disabled:opacity-50"
+                  disabled={authState === 'unconfigured' || submitting}
+                >
+                  {submitting ? t('portal.auth.sending') : t('portal.auth.sendLink')}
+                </WorkbenchButton>
+              </form>
+              <div className="flex items-center gap-2 text-caption text-[var(--nomi-ink-40)]">
+                <span className="h-px flex-1 bg-workbench-border" />
+                <span>{t('portal.auth.or')}</span>
+                <span className="h-px flex-1 bg-workbench-border" />
+              </div>
+              <form className="grid gap-2" onSubmit={connectDesktopSyncToken}>
+                <textarea
+                  className={cn(
+                    'min-h-[76px] min-w-0 resize-y rounded-[var(--nomi-radius-sm)] border border-workbench-border bg-workbench-bg px-2.5 py-2',
+                    'font-mono text-caption leading-snug text-[var(--nomi-ink)] outline-none',
+                    'focus:border-[var(--nomi-accent)] focus:ring-2 focus:ring-[color-mix(in_oklch,var(--nomi-accent)_20%,transparent)]',
+                  )}
+                  value={desktopSyncToken}
+                  placeholder={t('portal.auth.desktopTokenPlaceholder')}
+                  onChange={(event) => setDesktopSyncToken(event.currentTarget.value)}
+                />
+                <WorkbenchButton
+                  type="submit"
+                  className="inline-flex h-9 items-center justify-center rounded-[var(--nomi-radius-sm)] border border-transparent bg-[var(--nomi-ink)] px-4 text-body-sm font-semibold text-[var(--nomi-paper)] disabled:opacity-50"
+                  disabled={desktopSyncToken.trim().length === 0}
+                >
+                  {t('portal.auth.connectDesktop')}
+                </WorkbenchButton>
+              </form>
               {messageKey ? <p className="m-0 text-caption leading-snug text-[var(--nomi-ink-60)]">{t(messageKey)}</p> : null}
-              <WorkbenchButton
-                type="submit"
-                className="inline-flex h-9 items-center justify-center rounded-[var(--nomi-radius-sm)] border border-transparent bg-[var(--nomi-ink)] px-4 text-body-sm font-semibold text-[var(--nomi-paper)] disabled:opacity-50"
-                disabled={desktopSyncToken.trim().length === 0}
-              >
-                {t('portal.auth.connectDesktop')}
-              </WorkbenchButton>
-            </form>
+            </div>
           ) : (
             <form className="grid gap-2" onSubmit={(event) => void submit(event)}>
               {hasTelegramLogin ? (
