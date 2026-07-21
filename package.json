@@ -151,6 +151,14 @@
   "build": {
     "appId": "com.nomi.app",
     "productName": "Nomi",
+    "protocols": [
+      {
+        "name": "Nomi Portal Auth",
+        "schemes": [
+          "nomi"
+        ]
+      }
+    ],
     "npmRebuild": false,
     "directories": {
       "output": "release"
