@@ -26,6 +26,11 @@ function shellPassed(result) {
   return result?.exitCode === 0
 }
 
+function lastOutputToken(result) {
+  const output = typeof result?.stdout === 'string' ? result.stdout.trim() : ''
+  return output ? output.split(/\s+/).at(-1) || '' : ''
+}
+
 const readSpecTask = defineTask('read-nomi-upstream-sync-spec', (args, taskCtx) => ({
   kind: 'shell',
   title: 'Read the Beads acceptance contract verbatim',
@@ -197,7 +202,6 @@ const closeTask = defineTask('close-nomi-upstream-sync', (args, taskCtx) => ({
       `cd ${quote(args.projectRoot)}`,
       `bd note ${quote(args.beadId)} ${quote(`Integrated ${args.upstream}; full gates, macOS package/install, push, production deploy, and live auth redirect smoke passed.`)}`,
       `bd close ${quote(args.beadId)} --reason ${quote('Upstream integration and repeatable update system verified on desktop and web.')}`,
-      'bd sync',
     ].join(' && '),
     expectedExitCode: 0,
     timeoutMs: 120000,
@@ -252,7 +256,7 @@ export async function process(inputs, ctx) {
   return {
     success: true,
     beadId,
-    commit: versioned.stdout.trim().split(/\s+/).at(-1),
-    deploymentUrl: deployed.stdout.trim().split(/\s+/).at(-1),
+    commit: lastOutputToken(versioned),
+    deploymentUrl: lastOutputToken(deployed),
   }
 }
