@@ -426,8 +426,21 @@ function taskAsset(kind, url) {
   return { type: 'image', url, providerUrl: url }
 }
 
+function parseKieResultJson(value) {
+  if (value && typeof value === 'object') return value
+  if (typeof value !== 'string' || !value.trim()) return null
+  try {
+    const parsed = JSON.parse(value)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
 function taskResultFromKieResponse(payload, request, fallbackId) {
-  const resultUrl = getByPath(payload, 'data.resultJson.resultUrls.0') || getByPath(payload, 'data.resultUrls.0')
+  // Kie uses both object and JSON-encoded string forms for resultJson.
+  const resultJson = parseKieResultJson(getByPath(payload, 'data.resultJson'))
+  const resultUrl = getByPath(resultJson, 'resultUrls.0') || getByPath(payload, 'data.resultUrls.0')
   const asset = taskAsset(request.kind, clean(resultUrl))
   const status = normalizeTaskStatus(getByPath(payload, 'data.state') || getByPath(payload, 'state'), Boolean(asset))
   const taskId = clean(getByPath(payload, 'data.taskId')) || clean(getByPath(payload, 'taskId')) || fallbackId

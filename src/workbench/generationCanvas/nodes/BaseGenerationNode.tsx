@@ -486,6 +486,7 @@ function BaseGenerationNodeImpl({
       {status === 'error' && node.error ? (
         <NodeErrorReport
           message={node.error}
+          onRecover={node.runs?.[0]?.taskId || node.progress?.taskId ? () => { void recoverNodeResult(node.id) } : undefined}
           onRetry={
             isAssetKind && node.meta?.source === 'clipboard-url'
               ? undefined
@@ -497,7 +498,6 @@ function BaseGenerationNodeImpl({
           }
         />
       ) : null}
-
       {/* 可找回态：异步任务超时但上游可能已出片——中性面板 + 一键重新拉取（query 不扣费），不进红色错误桶。 */}
       {status === 'recoverable' ? (
         <NodeRecoverableReport

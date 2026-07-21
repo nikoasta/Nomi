@@ -605,4 +605,46 @@ describe('Vercel portal API handler', () => {
     expect(JSON.stringify(payload)).not.toMatch(/deepseek-secret/i)
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
+
+  it('parses Kie resultJson strings when recovering completed generation tasks', async () => {
+    process.env.KIE_API_KEY = 'kie-secret'
+    const resultUrl = 'https://cdn.example.test/generated-image.png'
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url === 'https://project.supabase.co/auth/v1/user') {
+        expect(init?.headers).toEqual(expect.objectContaining({ authorization: 'Bearer user-jwt' }))
+        return new Response(JSON.stringify({ id: 'user-1' }), { status: 200 })
+      }
+      if (url === 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=task-kie-1') {
+        expect(init?.headers).toEqual(expect.objectContaining({ authorization: 'Bearer kie-secret' }))
+        return new Response(JSON.stringify({
+          code: 200,
+          msg: 'success',
+          data: { taskId: 'task-kie-1', state: 'success', resultJson: JSON.stringify({ resultUrls: [resultUrl] }) },
+        }), { status: 200 })
+      }
+      throw new Error(`Unexpected URL ${url}`)
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(request('POST', ['tasks', 'result'], {
+      vendor: 'kie',
+      taskId: 'task-kie-1',
+      taskKind: 'text_to_image',
+      modelKey: 'gpt-image-2-text-to-image',
+      prompt: 'A repaired little robot',
+    }, { authorization: 'Bearer user-jwt' }), res)
+
+    expect(res.statusCode).toBe(200)
+    expect(JSON.parse(res.body)).toEqual(expect.objectContaining({
+      vendor: 'kie',
+      result: expect.objectContaining({
+        id: 'task-kie-1',
+        status: 'succeeded',
+        assets: [{ type: 'image', url: resultUrl, providerUrl: resultUrl }],
+      }),
+    }))
+    expect(JSON.stringify(res.body)).not.toContain('kie-secret')
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
 })

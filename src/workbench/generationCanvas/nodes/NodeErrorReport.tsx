@@ -16,10 +16,11 @@ import { translateDisplayText } from '../../../i18n/displayText'
  *
  * 分类仍走 runner 的 `classifyGenerationError`（唯一真相源），UI 不自己解析错误。
  */
-export function NodeErrorReport({ message, onRetry }: { message: string; onRetry?: () => void }): JSX.Element {
+export function NodeErrorReport({ message, onRetry, onRecover }: { message: string; onRetry?: () => void; onRecover?: () => void }): JSX.Element {
   const report = React.useMemo(() => classifyGenerationError(message), [message])
   const [showRaw, setShowRaw] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
+  const [recovering, setRecovering] = React.useState(false)
   const { locale, t } = useI18n()
   const displayedReason = translateDisplayText(locale, report.reason)
   const displayedHint = translateDisplayText(locale, report.hint)
@@ -45,6 +46,13 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
     },
     [report.raw],
   )
+
+  const handleRecover = React.useCallback((event: React.MouseEvent) => {
+    event.stopPropagation()
+    if (recovering) return
+    setRecovering(true)
+    onRecover?.()
+  }, [onRecover, recovering])
 
   return (
     <div
@@ -87,7 +95,19 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
         </pre>
       ) : null}
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        {onRecover ? (
+          <WorkbenchButton
+            size="sm"
+            onClick={handleRecover}
+            disabled={recovering}
+            aria-label={t('nodeRecoverable.recover')}
+            className="bg-nomi-ink text-nomi-paper border-0 hover:bg-nomi-accent disabled:opacity-50"
+          >
+            <IconRefresh size={13} stroke={1.6} className={cn(recovering && 'animate-spin')} />
+            {recovering ? t('nodeRecoverable.recovering') : t('nodeRecoverable.recover')}
+          </WorkbenchButton>
+        ) : null}
         {onRetry ? (
           <WorkbenchButton
             size="sm"
