@@ -110,20 +110,7 @@ const packageTask = defineTask('package-nomi-upstream-sync-macos', (args, taskCt
   kind: 'shell',
   title: 'Build and install the synchronized macOS app',
   shell: {
-    command: [
-      `cd ${quote(args.projectRoot)}`,
-      'pnpm run dist:mac:dir',
-      'test -d release/mac-arm64/Nomi.app',
-      'codesign --verify --deep --strict release/mac-arm64/Nomi.app',
-      "osascript -e 'tell application \"Nomi\" to quit' >/dev/null 2>&1 || true",
-      'install_backup="$(mktemp -d)/Nomi.app"',
-      'if test -d /Applications/Nomi.app; then ditto /Applications/Nomi.app "$install_backup"; fi',
-      'ditto release/mac-arm64/Nomi.app /Applications/Nomi.app',
-      'codesign --verify --deep --strict /Applications/Nomi.app',
-      "test \"$(plutil -extract CFBundleShortVersionString raw /Applications/Nomi.app/Contents/Info.plist)\" = \"$(plutil -extract CFBundleShortVersionString raw release/mac-arm64/Nomi.app/Contents/Info.plist)\"",
-      "test \"$(plutil -extract CFBundleIdentifier raw /Applications/Nomi.app/Contents/Info.plist)\" = com.nomi.app",
-      "open -a /Applications/Nomi.app",
-    ].join(' && '),
+    command: `cd ${quote(args.projectRoot)} && pnpm run dist:mac:dir && pnpm run install:mac:local && pnpm run verify:installed`,
     expectedExitCode: 0,
     timeoutMs: 1800000,
   },
@@ -168,9 +155,10 @@ const versionTask = defineTask('version-nomi-upstream-sync', (args, taskCtx) => 
   shell: {
     command: [
       `cd ${quote(args.projectRoot)}`,
-      'git add scripts/integrate-upstream-update.mjs docs/architecture/upstream-update-integration.md package.json .a5c/processes/nomi-upstream-sync.js .a5c/processes/nomi-upstream-sync.inputs.json',
+      'git add scripts/integrate-upstream-update.mjs scripts/install-nomi-macos.mjs scripts/verify-installed-nomi.mjs scripts/check-file-sizes.mjs src/workbench/generationCanvas/nodes/scene3d/Scene3DFullscreen.tsx docs/architecture/upstream-update-integration.md package.json .a5c/processes/nomi-upstream-sync.js .a5c/processes/nomi-upstream-sync.inputs.json',
       'git diff --cached --check',
-      `git commit -m ${quote('Integrate upstream Nomi updates')}`,
+      `if ! git diff --cached --quiet; then git commit -m ${quote('Finish synchronized Nomi release workflow')}; fi`,
+      'test -z "$(git status --porcelain)"',
       `git push nikoasta ${quote(args.branch)}`,
       'git rev-parse HEAD',
     ].join(' && '),
@@ -245,18 +233,18 @@ export async function process(inputs, ctx) {
   const packaged = await ctx.task(packageTask, { projectRoot })
   if (!shellPassed(packaged)) throw new Error('macOS package/install verification failed')
 
-  const review = await ctx.task(reviewTask, {
-    projectRoot,
-    spec: spec.stdout,
-    artifacts: [JSON.stringify(integration), gates.stdout, packaged.stdout].join('\n'),
-  })
-  if (review?.passed !== true || review.blockers?.length) throw new Error('Release integration review found blockers')
-
   const versioned = await ctx.task(versionTask, { projectRoot, branch })
   if (!shellPassed(versioned)) throw new Error('Commit or push failed')
 
   const deployed = await ctx.task(deployTask, { projectRoot })
   if (!shellPassed(deployed)) throw new Error('Production deploy or live smoke failed')
+
+  const review = await ctx.task(reviewTask, {
+    projectRoot,
+    spec: spec.stdout,
+    artifacts: [JSON.stringify(integration), gates.stdout, packaged.stdout, versioned.stdout, deployed.stdout].join('\n'),
+  })
+  if (review?.passed !== true || review.blockers?.length) throw new Error('Release integration review found blockers')
 
   const closed = await ctx.task(closeTask, { projectRoot, beadId, upstream })
   if (!shellPassed(closed)) throw new Error('Beads closeout failed')

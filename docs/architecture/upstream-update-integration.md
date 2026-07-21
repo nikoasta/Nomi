@@ -54,7 +54,8 @@ An upstream merge is not released until all of the following use the same commit
 ```bash
 pnpm run gates
 pnpm run dist:mac:dir
-node scripts/verify-installed-nomi.mjs
+pnpm run install:mac:local
+pnpm run verify:installed
 npx vercel@latest deploy --prod --yes
 ```
 

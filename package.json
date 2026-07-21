@@ -71,7 +71,9 @@
     "test:system:release": "node scripts/test-system.mjs release",
     "upstream:plan": "node scripts/integrate-upstream-update.mjs",
     "upstream:merge": "node scripts/integrate-upstream-update.mjs --apply",
-    "upstream:continue": "node scripts/integrate-upstream-update.mjs --continue"
+    "upstream:continue": "node scripts/integrate-upstream-update.mjs --continue",
+    "verify:installed": "node scripts/verify-installed-nomi.mjs",
+    "install:mac:local": "node scripts/install-nomi-macos.mjs"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",
