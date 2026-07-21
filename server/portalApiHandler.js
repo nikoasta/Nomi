@@ -300,9 +300,24 @@ async function callRpc({ env, bearerToken, functionName, body }) {
 async function requirePortalSession(env, bearerToken) {
   const result = await supabaseRequest({ env, bearerToken, path: '/auth/v1/user', method: 'GET' })
   if (result.ok) return { ok: true, payload: result.payload }
+
+  // Telegram bridge sessions can be accepted by PostgREST even when the
+  // project Auth endpoint rejects the publishable-key request. Confirm the
+  // same bearer against the membership-scoped portal facade before denying it.
+  const membership = await callRpc({
+    env,
+    bearerToken,
+    functionName: 'nomi_portal_list_organizations',
+    body: { request_limit: 1 },
+  })
+  const organizations = Array.isArray(membership.payload) ? membership.payload : []
+  if (membership.ok && organizations.length > 0) {
+    return { ok: true, payload: { organizationId: organizations[0].id } }
+  }
+
   return {
     ok: false,
-    status: result.status === 401 || result.status === 403 ? result.status : 401,
+    status: membership.ok ? 403 : membership.status === 401 || membership.status === 403 ? membership.status : 401,
     payload: { error: { code: 'PERMISSION_DENIED', message: 'Authentication is required' } },
   }
 }

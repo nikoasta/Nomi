@@ -612,7 +612,12 @@ describe('Vercel portal API handler', () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (url === 'https://project.supabase.co/auth/v1/user') {
         expect(init?.headers).toEqual(expect.objectContaining({ authorization: 'Bearer user-jwt' }))
-        return new Response(JSON.stringify({ id: 'user-1' }), { status: 200 })
+        return new Response(JSON.stringify({ message: 'Auth endpoint rejected this bridge session' }), { status: 403 })
+      }
+      if (url === 'https://project.supabase.co/rest/v1/rpc/nomi_portal_list_organizations') {
+        expect(init?.headers).toEqual(expect.objectContaining({ authorization: 'Bearer user-jwt' }))
+        expect(JSON.parse(String(init?.body))).toEqual({ request_limit: 1 })
+        return new Response(JSON.stringify([{ id: 'organization-1' }]), { status: 200 })
       }
       if (url === 'https://api.kie.ai/api/v1/jobs/recordInfo?taskId=task-kie-1') {
         expect(init?.headers).toEqual(expect.objectContaining({ authorization: 'Bearer kie-secret' }))
@@ -645,6 +650,6 @@ describe('Vercel portal API handler', () => {
       }),
     }))
     expect(JSON.stringify(res.body)).not.toContain('kie-secret')
-    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(fetchMock).toHaveBeenCalledTimes(3)
   })
 })
