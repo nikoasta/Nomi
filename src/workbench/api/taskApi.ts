@@ -1,5 +1,6 @@
 import { getDesktopActiveProjectId } from '../../desktop/activeProject'
 import { getDesktopBridge } from '../../desktop/bridge'
+import { readLocalProjectAsync } from '../library/localProjectStore'
 import { portalRuntimeRequest } from './portalRuntimeApi'
 
 export type TaskKind =
@@ -81,6 +82,30 @@ export type FetchWorkbenchTaskResultResponseDto = {
   result: TaskResultDto
 }
 
+type PortalAssetScope = { organizationId: string; projectId: string }
+
+async function activePortalAssetScope(projectId: string | null | undefined = getDesktopActiveProjectId()): Promise<PortalAssetScope | null> {
+  if (!projectId) return null
+  const project = await readLocalProjectAsync(projectId)
+  return project?.portalOrganizationId && project.portalProjectId
+    ? { organizationId: project.portalOrganizationId, projectId: project.portalProjectId }
+    : null
+}
+
+async function persistDesktopTaskResult(
+  vendor: string,
+  result: TaskResultDto,
+  projectId: string | null,
+): Promise<TaskResultDto> {
+  if (result.status !== 'succeeded' || result.assets.length === 0) return result
+  const scope = await activePortalAssetScope(projectId)
+  if (!scope) return result
+  const persisted = await portalRuntimeRequest<FetchWorkbenchTaskResultResponseDto>('assets/persist-task-result', {
+    body: { vendor, scope, result },
+  })
+  return persisted.result
+}
+
 /** 付费守卫：真人确认后铸一次性令牌（绑 nodeIds），返回 grantId。仅由确认事件链调用。 */
 export async function mintSpendGrant(nodeIds: string[], maxAttemptsPerNode?: number): Promise<string> {
   const desktop = getDesktopBridge()
@@ -99,13 +124,14 @@ export async function runWorkbenchTaskByVendor(vendor: string, request: TaskRequ
   const normalizedVendor = String(vendor || '').trim()
   if (!normalizedVendor) throw new Error('vendor is required')
   const desktop = getDesktopBridge()
+  const projectId = getDesktopActiveProjectId()
+  const scope = await activePortalAssetScope(projectId)
   if (!desktop) {
     return portalRuntimeRequest<TaskResultDto>('tasks/run', {
-      body: { vendor: normalizedVendor, request },
+      body: { vendor: normalizedVendor, request, scope },
     })
   }
-  const projectId = getDesktopActiveProjectId()
-  return desktop.tasks.run({
+  const result = await desktop.tasks.run({
     vendor: normalizedVendor,
     request: {
       ...request,
@@ -114,7 +140,8 @@ export async function runWorkbenchTaskByVendor(vendor: string, request: TaskRequ
         ...(projectId ? { projectId } : {}),
       },
     },
-  }) as Promise<TaskResultDto>
+  }) as TaskResultDto
+  return persistDesktopTaskResult(normalizedVendor, result, projectId)
 }
 
 export async function fetchWorkbenchTaskResultByVendor(
@@ -122,16 +149,21 @@ export async function fetchWorkbenchTaskResultByVendor(
 ): Promise<FetchWorkbenchTaskResultResponseDto> {
   // 带上当前项目：内存缓存命中走 cached.projectId；miss 后无状态重建查询时主进程用 payload.projectId 本地化资产。
   const desktop = getDesktopBridge()
+  const projectId = payload.projectId ?? getDesktopActiveProjectId()
+  const scope = await activePortalAssetScope(projectId)
   if (!desktop) {
     return portalRuntimeRequest<FetchWorkbenchTaskResultResponseDto>('tasks/result', {
-      body: payload,
+      body: { ...payload, scope },
     })
   }
-  const projectId = payload.projectId ?? getDesktopActiveProjectId()
-  return desktop.tasks.result({
+  const response = await desktop.tasks.result({
     ...payload,
     ...(projectId ? { projectId } : {}),
-  }) as Promise<FetchWorkbenchTaskResultResponseDto>
+  }) as FetchWorkbenchTaskResultResponseDto
+  return {
+    ...response,
+    result: await persistDesktopTaskResult(response.vendor, response.result, projectId),
+  }
 }
 
 /**

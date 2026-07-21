@@ -1,4 +1,5 @@
 import type { PlatformCapability, PlatformIdentity, PlatformResult } from './client'
+import type { PlatformAssetRecords } from './assets/contracts'
 import {
   type ApprovalGateRecord,
   type PlatformCollaboration,
@@ -48,6 +49,7 @@ import {
   type WebPortalRequestOptions,
   webPortalQueryString,
 } from './webPortalTransport'
+import { createUnsupportedWebPortalAssetRecords, createWebPortalAssetRecords } from './webPortalAssets'
 
 export { isWebPortalPublishableKey, type WebPortalClientConfig } from './webPortalTransport'
 
@@ -67,6 +69,7 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
   identity: PlatformIdentity
   organizations: PlatformOrganizations
   collaboration: PlatformCollaboration
+  assetRecords: PlatformAssetRecords
 } {
   const apiBase = config.apiBase ? normalizeWebPortalApiBase(config.apiBase) : null
   const endpoint = apiBase ?? normalizeWebPortalEndpoint(config.endpoint)
@@ -367,6 +370,7 @@ export function createWebPortalServices(config: WebPortalClientConfig): {
         }
       },
     },
+    assetRecords: createWebPortalAssetRecords({ apiBase, bearer, request }),
     organizations: {
       listOrganizations: async (input: OrganizationListRequest = {}) => {
         const result = await selectRows<SupabaseOrganizationRow>('org.organizations.list', {
@@ -767,11 +771,13 @@ export function createUnsupportedWebPortalServices(): {
   identity: PlatformIdentity
   organizations: PlatformOrganizations
   collaboration: PlatformCollaboration
+  assetRecords: PlatformAssetRecords
 } {
   return {
     identity: {
       getSession: async () => ({ ok: true, value: { state: 'unauthenticated' } }),
     },
+    assetRecords: createUnsupportedWebPortalAssetRecords(),
     organizations: {
       listOrganizations: () => Promise.resolve(unsupported('org.organizations.list')),
       listWorkspaces: () => Promise.resolve(unsupported('org.workspaces.list')),

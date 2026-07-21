@@ -59,6 +59,44 @@ export function createElectronAssetResolution(input: {
   }
 }
 
+export function createWebAssetResolution(input: {
+  bundle: unknown
+  request: unknown
+  url: string
+}): AssetResolution {
+  const { bundle, request } = assertResolvableAssetVersion(input.bundle, input.request)
+  let locator: URL
+  try {
+    locator = new URL(input.url, globalThis.location?.origin ?? 'https://cut.eva.mba')
+  } catch {
+    throw new TypeError('Invalid web runtime locator')
+  }
+  const local = locator.hostname === 'localhost' || locator.hostname === '127.0.0.1'
+  if (
+    hasControlCharacter(input.url) ||
+    locator.pathname !== '/api/portal/assets/content' ||
+    (!local && locator.protocol !== 'https:') ||
+    locator.username ||
+    locator.password
+  ) {
+    throw new TypeError('Invalid web runtime locator')
+  }
+  return {
+    schemaVersion: 'asset-resolution.v1',
+    assetId: bundle.asset.id,
+    versionId: bundle.version.id,
+    scope: { ...bundle.asset.scope },
+    purpose: request.purpose,
+    integrity: { ...bundle.version.integrity },
+    locator: {
+      kind: 'runtime-url',
+      runtime: 'web',
+      url: locator.toString(),
+      expiresAt: null,
+    },
+  }
+}
+
 export function assertNoPersistedRuntimeLocator(value: unknown): void {
   const seen = new Set<object>()
   const visit = (current: unknown, key: string | null): void => {

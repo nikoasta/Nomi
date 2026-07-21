@@ -29,6 +29,10 @@ const AUTHENTICATED_PORTAL_CAPABILITIES = filterableCapabilities([
   'portal.review-queue.list',
   'portal.approvals.decide',
   'portal.audit-events.append',
+  'asset-records.list',
+  'asset-records.import-file',
+  'asset-records.import-remote-url',
+  'asset-records.resolve',
 ])
 
 type BrowserPlatformClientOptions = {
@@ -77,12 +81,7 @@ export function createBrowserPlatformClient(options: BrowserPlatformClientOption
       importFile: () => unsupported('assets.import-file'),
       importRemoteUrl: () => unsupported('assets.import-remote-url'),
     },
-    assetRecords: {
-      list: () => unsupported('asset-records.list'),
-      importFile: () => unsupported('asset-records.import-file'),
-      importRemoteUrl: () => unsupported('asset-records.import-remote-url'),
-      resolve: () => unsupported('asset-records.resolve'),
-    },
+    assetRecords: portalFallback.assetRecords,
     collaboration: portalFallback.collaboration,
     organizations: portalFallback.organizations,
   }

@@ -47,6 +47,25 @@ async function sha256Hex(value: string): Promise<string> {
     .join('')
 }
 
+function sanitizePortalSnapshotValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sanitizePortalSnapshotValue)
+  if (!value || typeof value !== 'object') return value
+  const input = value as Record<string, unknown>
+  const cloudAsset =
+    typeof input.assetId === 'string' && input.assetId.startsWith('ast_') &&
+    typeof input.assetRefId === 'string' && input.assetRefId.startsWith('av_')
+  const output: Record<string, unknown> = {}
+  for (const [key, child] of Object.entries(input)) {
+    if (cloudAsset && (key === 'providerUrl' || key === 'raw')) continue
+    output[key] = sanitizePortalSnapshotValue(child)
+  }
+  if (cloudAsset) {
+    output.providerUrl = null
+    if ('raw' in input) output.raw = { stored: true, assetId: input.assetId, assetRefId: input.assetRefId }
+  }
+  return output
+}
+
 export function createPortalProjectSnapshot(record: WorkbenchProjectRecordV1): PortalProjectSnapshotV1 {
   return {
     schemaVersion: 'nomi-workbench-project-snapshot.v1',
@@ -56,7 +75,7 @@ export function createPortalProjectSnapshot(record: WorkbenchProjectRecordV1): P
       localRevision: record.revision ?? 0,
       updatedAt: record.updatedAt,
     },
-    payload: record.payload,
+    payload: sanitizePortalSnapshotValue(record.payload) as WorkbenchProjectRecordV1['payload'],
   }
 }
 

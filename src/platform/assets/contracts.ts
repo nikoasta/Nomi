@@ -35,9 +35,9 @@ export type AssetIntegrity = {
 
 export type AssetValidation =
   | { state: 'pending'; reasonCodes: readonly string[] }
-  | { state: 'validated'; validatedAt: string; validator: 'electron-local-v1'; reasonCodes: readonly [] }
-  | { state: 'quarantined'; validatedAt: string; validator: 'electron-local-v1'; reasonCodes: readonly string[] }
-  | { state: 'rejected'; validatedAt: string; validator: 'electron-local-v1'; reasonCodes: readonly string[] }
+  | { state: 'validated'; validatedAt: string; validator: 'electron-local-v1' | 'portal-dropbox-v1'; reasonCodes: readonly [] }
+  | { state: 'quarantined'; validatedAt: string; validator: 'electron-local-v1' | 'portal-dropbox-v1'; reasonCodes: readonly string[] }
+  | { state: 'rejected'; validatedAt: string; validator: 'electron-local-v1' | 'portal-dropbox-v1'; reasonCodes: readonly string[] }
   | { state: 'legacy-unverified'; reasonCodes: readonly ['LEGACY_FACTS_UNKNOWN'] }
 
 export type ImportedProvenance = {
@@ -111,7 +111,7 @@ export type AssetResolveRequest = AssetScope & {
 
 export type AssetRuntimeLocator = {
   kind: 'runtime-url'
-  runtime: 'electron'
+  runtime: 'electron' | 'web'
   url: string
   expiresAt: string | null
 }
@@ -340,13 +340,15 @@ function parseValidation(value: unknown): AssetValidation {
       ['state', 'validatedAt', 'validator', 'reasonCodes'],
       'completed validation',
     )
-    if (input.validator !== 'electron-local-v1') throw new TypeError('Invalid validator')
+    if (input.validator !== 'electron-local-v1' && input.validator !== 'portal-dropbox-v1') {
+      throw new TypeError('Invalid validator')
+    }
     const parsedReasons = reasonCodes(input.reasonCodes, 'reasonCodes', state === 'validated')
     if (state === 'validated' && parsedReasons.length !== 0) throw new TypeError('Validated records have no reasons')
     return {
       state,
       validatedAt: isoDate(input.validatedAt, 'validatedAt'),
-      validator: 'electron-local-v1',
+      validator: input.validator,
       reasonCodes: parsedReasons,
     } as AssetValidation
   }
@@ -758,31 +760,29 @@ export function parseAssetResolution(value: unknown): AssetResolution {
   const locator = record(input.locator, 'asset runtime locator')
   exactKeys(locator, ['kind', 'runtime', 'url', 'expiresAt'], ['kind', 'runtime', 'url', 'expiresAt'], 'asset runtime locator')
   const url = boundedString(locator.url, 'asset runtime locator URL', 8192)
-  if (locator.kind !== 'runtime-url' || locator.runtime !== 'electron' || !/^nomi-local:\/\/asset\//.test(url)) {
+  if (locator.kind !== 'runtime-url' || (locator.runtime !== 'electron' && locator.runtime !== 'web')) {
     throw new TypeError('Invalid asset runtime locator')
   }
-  const encodedSegments = url.slice('nomi-local://asset/'.length).split('/')
-  if (
-    encodedSegments.length < 2 ||
-    encodedSegments.some((segment) => {
+  if (locator.runtime === 'electron') {
+    if (!/^nomi-local:\/\/asset\//.test(url)) throw new TypeError('Invalid asset runtime locator')
+    const encodedSegments = url.slice('nomi-local://asset/'.length).split('/')
+    if (encodedSegments.length < 2 || encodedSegments.some((segment) => {
       try {
         const decoded = decodeURIComponent(segment)
-        return (
-          segment.length === 0 ||
-          segment !== encodeURIComponent(decoded) ||
-          decoded === '.' ||
-          decoded === '..' ||
+        return segment.length === 0 || segment !== encodeURIComponent(decoded) || decoded === '.' || decoded === '..' ||
           decoded.includes('/') || decoded.includes('\\') || hasControlCharacter(decoded)
-        )
-      } catch {
-        return true
-      }
-    })
-  ) {
-    throw new TypeError('Invalid asset runtime locator')
+      } catch { return true }
+    })) throw new TypeError('Invalid asset runtime locator')
+  } else {
+    let parsed: URL
+    try { parsed = new URL(url) } catch { throw new TypeError('Invalid asset runtime locator') }
+    const local = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1'
+    if (hasControlCharacter(url) || parsed.pathname !== '/api/portal/assets/content' ||
+        (!local && parsed.protocol !== 'https:') || parsed.username || parsed.password) {
+      throw new TypeError('Invalid asset runtime locator')
+    }
   }
   const expiresAt = locator.expiresAt === null ? null : isoDate(locator.expiresAt, 'locator expiresAt')
-
   return {
     schemaVersion: 'asset-resolution.v1',
     assetId: parseAssetId(input.assetId),
@@ -792,7 +792,7 @@ export function parseAssetResolution(value: unknown): AssetResolution {
     integrity: parseAssetIntegrity(input.integrity),
     locator: {
       kind: 'runtime-url',
-      runtime: 'electron',
+      runtime: locator.runtime,
       url,
       expiresAt,
     },

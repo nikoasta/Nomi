@@ -652,4 +652,40 @@ describe('Vercel portal API handler', () => {
     expect(JSON.stringify(res.body)).not.toContain('kie-secret')
     expect(fetchMock).toHaveBeenCalledTimes(3)
   })
+
+  it('resolves a membership-scoped asset to a stable private portal URL', async () => {
+    const organizationId = '00000000-0000-4000-8000-000000000001'
+    const projectId = '00000000-0000-4000-8000-000000000002'
+    const assetId = 'ast_00000000-0000-4000-8000-000000000003'
+    const versionId = 'av_00000000-0000-4000-8000-000000000004'
+    const bundle = {
+      asset: { id: assetId },
+      version: { id: versionId, integrity: { mediaType: 'image/png' } },
+    }
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (url.endsWith('/auth/v1/user')) return new Response(JSON.stringify({ id: 'user-1' }), { status: 200 })
+      if (url.endsWith('/rest/v1/rpc/nomi_portal_get_asset_bundle')) {
+        expect(init?.headers).toEqual(expect.objectContaining({ authorization: 'Bearer user-jwt' }))
+        return new Response(JSON.stringify([{ bundle }]), { status: 200 })
+      }
+      throw new Error(`Unexpected URL ${url}`)
+    })
+    globalThis.fetch = fetchMock as unknown as typeof fetch
+    const res = response()
+
+    await handlePortalRequest(request('POST', ['assets', 'resolve'], {
+      organizationId,
+      projectId,
+      assetId,
+      versionId,
+      purpose: 'display',
+    }, { authorization: 'Bearer user-jwt' }), res)
+
+    expect(res.statusCode).toBe(200)
+    expect(JSON.parse(res.body)).toEqual({
+      bundle,
+      url: `https://cut.eva.mba/api/portal/assets/content?organizationId=${organizationId}&projectId=${projectId}&assetId=${assetId}&versionId=${versionId}`,
+    })
+    expect(res.headers['set-cookie']).toContain('__Host-nomi_portal=')
+  })
 })

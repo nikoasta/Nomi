@@ -25,6 +25,10 @@ export type WebPortalCapability =
   | 'portal.review-queue.list'
   | 'portal.approvals.decide'
   | 'portal.audit-events.append'
+  | 'asset-records.list'
+  | 'asset-records.import-file'
+  | 'asset-records.import-remote-url'
+  | 'asset-records.resolve'
 
 export function normalizeWebPortalEndpoint(endpoint: string): string {
   const trimmed = endpoint.trim().replace(/\/+$/, '')
@@ -71,7 +75,10 @@ export function assertWebPortalBearer(value: string): string {
 export function configuredWebPortalFetch(config: WebPortalClientConfig): typeof fetch {
   const candidate = config.fetch ?? globalThis.fetch
   if (typeof candidate !== 'function') throw new TypeError('Portal browser config requires fetch')
-  return candidate.bind(globalThis) as typeof fetch
+  return ((input: RequestInfo | URL, init?: RequestInit) => candidate.call(globalThis, input, {
+    credentials: 'include',
+    ...init,
+  })) as typeof fetch
 }
 
 export function webPortalQueryString(query: WebPortalRequestOptions['query']): string {

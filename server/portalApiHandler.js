@@ -1,6 +1,18 @@
 /* global Buffer, fetch, process, URL, URLSearchParams */
 
 import crypto from 'node:crypto'
+import { Readable } from 'node:stream'
+
+import {
+  assetStoragePath,
+  deterministicAssetIds,
+  downloadAsset,
+  fetchPublicAsset,
+  readDropboxAssetEnv,
+  sha256Text,
+  temporaryAssetLink,
+  uploadAssetStream,
+} from './dropboxAssetStorage.js'
 
 const RPC_ALLOWLIST = new Set([
   'nomi_portal_list_organizations',
@@ -13,6 +25,9 @@ const RPC_ALLOWLIST = new Set([
   'nomi_portal_list_review_queue',
   'nomi_portal_decide_approval_gate',
   'nomi_portal_append_audit_event',
+  'nomi_portal_authorize_asset_scope',
+  'nomi_portal_list_asset_bundles',
+  'nomi_portal_get_asset_bundle',
 ])
 
 const TABLE_QUERY_RPC = {
@@ -285,6 +300,15 @@ async function supabaseServiceRequest({ env, path, method = 'POST', body }) {
   return { status: response.status, ok: response.ok, payload }
 }
 
+async function serviceRpc({ env, functionName, body }) {
+  if (!env.serviceRoleKey) return { status: 503, ok: false, payload: { message: 'Portal service role is not configured' } }
+  return supabaseServiceRequest({
+    env,
+    path: `/rest/v1/rpc/${functionName}`,
+    body,
+  })
+}
+
 async function callRpc({ env, bearerToken, functionName, body }) {
   if (!RPC_ALLOWLIST.has(functionName)) {
     return { status: 404, ok: false, payload: { message: 'Portal operation is not available' } }
@@ -320,6 +344,235 @@ async function requirePortalSession(env, bearerToken) {
     status: membership.ok ? 403 : membership.status === 401 || membership.status === 403 ? membership.status : 401,
     payload: { error: { code: 'PERMISSION_DENIED', message: 'Authentication is required' } },
   }
+}
+
+const PORTAL_COOKIE = '__Host-nomi_portal'
+
+function cookieBearer(req) {
+  const header = typeof req.headers.cookie === 'string' ? req.headers.cookie : ''
+  for (const part of header.split(';')) {
+    const [name, ...value] = part.trim().split('=')
+    if (name === PORTAL_COOKIE) return clean(decodeURIComponent(value.join('=')))
+  }
+  return null
+}
+
+function setPortalSessionCookie(res, token) {
+  if (!clean(token)) return
+  let maxAge = 3600
+  try {
+    const payload = JSON.parse(Buffer.from(token.split('.')[1] || '', 'base64url').toString('utf8'))
+    if (Number.isFinite(payload.exp)) maxAge = Math.max(60, Math.min(7 * 24 * 3600, payload.exp - Math.floor(Date.now() / 1000)))
+  } catch {
+    // Opaque bridge sessions still receive a bounded cookie.
+  }
+  res.setHeader('set-cookie', `${PORTAL_COOKIE}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=None`)
+}
+
+function safeAssetId(value, prefix) {
+  const candidate = clean(value)
+  const pattern = prefix === 'ast'
+    ? /^ast_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+    : /^av_[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+  return candidate && pattern.test(candidate) ? candidate : null
+}
+
+function safeUuid(value) {
+  const candidate = clean(value)
+  return candidate && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(candidate)
+    ? candidate
+    : null
+}
+
+function safeMediaType(value) {
+  const candidate = clean(value)?.toLowerCase().split(';', 1)[0]
+  return candidate && /^[a-z0-9][a-z0-9!#$&^_.+-]{0,126}\/[a-z0-9][a-z0-9!#$&^_.+-]{0,126}$/.test(candidate)
+    ? candidate
+    : 'application/octet-stream'
+}
+
+function assetType(mediaType, fallback = 'image') {
+  if (mediaType.startsWith('video/')) return 'video'
+  if (mediaType.startsWith('audio/')) return 'audio'
+  if (mediaType.startsWith('image/')) return 'image'
+  return fallback === 'video' || fallback === 'audio' ? fallback : 'image'
+}
+
+async function authorizeAssetScope({ env, bearerToken, organizationId, projectId, permission }) {
+  const result = await callRpc({
+    env,
+    bearerToken,
+    functionName: 'nomi_portal_authorize_asset_scope',
+    body: {
+      request_organization_id: organizationId,
+      request_project_id: projectId,
+      request_permission: permission,
+    },
+  })
+  const row = Array.isArray(result.payload) ? result.payload[0] : null
+  if (!result.ok || !row?.workspace_id || !row?.actor_user_id) return { ok: false, status: result.status, payload: result.payload }
+  return {
+    ok: true,
+    value: {
+      organizationId: row.organization_id,
+      workspaceId: row.workspace_id,
+      projectId: row.project_id,
+      actorUserId: row.actor_user_id,
+    },
+  }
+}
+
+function publicAssetUrl(req, scope, assetId, versionId) {
+  const origin = portalRequestOrigin(req)
+  const params = new URLSearchParams({
+    organizationId: scope.organizationId,
+    projectId: scope.projectId,
+    assetId,
+    versionId,
+  })
+  return `${origin}/api/portal/assets/content?${params.toString()}`
+}
+
+async function serviceResolveAsset(env, scope, assetId, versionId) {
+  const result = await serviceRpc({
+    env,
+    functionName: 'nomi_portal_service_resolve_asset',
+    body: {
+      request_organization_id: scope.organizationId,
+      request_project_id: scope.projectId,
+      request_asset_id: assetId,
+      request_version_id: versionId,
+    },
+  })
+  return result.ok && Array.isArray(result.payload) ? result.payload[0] || null : null
+}
+
+async function registerStoredAsset({ env, scope, descriptor, stored }) {
+  const now = nowIso()
+  const validation = {
+    state: 'validated',
+    validatedAt: now,
+    validator: 'portal-dropbox-v1',
+    reasonCodes: [],
+  }
+  const provenance = descriptor.generated
+    ? {
+        kind: 'generated',
+        recordedAt: now,
+        actorPrincipalId: scope.actorUserId,
+        providerId: descriptor.provider,
+        modelId: descriptor.modelId || 'unknown',
+        operationId: descriptor.operationId || null,
+        providerRequestId: descriptor.providerTaskId,
+        promptRef: descriptor.promptRef || null,
+        promptDigest: descriptor.promptDigest || null,
+      }
+    : {
+        kind: 'imported',
+        method: descriptor.method || 'remote',
+        recordedAt: now,
+        actorPrincipalId: scope.actorUserId,
+        originalName: descriptor.fileName || null,
+      }
+  return serviceRpc({
+    env,
+    functionName: 'nomi_portal_service_register_asset',
+    body: {
+      request_organization_id: scope.organizationId,
+      request_workspace_id: scope.workspaceId,
+      request_project_id: scope.projectId,
+      request_actor_user_id: scope.actorUserId,
+      request_asset_id: descriptor.assetId,
+      request_version_id: descriptor.versionId,
+      request_provider: descriptor.provider,
+      request_provider_task_id: descriptor.providerTaskId,
+      request_output_index: descriptor.outputIndex,
+      request_idempotency_hash: descriptor.idempotencyHash,
+      request_fingerprint: descriptor.requestFingerprint,
+      request_sha256_digest: stored.sha256Digest,
+      request_size_bytes: stored.sizeBytes,
+      request_media_type: descriptor.mediaType,
+      request_classification: descriptor.classification,
+      request_validation: validation,
+      request_provenance: provenance,
+      request_namespace_id: descriptor.namespaceId,
+      request_file_id: stored.metadata.id,
+      request_path_display: stored.metadata.path_display,
+      request_revision: stored.metadata.rev,
+      request_content_hash: stored.metadata.content_hash,
+    },
+  })
+}
+
+async function persistAssetSource({ req, env, dropboxEnv, bearerToken, scopeInput, source, descriptor }) {
+  const authorized = await authorizeAssetScope({
+    env,
+    bearerToken,
+    organizationId: scopeInput.organizationId,
+    projectId: scopeInput.projectId,
+    permission: 'asset.write',
+  })
+  if (!authorized.ok) return authorized
+  const scope = authorized.value
+  const existing = await serviceResolveAsset(env, scope, descriptor.assetId, descriptor.versionId)
+  if (existing?.bundle) {
+    return {
+      ok: true,
+      value: {
+        bundle: existing.bundle,
+        url: publicAssetUrl(req, scope, descriptor.assetId, descriptor.versionId),
+        scope,
+      },
+    }
+  }
+
+  const path = assetStoragePath(dropboxEnv, {
+    projectId: scope.projectId,
+    assetId: descriptor.assetId,
+    mediaType: descriptor.mediaType,
+    fileName: descriptor.fileName,
+  })
+  let stored
+  try {
+    stored = await uploadAssetStream(dropboxEnv, { source, path })
+  } catch (error) {
+    return { status: error?.status === 403 ? 503 : 502, ok: false, payload: { error: { code: 'ASSET_STORAGE_FAILED', message: 'Asset storage failed' } } }
+  }
+  const registered = await registerStoredAsset({
+    env,
+    scope,
+    descriptor: { ...descriptor, namespaceId: dropboxEnv.rootNamespaceId },
+    stored,
+  })
+  const row = registered.ok && Array.isArray(registered.payload) ? registered.payload[0] : null
+  if (!registered.ok || !row?.bundle) return { status: registered.status, ok: false, payload: registered.payload }
+  return {
+    ok: true,
+    value: {
+      bundle: row.bundle,
+      url: publicAssetUrl(req, scope, descriptor.assetId, descriptor.versionId),
+      scope,
+    },
+  }
+}
+
+async function persistRemoteAsset({ req, env, dropboxEnv, bearerToken, scope, remoteUrl, descriptor }) {
+  let response
+  try {
+    response = await fetchPublicAsset(remoteUrl)
+  } catch {
+    return { status: 502, ok: false, payload: { error: { code: 'REMOTE_ASSET_FAILED', message: 'Provider asset could not be downloaded' } } }
+  }
+  const mediaType = safeMediaType(response.headers.get('content-type') || descriptor.mediaType)
+  return persistAssetSource({
+    req,
+    env,
+    dropboxEnv,
+    bearerToken,
+    scopeInput: scope,
+    source: response.body,
+    descriptor: { ...descriptor, mediaType },
+  })
 }
 
 function nowIso() {
@@ -555,6 +808,159 @@ async function fetchKieTaskResult(generationEnv, request) {
   const taskKind = clean(request.taskKind) || 'text_to_image'
   const result = taskResultFromKieResponse(payload, { kind: taskKind, prompt: clean(request.prompt) || '', extras: { modelKey: clean(request.modelKey) || null } }, taskId)
   return { ok: true, payload: { vendor: 'kie', result } }
+}
+
+function normalizedAssetScope(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null
+  const organizationId = safeUuid(value.organizationId)
+  const projectId = safeUuid(value.projectId)
+  return organizationId && projectId ? { organizationId, projectId } : null
+}
+
+function importedAssetDescriptor(scope, input, method) {
+  const idempotencyKey = clean(input.idempotencyKey)
+  if (!idempotencyKey || idempotencyKey.length > 512) return null
+  const identity = `${scope.organizationId}:${scope.projectId}:${method}:${idempotencyKey}`
+  const idempotencyHash = sha256Text(identity, 'everville.nomi.imported-asset.idempotency.v1')
+  const ids = deterministicAssetIds(idempotencyHash)
+  return {
+    ...ids,
+    idempotencyHash,
+    requestFingerprint: sha256Text(`${identity}:${clean(input.fileName) || ''}:${clean(input.claimedMediaType) || ''}`, 'everville.nomi.imported-asset.request.v1'),
+    provider: 'nomi-import',
+    providerTaskId: idempotencyHash,
+    outputIndex: 0,
+    mediaType: safeMediaType(input.claimedMediaType),
+    classification: ['unknown', 'public', 'internal', 'confidential', 'restricted'].includes(input.classification)
+      ? input.classification
+      : 'internal',
+    generated: false,
+    method,
+    fileName: clean(input.fileName),
+  }
+}
+
+function decodeAssetMetadata(req) {
+  const encoded = clean(req.headers['x-nomi-asset-metadata'])
+  if (!encoded || encoded.length > 8192) return null
+  try {
+    const value = JSON.parse(Buffer.from(encoded, 'base64url').toString('utf8'))
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null
+  } catch {
+    return null
+  }
+}
+
+async function persistTaskResultAssets({ req, env, dropboxEnv, bearerToken, scope, vendor, result }) {
+  if (result?.status !== 'succeeded' || !Array.isArray(result.assets) || result.assets.length === 0) return { ok: true, value: result }
+  if (!dropboxEnv) return { ok: false, status: 503, payload: { error: { code: 'ASSET_STORAGE_UNCONFIGURED', message: 'Durable asset storage is not configured' } } }
+
+  const assets = []
+  for (let outputIndex = 0; outputIndex < result.assets.length; outputIndex += 1) {
+    const asset = result.assets[outputIndex]
+    const remoteUrl = clean(asset?.providerUrl) || clean(asset?.url)
+    if (!remoteUrl) return { ok: false, status: 502, payload: { error: { code: 'PROVIDER_ASSET_MISSING', message: 'Provider returned no asset URL' } } }
+    const identity = `${scope.organizationId}:${scope.projectId}:${vendor}:${result.id}:${outputIndex}`
+    const idempotencyHash = sha256Text(identity, 'everville.nomi.generated-asset.idempotency.v1')
+    const requestFingerprint = sha256Text(`${identity}:${asset.type || result.kind}`, 'everville.nomi.generated-asset.request.v1')
+    const ids = deterministicAssetIds(idempotencyHash)
+    const stored = await persistRemoteAsset({
+      req,
+      env,
+      dropboxEnv,
+      bearerToken,
+      scope,
+      remoteUrl,
+      descriptor: {
+        ...ids,
+        idempotencyHash,
+        requestFingerprint,
+        provider: vendor,
+        providerTaskId: String(result.id),
+        outputIndex,
+        mediaType: asset.type === 'video' ? 'video/mp4' : asset.type === 'audio' ? 'audio/mpeg' : 'image/png',
+        classification: 'internal',
+        generated: true,
+        modelId: result.provenance?.modelKey || 'unknown',
+        operationId: result.provenance?.vendorRequestId || result.id,
+        promptDigest: result.provenance?.prompt
+          ? sha256Text(result.provenance.prompt, 'everville.nomi.prompt.v1')
+          : null,
+      },
+    })
+    if (!stored.ok) return stored
+    const mediaType = stored.value.bundle?.version?.integrity?.mediaType || ''
+    assets.push({
+      type: assetType(mediaType, asset.type),
+      url: stored.value.url,
+      thumbnailUrl: null,
+      assetId: ids.assetId,
+      assetRefId: ids.versionId,
+      providerUrl: null,
+    })
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...result,
+      assets,
+      raw: { provider: vendor, taskId: result.id, status: result.status, stored: true },
+    },
+  }
+}
+
+function portalAssetReference(value) {
+  if (typeof value !== 'string' || !value.includes('/api/portal/assets/content')) return null
+  try {
+    const url = new URL(value, 'https://cut.eva.mba')
+    if (url.pathname !== '/api/portal/assets/content') return null
+    const organizationId = safeUuid(url.searchParams.get('organizationId'))
+    const projectId = safeUuid(url.searchParams.get('projectId'))
+    const assetId = safeAssetId(url.searchParams.get('assetId'), 'ast')
+    const versionId = safeAssetId(url.searchParams.get('versionId'), 'av')
+    return organizationId && projectId && assetId && versionId
+      ? { organizationId, projectId, assetId, versionId }
+      : null
+  } catch {
+    return null
+  }
+}
+
+async function materializeProviderAssetReferences({ env, dropboxEnv, bearerToken, scope, value, depth = 0 }) {
+  if (depth > 12) throw new Error('ASSET_REFERENCE_DEPTH')
+  const reference = portalAssetReference(value)
+  if (reference) {
+    if (!dropboxEnv || reference.organizationId !== scope.organizationId || reference.projectId !== scope.projectId) {
+      throw new Error('ASSET_REFERENCE_SCOPE')
+    }
+    const authorized = await authorizeAssetScope({
+      env,
+      bearerToken,
+      organizationId: reference.organizationId,
+      projectId: reference.projectId,
+      permission: 'asset.read',
+    })
+    if (!authorized.ok) throw new Error('ASSET_REFERENCE_DENIED')
+    const stored = await serviceResolveAsset(env, authorized.value, reference.assetId, reference.versionId)
+    if (!stored?.file_id) throw new Error('ASSET_REFERENCE_NOT_FOUND')
+    return temporaryAssetLink(dropboxEnv, {
+      fileId: stored.file_id,
+      revision: stored.revision,
+      contentHash: stored.content_hash,
+    })
+  }
+  if (Array.isArray(value)) {
+    return Promise.all(value.map((item) => materializeProviderAssetReferences({ env, dropboxEnv, bearerToken, scope, value: item, depth: depth + 1 })))
+  }
+  if (value && typeof value === 'object') {
+    const entries = await Promise.all(Object.entries(value).map(async ([key, child]) => [
+      key,
+      await materializeProviderAssetReferences({ env, dropboxEnv, bearerToken, scope, value: child, depth: depth + 1 }),
+    ]))
+    return Object.fromEntries(entries)
+  }
+  return value
 }
 
 function extractTextFromOpenAiLike(payload) {
@@ -806,6 +1212,50 @@ export async function handlePortalRequest(req, res, pathInput = null) {
   const path = Array.isArray(pathInput) ? pathInput : Array.isArray(req.query.path) ? req.query.path : []
 
   try {
+    if (req.method === 'GET' && path.join('/') === 'assets/content') {
+      const token = bearer(req) || cookieBearer(req)
+      const dropboxEnv = readDropboxAssetEnv()
+      const scope = normalizedAssetScope({
+        organizationId: queryValue(req, 'organizationId'),
+        projectId: queryValue(req, 'projectId'),
+      })
+      const assetId = safeAssetId(queryValue(req, 'assetId'), 'ast')
+      const versionId = safeAssetId(queryValue(req, 'versionId'), 'av')
+      if (!token) return json(res, 401, { error: { code: 'PERMISSION_DENIED', message: 'Authentication is required' } })
+      if (!dropboxEnv) return json(res, 503, { error: { code: 'ASSET_STORAGE_UNCONFIGURED', message: 'Durable asset storage is not configured' } })
+      if (!scope || !assetId || !versionId) return json(res, 400, { error: { code: 'INVALID_ARGUMENT', message: 'Invalid asset reference' } })
+
+      const authorized = await authorizeAssetScope({
+        env,
+        bearerToken: token,
+        organizationId: scope.organizationId,
+        projectId: scope.projectId,
+        permission: 'asset.read',
+      })
+      if (!authorized.ok) return json(res, authorized.status, authorized.payload)
+      const stored = await serviceResolveAsset(env, authorized.value, assetId, versionId)
+      if (!stored?.file_id || !stored?.bundle) return json(res, 404, { error: { code: 'NOT_FOUND', message: 'Asset was not found' } })
+
+      const response = await downloadAsset(dropboxEnv, {
+        fileId: stored.file_id,
+        revision: stored.revision,
+        contentHash: stored.content_hash,
+        range: clean(req.headers.range),
+      })
+      if (!response.ok || !response.body) return json(res, response.status === 416 ? 416 : 502, { error: { code: 'ASSET_READ_FAILED', message: 'Asset could not be read' } })
+      setPortalSessionCookie(res, token)
+      res.statusCode = response.status
+      res.setHeader('content-type', stored.bundle.version?.integrity?.mediaType || 'application/octet-stream')
+      res.setHeader('cache-control', 'private, no-store')
+      res.setHeader('accept-ranges', response.headers.get('accept-ranges') || 'bytes')
+      for (const header of ['content-length', 'content-range']) {
+        const value = response.headers.get(header)
+        if (value) res.setHeader(header, value)
+      }
+      Readable.fromWeb(response.body).pipe(res)
+      return
+    }
+
     if (req.method === 'POST' && path.join('/') === 'auth/magic-link') {
       const body = await readJson(req)
       const email = safeEmail(body.email)
@@ -866,6 +1316,7 @@ export async function handlePortalRequest(req, res, pathInput = null) {
           error: { code: sessionResult.status === 429 ? 'RATE_LIMITED' : 'SESSION_CREATE_FAILED', message: 'Portal session failed' },
         })
       }
+      setPortalSessionCookie(res, sessionResult.session.accessToken)
       return json(res, 200, {
         email: safeEmail(membership.member.email),
         delivery: 'telegram_verified',
@@ -898,6 +1349,7 @@ export async function handlePortalRequest(req, res, pathInput = null) {
 
     if (req.method === 'GET' && path.join('/') === 'identity/session') {
       const result = await supabaseRequest({ env, bearerToken: token, path: '/auth/v1/user', method: 'GET' })
+      if (result.ok) setPortalSessionCookie(res, token)
       return json(res, result.status, result.payload)
     }
 
@@ -920,6 +1372,116 @@ export async function handlePortalRequest(req, res, pathInput = null) {
       if (req.method === 'GET' && path[1] === 'health') {
         return json(res, 200, portalCatalogHealth(catalog))
       }
+    }
+
+    if (req.method === 'POST' && path.join('/') === 'assets/list') {
+      const session = await requirePortalSession(env, token)
+      if (!session.ok) return json(res, session.status, session.payload)
+      const body = await readJson(req)
+      const scope = normalizedAssetScope(body)
+      if (!scope) return json(res, 400, { error: { code: 'INVALID_ARGUMENT', message: 'Invalid asset scope' } })
+      const result = await callRpc({
+        env,
+        bearerToken: token,
+        functionName: 'nomi_portal_list_asset_bundles',
+        body: {
+          request_organization_id: scope.organizationId,
+          request_project_id: scope.projectId,
+          request_cursor: clean(body.cursor),
+          request_limit: numberOrNull(body.limit),
+        },
+      })
+      if (!result.ok) return json(res, result.status, result.payload)
+      const rows = Array.isArray(result.payload) ? result.payload : []
+      const items = rows.map((row) => row?.bundle).filter(Boolean)
+      const cursor = items.length > 0 && items.length === Math.min(Math.max(Number(body.limit) || 100, 1), 500)
+        ? items.at(-1)?.asset?.id || null
+        : null
+      setPortalSessionCookie(res, token)
+      return json(res, 200, { items, cursor })
+    }
+
+    if (req.method === 'POST' && path.join('/') === 'assets/resolve') {
+      const session = await requirePortalSession(env, token)
+      if (!session.ok) return json(res, session.status, session.payload)
+      const body = await readJson(req)
+      const scope = normalizedAssetScope(body)
+      const assetId = safeAssetId(body.assetId, 'ast')
+      const versionId = safeAssetId(body.versionId, 'av')
+      if (!scope || !assetId || !versionId) return json(res, 400, { error: { code: 'INVALID_ARGUMENT', message: 'Invalid asset reference' } })
+      const result = await callRpc({
+        env,
+        bearerToken: token,
+        functionName: 'nomi_portal_get_asset_bundle',
+        body: {
+          request_organization_id: scope.organizationId,
+          request_project_id: scope.projectId,
+          request_asset_id: assetId,
+          request_version_id: versionId,
+        },
+      })
+      const row = result.ok && Array.isArray(result.payload) ? result.payload[0] : null
+      if (!result.ok) return json(res, result.status, result.payload)
+      if (!row?.bundle) return json(res, 404, { error: { code: 'NOT_FOUND', message: 'Asset was not found' } })
+      setPortalSessionCookie(res, token)
+      return json(res, 200, {
+        bundle: row.bundle,
+        url: publicAssetUrl(req, scope, assetId, versionId),
+      })
+    }
+
+    if (req.method === 'POST' && path.join('/') === 'assets/import-remote') {
+      const session = await requirePortalSession(env, token)
+      if (!session.ok) return json(res, session.status, session.payload)
+      const dropboxEnv = readDropboxAssetEnv()
+      if (!dropboxEnv) return json(res, 503, { error: { code: 'ASSET_STORAGE_UNCONFIGURED', message: 'Durable asset storage is not configured' } })
+      const body = await readJson(req)
+      const scope = normalizedAssetScope(body)
+      const remoteUrl = clean(body.url)
+      const descriptor = scope ? importedAssetDescriptor(scope, body, 'remote') : null
+      if (!scope || !remoteUrl || !descriptor) return json(res, 400, { error: { code: 'INVALID_ARGUMENT', message: 'Invalid asset import request' } })
+      const stored = await persistRemoteAsset({ req, env, dropboxEnv, bearerToken: token, scope, remoteUrl, descriptor })
+      if (!stored.ok) return json(res, stored.status, stored.payload)
+      setPortalSessionCookie(res, token)
+      return json(res, 200, stored.value.bundle)
+    }
+
+    if (req.method === 'POST' && path.join('/') === 'assets/import-file') {
+      const session = await requirePortalSession(env, token)
+      if (!session.ok) return json(res, session.status, session.payload)
+      const dropboxEnv = readDropboxAssetEnv()
+      const metadata = decodeAssetMetadata(req)
+      const scope = normalizedAssetScope(metadata)
+      const descriptor = scope && metadata ? importedAssetDescriptor(scope, metadata, 'file') : null
+      if (!dropboxEnv) return json(res, 503, { error: { code: 'ASSET_STORAGE_UNCONFIGURED', message: 'Durable asset storage is not configured' } })
+      if (!scope || !descriptor) return json(res, 400, { error: { code: 'INVALID_ARGUMENT', message: 'Invalid asset import metadata' } })
+      const stored = await persistAssetSource({ req, env, dropboxEnv, bearerToken: token, scopeInput: scope, source: req, descriptor })
+      if (!stored.ok) return json(res, stored.status, stored.payload)
+      setPortalSessionCookie(res, token)
+      return json(res, 200, stored.value.bundle)
+    }
+
+    if (req.method === 'POST' && path.join('/') === 'assets/persist-task-result') {
+      const session = await requirePortalSession(env, token)
+      if (!session.ok) return json(res, session.status, session.payload)
+      const body = await readJson(req)
+      const scope = normalizedAssetScope(body.scope)
+      const vendor = clean(body.vendor)
+      if (!scope || !vendor || !body.result || typeof body.result !== 'object') {
+        return json(res, 400, { error: { code: 'INVALID_ARGUMENT', message: 'Invalid task result persistence request' } })
+      }
+      const persisted = await persistTaskResultAssets({
+        req,
+        env,
+        dropboxEnv: readDropboxAssetEnv(),
+        bearerToken: token,
+        scope,
+        vendor,
+        result: body.result,
+      })
+      if (!persisted.ok) return json(res, persisted.status, persisted.payload)
+      setPortalSessionCookie(res, token)
+      return json(res, 200, { vendor, result: persisted.value })
     }
 
     if (req.method === 'POST' && path.join('/') === 'project-revisions/current') {
@@ -947,15 +1509,49 @@ export async function handlePortalRequest(req, res, pathInput = null) {
       const body = await readJson(req)
       const vendor = clean(body.vendor)
       const request = body.request && typeof body.request === 'object' ? body.request : null
+      const scope = normalizedAssetScope(body.scope)
       if (!vendor || !request || !clean(request.prompt) || !clean(request.kind)) {
         return json(res, 400, { error: { code: 'INVALID_ARGUMENT', message: 'vendor and request are required' } })
       }
-      const result = request.kind === 'chat' || request.kind === 'prompt_refine' || request.kind === 'image_to_prompt'
+      const isTextTask = request.kind === 'chat' || request.kind === 'prompt_refine' || request.kind === 'image_to_prompt'
+      if (!isTextTask && !scope) {
+        return json(res, 400, { error: { code: 'INVALID_ARGUMENT', message: 'A shared project scope is required for durable generation' } })
+      }
+      let providerRequest = request
+      if (!isTextTask) {
+        try {
+          providerRequest = await materializeProviderAssetReferences({
+            env,
+            dropboxEnv: readDropboxAssetEnv(),
+            bearerToken: token,
+            scope,
+            value: request,
+          })
+        } catch {
+          return json(res, 403, { error: { code: 'PERMISSION_DENIED', message: 'A referenced asset is not available to this project' } })
+        }
+      }
+      const result = isTextTask
         ? await runTextTask(generationEnv, vendor, request)
         : vendor === 'kie'
-          ? await runKieTask(generationEnv, request)
+          ? await runKieTask(generationEnv, providerRequest)
           : { ok: false, status: 404, payload: { error: { code: 'UNSUPPORTED_PROVIDER', message: `${vendor} is not available in the web portal runtime` } } }
-      return json(res, result.ok ? 200 : result.status, result.payload)
+      if (!result.ok) return json(res, result.status, result.payload)
+      if (!isTextTask && result.payload?.status === 'succeeded') {
+        const persisted = await persistTaskResultAssets({
+          req,
+          env,
+          dropboxEnv: readDropboxAssetEnv(),
+          bearerToken: token,
+          scope,
+          vendor,
+          result: result.payload,
+        })
+        if (!persisted.ok) return json(res, persisted.status, persisted.payload)
+        result.payload = persisted.value
+      }
+      setPortalSessionCookie(res, token)
+      return json(res, 200, result.payload)
     }
 
     if (req.method === 'POST' && path.join('/') === 'tasks/result') {
@@ -965,10 +1561,26 @@ export async function handlePortalRequest(req, res, pathInput = null) {
       const generationEnv = readPortalGenerationEnv()
       const body = await readJson(req)
       const vendor = clean(body.vendor)
+      const scope = normalizedAssetScope(body.scope)
       const result = vendor === 'kie'
         ? await fetchKieTaskResult(generationEnv, body)
         : { ok: false, status: 404, payload: { error: { code: 'UNSUPPORTED_PROVIDER', message: `${vendor || 'provider'} is not available in the web portal runtime` } } }
-      return json(res, result.ok ? 200 : result.status, result.payload)
+      if (!result.ok) return json(res, result.status, result.payload)
+      if (scope && result.payload?.result?.status === 'succeeded') {
+        const persisted = await persistTaskResultAssets({
+          req,
+          env,
+          dropboxEnv: readDropboxAssetEnv(),
+          bearerToken: token,
+          scope,
+          vendor,
+          result: result.payload.result,
+        })
+        if (!persisted.ok) return json(res, persisted.status, persisted.payload)
+        result.payload.result = persisted.value
+      }
+      setPortalSessionCookie(res, token)
+      return json(res, 200, result.payload)
     }
 
     if (req.method === 'POST' && path[0] === 'query') {

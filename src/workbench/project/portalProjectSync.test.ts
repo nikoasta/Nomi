@@ -129,6 +129,35 @@ describe('portal project sync', () => {
     expect(saveProjectRevision).not.toHaveBeenCalled()
   })
 
+  it('persists stable cloud identities without provider URLs or raw provider payloads', () => {
+    const record = createLocalProject('Cloud project', undefined, {
+      portal: {
+        organizationId: 'org-everville',
+        workspaceId: 'workspace-content',
+        projectId: 'project-cloud',
+      },
+    })
+    const cloudResult = {
+      id: 'result-1',
+      type: 'image',
+      url: 'https://cut.eva.mba/api/portal/assets/content?organizationId=org&assetId=ast_value',
+      providerUrl: 'https://temporary-provider.example/asset.png',
+      assetId: 'ast_00000000-0000-4000-8000-000000000001',
+      assetRefId: 'av_00000000-0000-4000-8000-000000000001',
+      raw: { url: 'https://temporary-provider.example/raw.png', token: 'must-not-persist' },
+    }
+    ;(record.payload.generationCanvas.nodes as unknown[]).push({ id: 'node-1', result: cloudResult })
+
+    const snapshot = createPortalProjectSnapshot(record)
+    const serialized = JSON.stringify(snapshot)
+
+    expect(serialized).toContain(cloudResult.assetId)
+    expect(serialized).toContain('/api/portal/assets/content')
+    expect(serialized).not.toContain('temporary-provider.example')
+    expect(serialized).not.toContain('must-not-persist')
+    expect(cloudResult.providerUrl).toContain('temporary-provider.example')
+  })
+
   it('reads the current portal project snapshot for local restoration', async () => {
     const record = createLocalProject('Cash on Rails', undefined, {
       portal: {

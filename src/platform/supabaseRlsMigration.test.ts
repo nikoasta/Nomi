@@ -8,6 +8,8 @@ const APPROVAL_RPC_MIGRATION = 'supabase/migrations/20260720034022_portal_approv
 const PUBLIC_BFF_RPC_MIGRATION = 'supabase/migrations/20260720040006_portal_public_bff_rpc.sql'
 const DEFAULT_CREATOR_PERMISSIONS_MIGRATION =
   'supabase/migrations/20260720154000_portal_default_creator_permissions.sql'
+const DROPBOX_ASSET_STORAGE_MIGRATION =
+  'supabase/migrations/20260721070857_dropbox_asset_storage.sql'
 
 function sql(): string {
   return readFileSync(MIGRATION, 'utf8')
@@ -31,6 +33,10 @@ function publicBffRpcSql(): string {
 
 function defaultCreatorPermissionsSql(): string {
   return readFileSync(DEFAULT_CREATOR_PERMISSIONS_MIGRATION, 'utf8')
+}
+
+function dropboxAssetStorageSql(): string {
+  return readFileSync(DROPBOX_ASSET_STORAGE_MIGRATION, 'utf8')
 }
 
 describe('Everville Supabase auth/RLS migration', () => {
@@ -222,5 +228,35 @@ describe('Everville Supabase portal default creator permissions migration', () =
     expect(source).toContain('to service_role')
     expect(source).not.toContain("'organization.admin'")
     expect(source).not.toMatch(/grant\s+execute[^;]+to\s+(?:anon|authenticated)/i)
+  })
+})
+
+describe('Everville Dropbox asset storage migration', () => {
+  it('keeps Dropbox locators private and exposes only membership-scoped asset RPCs', () => {
+    const source = dropboxAssetStorageSql()
+
+    for (const table of ['assets', 'asset_versions', 'asset_ingestions']) {
+      expect(source).toContain(`alter table app.${table} enable row level security;`)
+      expect(source).toContain(`alter table app.${table} force row level security;`)
+    }
+    expect(source).toContain('create table if not exists app_private.asset_storage_objects')
+    expect(source).toContain('revoke all on app_private.asset_storage_objects from public, anon, authenticated;')
+    expect(source).toContain("when 'asset.read' then 'project.read'")
+    expect(source).toContain("when 'asset.write' then 'project.write'")
+    expect(source).toContain('nomi_portal_service_register_asset')
+    expect(source).toContain('nomi_portal_service_resolve_asset')
+    expect(source).toContain("if (select auth.role()) <> 'service_role'")
+    expect(source).toContain('pg_advisory_xact_lock')
+    expect(source).toContain('hashtextextended')
+    expect(source).not.toMatch(/grant\s+(?:select|insert|update|delete|all)[^;]+to\s+(?:anon|authenticated)/i)
+  })
+
+  it('enforces immutable idempotent provider output registration', () => {
+    const source = dropboxAssetStorageSql()
+
+    expect(source).toContain('unique (organization_id, project_id, provider, provider_task_id, output_index)')
+    expect(source).toContain('unique (organization_id, project_id, idempotency_hash)')
+    expect(source).toContain("raise exception 'Idempotency key was rebound'")
+    expect(source).toContain("request_validation, request_provenance, request_actor_user_id")
   })
 })

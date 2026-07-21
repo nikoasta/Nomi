@@ -448,6 +448,7 @@ export function createElectronPlatformClient(
   if (portalServices) {
     for (const capability of PORTAL_CAPABILITIES) available.add(capability)
     for (const capability of ORGANIZATION_CAPABILITIES) available.add(capability)
+    for (const capability of ASSET_RECORD_CAPABILITIES) available.add(capability)
   }
 
   const capabilities = filterableCapabilities(CAPABILITY_ORDER.filter((capability) => available.has(capability)))
@@ -578,6 +579,9 @@ export function createElectronPlatformClient(
     assetRecords: {
       async list(request) {
         const capability = 'asset-records.list'
+        if (portalServices && request.organizationId !== LOCAL_ORGANIZATION_ID) {
+          return portalServices.assetRecords.list(request)
+        }
         if (!assetRecordAdapter?.list) return unsupported(capability)
         if (!(await authorizeAssetRecord('project.read', request))) return denied(capability)
         const limit = request.limit ?? 200
@@ -657,6 +661,9 @@ export function createElectronPlatformClient(
       },
       async importFile(request) {
         const capability = 'asset-records.import-file'
+        if (portalServices && request.organizationId !== LOCAL_ORGANIZATION_ID) {
+          return portalServices.assetRecords.importFile(request)
+        }
         if (!assetRecordAdapter?.importFile) return unsupported(capability)
         if (!(await authorizeAssetRecord('project.write', request))) return denied(capability)
         const authorizedAssetIds = new Set<AssetId>()
@@ -693,6 +700,9 @@ export function createElectronPlatformClient(
       },
       async importRemoteUrl(request) {
         const capability = 'asset-records.import-remote-url'
+        if (portalServices && request.organizationId !== LOCAL_ORGANIZATION_ID) {
+          return portalServices.assetRecords.importRemoteUrl(request)
+        }
         if (!assetRecordAdapter?.importRemoteUrl) return unsupported(capability)
         if (!(await authorizeAssetRecord('project.write', request))) return denied(capability)
         const authorizedAssetIds = new Set<AssetId>()
@@ -731,6 +741,9 @@ export function createElectronPlatformClient(
       },
       async resolve(request) {
         const capability = 'asset-records.resolve'
+        if (portalServices && request.organizationId !== LOCAL_ORGANIZATION_ID) {
+          return portalServices.assetRecords.resolve(request)
+        }
         if (!assetRecordAdapter?.resolve) return unsupported(capability)
         if (!(await authorizeAssetRecord('asset.read', request, request.assetId))) return denied(capability)
         const result = await invokeAssetRecord(capability, () => assetRecordAdapter.resolve!(request))

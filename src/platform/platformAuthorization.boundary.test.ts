@@ -82,6 +82,7 @@ describe('authorization repository boundary', () => {
       'supabase/migrations/20260720073000_portal_telegram_auth_bridge.sql',
       'supabase/migrations/20260720154000_portal_default_creator_permissions.sql',
       'supabase/migrations/20260720213000_portal_current_revision_rpc.sql',
+      'supabase/migrations/20260721070857_dropbox_asset_storage.sql',
     ])
     let changedEntries: Array<{ status: string; path: string }> = []
     let gitError: unknown

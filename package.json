@@ -69,6 +69,7 @@
     "test:system:ci": "node scripts/test-system.mjs ci",
     "test:system:full": "node scripts/test-system.mjs full-local",
     "test:system:release": "node scripts/test-system.mjs release",
+    "smoke:portal-storage": "node scripts/smoke-portal-storage.mjs",
     "upstream:plan": "node scripts/integrate-upstream-update.mjs",
     "upstream:merge": "node scripts/integrate-upstream-update.mjs --apply",
     "upstream:continue": "node scripts/integrate-upstream-update.mjs --continue",

@@ -58,6 +58,10 @@ describe('web portal PlatformClient adapter', () => {
       'portal.review-queue.list',
       'portal.approvals.decide',
       'portal.audit-events.append',
+      'asset-records.list',
+      'asset-records.import-file',
+      'asset-records.import-remote-url',
+      'asset-records.resolve',
     ])
     expect(client.supports('org.memberships.list')).toBe(true)
     expect(client.supports('portal.projects.create')).toBe(true)
@@ -756,6 +760,74 @@ describe('web portal PlatformClient adapter', () => {
       }),
     ).toThrow(/publishable/)
     expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('lists and resolves private Dropbox-backed assets through the portal BFF', async () => {
+    const organizationId = '00000000-0000-4000-8000-000000000001'
+    const projectId = '00000000-0000-4000-8000-000000000002'
+    const assetId = 'ast_00000000-0000-4000-8000-000000000003'
+    const versionId = 'av_00000000-0000-4000-8000-000000000004'
+    const bundle = {
+      asset: {
+        schemaVersion: 'asset.v1',
+        id: assetId,
+        scope: { organizationId, projectId },
+        createdAt: NOW,
+        createdByPrincipalId: '00000000-0000-4000-8000-000000000005',
+      },
+      version: {
+        schemaVersion: 'asset-version.v1',
+        id: versionId,
+        assetId,
+        scope: { organizationId, projectId },
+        predecessorVersionId: null,
+        derivedFromVersionIds: [],
+        integrity: { algorithm: 'sha256', digest: 'a'.repeat(64), sizeBytes: 42, mediaType: 'image/png' },
+        classification: 'internal',
+        validation: { state: 'validated', validatedAt: NOW, validator: 'portal-dropbox-v1', reasonCodes: [] },
+        provenance: {
+          kind: 'imported',
+          method: 'remote',
+          recordedAt: NOW,
+          actorPrincipalId: '00000000-0000-4000-8000-000000000005',
+          originalName: 'frame.png',
+        },
+        createdAt: NOW,
+        createdByPrincipalId: '00000000-0000-4000-8000-000000000005',
+      },
+    }
+    const contentUrl = `https://cut.eva.mba/api/portal/assets/content?organizationId=${organizationId}&projectId=${projectId}&assetId=${assetId}&versionId=${versionId}`
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url.endsWith('/assets/list')) return response({ items: [bundle], cursor: null })
+      if (url.endsWith('/assets/resolve')) return response({ bundle, url: contentUrl })
+      return response({}, { status: 404 })
+    })
+    const services = createWebPortalServices({
+      endpoint: 'https://cut.eva.mba/api/portal',
+      apiBase: 'https://cut.eva.mba/api/portal',
+      bearer: BEARER,
+      fetch: fetchMock as unknown as typeof fetch,
+    })
+
+    await expect(services.assetRecords.list({ organizationId, projectId })).resolves.toEqual({
+      ok: true,
+      value: { items: [bundle], cursor: null },
+    })
+    await expect(services.assetRecords.resolve({
+      organizationId,
+      projectId,
+      assetId: assetId as never,
+      versionId: versionId as never,
+      purpose: 'display',
+    })).resolves.toEqual({
+      ok: true,
+      value: expect.objectContaining({
+        assetId,
+        versionId,
+        locator: { kind: 'runtime-url', runtime: 'web', url: contentUrl, expiresAt: null },
+      }),
+    })
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining('/assets/list'), expect.objectContaining({ credentials: 'include' }))
   })
 
   it('rejects legacy JWT-shaped API keys in browser publishable config', () => {

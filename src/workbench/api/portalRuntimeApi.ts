@@ -24,6 +24,7 @@ export async function portalRuntimeRequest<T>(
   const method = options.method ?? 'POST'
   const response = await request(`${normalizeEndpoint(env.apiBase)}/${path.replace(/^\/+/, '')}`, {
     method,
+    credentials: 'include',
     headers: {
       accept: 'application/json',
       authorization: `Bearer ${session.accessToken}`,

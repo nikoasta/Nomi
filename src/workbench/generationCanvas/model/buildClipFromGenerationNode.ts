@@ -16,12 +16,16 @@ function readString(value: unknown): string {
 }
 
 /**
- * clip 播放 URL 口径：providerUrl > url > thumbnailUrl。
+ * Cloud assets use the stable authenticated URL; legacy/local results keep
+ * the providerUrl > url > thumbnailUrl fallback for compatibility.
  * 与 runner/referenceUrl.resultUrl 同序，但**不过 vendor 严格白名单**——
  * clip.url 是本地 <video>/<img> 播放用，file:// / nomi-local:// 等本地 scheme 都合法，
  * 不能像「喂 vendor」那样被 asUrl 收紧。这里只修「漏读 providerUrl」的真坑（记忆 url-priority-inconsistency）。
  */
 function pickClipUrl(result: GenerationNodeResult | null | undefined): string {
+  if (readString(result?.assetId).startsWith('ast_') && readString(result?.assetRefId).startsWith('av_')) {
+    return readString(result?.url) || readString(result?.thumbnailUrl)
+  }
   return readString(result?.providerUrl) || readString(result?.url) || readString(result?.thumbnailUrl)
 }
 
