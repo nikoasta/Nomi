@@ -4,6 +4,7 @@ import { cn } from '../../../utils/cn'
 import { WorkbenchButton } from '../../../design'
 import { classifyGenerationError } from '../runner/generationRunController'
 import { useI18n } from '../../../i18n/i18nContext'
+import { translateDisplayText } from '../../../i18n/displayText'
 
 /**
  * 生成失败态 —— 节点正文内联错误卡（方案 B，2026-06-03 6 角色评审后重构）。
@@ -19,7 +20,9 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
   const report = React.useMemo(() => classifyGenerationError(message), [message])
   const [showRaw, setShowRaw] = React.useState(false)
   const [copied, setCopied] = React.useState(false)
-  const { t } = useI18n()
+  const { locale, t } = useI18n()
+  const displayedReason = translateDisplayText(locale, report.reason)
+  const displayedHint = translateDisplayText(locale, report.hint)
 
   const handleRetry = React.useCallback(
     (event: React.MouseEvent) => {
@@ -46,7 +49,7 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
   return (
     <div
       role="alert"
-      aria-label={t('nodeError.aria', { reason: report.reason })}
+      aria-label={t('nodeError.aria', { reason: displayedReason })}
       className={cn(
         'absolute inset-0 z-[5] flex flex-col rounded-nomi p-4',
         // 不透明浅红底：盖住下面的棋盘格占位，缩放时也一眼看出是失败态。
@@ -58,9 +61,13 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
     >
       <div className="flex items-start gap-2">
         <IconAlertTriangle size={16} stroke={1.6} className="mt-[1px] shrink-0 text-workbench-danger" />
-        <span className="select-text cursor-text text-body font-bold leading-snug text-nomi-ink">{report.reason}</span>
+        <span className="select-text cursor-text text-body font-bold leading-snug text-nomi-ink">
+          {displayedReason}
+        </span>
       </div>
-      {report.hint ? <p className="mt-2 select-text cursor-text text-caption leading-relaxed text-nomi-ink-60">{report.hint}</p> : null}
+      {displayedHint ? (
+        <p className="mt-2 select-text cursor-text text-caption leading-relaxed text-nomi-ink-60">{displayedHint}</p>
+      ) : null}
       {/* 服务商真实原话——提到可见区，别再让用户去折叠的「技术详情」里挖（一脸懵逼的根源）。 */}
       {report.providerMessage ? (
         <p className="mt-2 select-text cursor-text rounded-nomi-sm bg-nomi-ink-05 p-2 text-caption leading-relaxed text-nomi-ink-60">
@@ -92,11 +99,7 @@ export function NodeErrorReport({ message, onRetry }: { message: string; onRetry
             {t('assistantError.retry')}
           </WorkbenchButton>
         ) : null}
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="text-caption text-nomi-ink-40 hover:text-nomi-ink"
-        >
+        <button type="button" onClick={handleCopy} className="text-caption text-nomi-ink-40 hover:text-nomi-ink">
           {copied ? t('nodeError.copied') : t('nodeError.copy')}
         </button>
         <div className="min-w-0 flex-1" />

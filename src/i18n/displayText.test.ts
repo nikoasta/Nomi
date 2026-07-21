@@ -62,4 +62,13 @@ describe('translateDisplayText', () => {
     expect(translateDisplayText('ru', '群众(2x3)')).toBe('Массовка (2x3)')
     expect(translateDisplayText('en', '假人 副本')).toBe('Mannequin copy')
   })
+
+  it('translates persisted generation error narration at the display boundary', () => {
+    const reason = '生成失败'
+    const hint = '可能是服务商临时故障或额度问题，建议稍等重试，或换一个模型。'
+    expect(translateDisplayText('en', reason)).toBe('Generation failed')
+    expect(translateDisplayText('en', hint)).not.toMatch(/[\u3400-\u9fff]/u)
+    expect(translateDisplayText('ru', reason)).toBe('Ошибка генерации')
+    expect(translateDisplayText('ru', hint)).not.toMatch(/[\u3400-\u9fff]/u)
+  })
 })
