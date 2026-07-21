@@ -11,6 +11,13 @@ describe('translateDisplayText', () => {
     expect(translateDisplayText('en', '比例')).toBe('Aspect')
     expect(translateDisplayText('ru', '清晰度')).toBe('Качество')
     expect(translateDisplayText('en', '纯文字生成图像')).toBe('Generate an image from text')
+    expect(translateDisplayText('en', '纯文字描述生成视频，无需参考图')).toBe(
+      'Generate video from text; no reference image required',
+    )
+    expect(translateDisplayText('en', '单张首帧图驱动生成')).toBe('Generate from one first-frame image')
+    expect(translateDisplayText('ru', '多模态参考；最多 9 角色 / 3 视频 / 3 音频')).not.toMatch(/[\u3400-\u9fff]/u)
+    expect(translateDisplayText('en', '标准')).toBe('Standard')
+    expect(translateDisplayText('en', '生成音频')).toBe('Generate audio')
   })
 
   it('keeps Chinese labels unchanged in zh-CN', () => {
