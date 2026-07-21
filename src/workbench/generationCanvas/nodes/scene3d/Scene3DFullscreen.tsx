@@ -69,8 +69,6 @@ type Scene3DFullscreenProps = {
   onClose: () => void
   onStateChange: (state: Scene3DState) => void
   onScreenshot: (capture: Scene3DCaptureResult) => void
-  // 录 take（S2）：把录制好的（含角色/机位轨迹的）场景交回宿主建 scene3d 节点 + 打捕获标志。
-  // 可选——未传则不出现「录 take」按钮（如样张/只读环境）。
   onRecordTake?: (recordedState: Scene3DState) => void
   referenceTarget?: Scene3DReferenceTargetSummary
 }
@@ -88,7 +86,6 @@ export default function Scene3DFullscreen({
   const t3d = useScene3DI18n()
   const [state, setState] = React.useState(() => cloneScene3DState(initialState))
   const [selection, setSelection] = React.useState<Scene3DSelection>(null)
-  // 首次进入的三步教练标注（方案 A，2026-07-11 拍板）；只出现一次，localStorage 记忆。
   const [showCoach, setShowCoach] = React.useState(() => !hasSeenScene3DCoach())
   const [transformMode, setTransformMode] = React.useState<Scene3DTransformMode>('translate')
   const [viewLocked, setViewLocked] = React.useState(false)
@@ -124,7 +121,6 @@ export default function Scene3DFullscreen({
   const cameraViewEditCamera = cameraViewEditId
     ? state.cameras.find((camera) => camera.id === cameraViewEditId)
     : undefined
-  // 整运镜分区（IA 重排一期）：预设/轨迹/录 take 三 tab，替代原右栏顶层「属性/轨迹」两 tab
   const [moveHubTab, setMoveHubTab] = React.useState<Scene3DMoveHubTab>('preset')
   const trajectory = useScene3DTrajectoryEditing({ state, setState, readOnly })
   const trajectoryMode = trajectory.trajectoryEditMode
@@ -786,9 +782,7 @@ export default function Scene3DFullscreen({
         </AnimatePresence>
       </main>
       {showCoach && !readOnly ? <Scene3DCoachMarks onDone={() => setShowCoach(false)} /> : null}
-      {/* P0-4/P3-14：出片产物卡片（渲染中→完成+去向；回画布查看=关编辑器，fit+高亮已排队） */}
       <Scene3DExportingCard card={exportCard} onGoCanvas={handleClose} onDismiss={dismissExportCard} />
-      {/* 出片面板（P0-2）：右侧滑出，三选项 */}
       <Scene3DExportPanel
         open={exportPanelOpen}
         onClose={() => setExportPanelOpen(false)}
