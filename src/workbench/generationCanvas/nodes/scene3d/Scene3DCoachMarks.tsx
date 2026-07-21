@@ -1,12 +1,25 @@
-// 首次进入导演台的三步教练标注（2026-07-11 用户拍板方案 A）。
-// 断层依据（真机冷启动走查）：导演台三个核心能力全是隐藏状态——「操控」要先选中假人才出现、
-// 姿势藏在属性第二个 tab、运镜预设要先选中相机才解锁；第一屏零提示。
-// 三步分别指向左列表假人行 / 相机行 / 底部「添加」，可跳过、只出现一次（onboardingState 持久化）。
+// 首次进入导演台的流程引导（2026-07-20 重写为 5 步旅程）。
+// 原 3 步只指孤立动作（点假人/点相机/添加），用户不知道整体流程。
+// 改成 5 步：摆场景 → 摆角色 → 摆相机 → 整运镜 → 出片，每步讲清"下一步干什么"。
+// 角落可重看（不只第一次）。
 import React from 'react'
-import { hasSeenScene3DCoach, markScene3DCoachSeen } from '../../../onboarding/onboardingState'
+import { markScene3DCoachSeen } from '../../../onboarding/onboardingState'
 import { useScene3DI18n, type Scene3DI18nKey } from './scene3dI18n'
 
-const STEPS = [
+type CoachStep = {
+  coach: string
+  /** 主目标不在场时的兜底锚点（如整运镜面板要选中相机才渲染，兜底指相机行） */
+  fallback?: string
+  titleKey: Scene3DI18nKey
+  bodyKey: Scene3DI18nKey
+}
+
+const STEPS: readonly CoachStep[] = [
+  {
+    coach: 'add-button',
+    titleKey: 'coach.scene.title',
+    bodyKey: 'coach.scene.body',
+  },
   {
     coach: 'mannequin-row',
     titleKey: 'coach.mannequin.title',
@@ -18,11 +31,17 @@ const STEPS = [
     bodyKey: 'coach.camera.body',
   },
   {
-    coach: 'add-button',
-    titleKey: 'coach.add.title',
-    bodyKey: 'coach.add.body',
+    coach: 'camera-move-panel',
+    fallback: 'camera-row',
+    titleKey: 'coach.move.title',
+    bodyKey: 'coach.move.body',
   },
-] as const satisfies ReadonlyArray<{ coach: string; titleKey: Scene3DI18nKey; bodyKey: Scene3DI18nKey }>
+  {
+    coach: 'export-button',
+    titleKey: 'coach.export.title',
+    bodyKey: 'coach.export.body',
+  },
+] as const satisfies readonly CoachStep[]
 
 interface TargetRect {
   left: number
@@ -48,7 +67,9 @@ export function Scene3DCoachMarks({ onDone }: { onDone: () => void }): JSX.Eleme
     const host = hostRef.current
     const shell = host?.parentElement
     if (!shell) return null
-    const target = shell.querySelector(`[data-coach="${STEPS[index].coach}"]`)
+    const spec = STEPS[index]
+    const target = shell.querySelector(`[data-coach="${spec.coach}"]`)
+      ?? (spec.fallback ? shell.querySelector(`[data-coach="${spec.fallback}"]`) : null)
     if (!target) return null
     const shellBox = shell.getBoundingClientRect()
     const box = target.getBoundingClientRect()
@@ -63,7 +84,7 @@ export function Scene3DCoachMarks({ onDone }: { onDone: () => void }): JSX.Eleme
   }, [])
 
   React.useEffect(() => {
-    // 目标控件不存在（布局变了/只读态）就直接结束，绝不挡人。
+    // 目标控件不存在（布局变了/只读态/还没加相机）就跳到下一步，绝不挡人。
     const next = measure(step)
     if (!next) {
       if (step < STEPS.length - 1) setStep(step + 1)
@@ -79,25 +100,22 @@ export function Scene3DCoachMarks({ onDone }: { onDone: () => void }): JSX.Eleme
   if (!rect) return <div ref={hostRef} className="pointer-events-none absolute inset-0 z-[6]" />
 
   const current = STEPS[step]
-  // 卡片钳制进外壳边界：默认贴目标右侧同高；越界则回收（底部锚点时自动落到目标上方）。
-  const CARD_W = 256
-  const CARD_H = 132
+  const CARD_W = 280
+  const CARD_H = 148
   const cardLeft = Math.min(Math.max(rect.left + rect.width + 12, 8), rect.hostWidth - CARD_W - 8)
   const below = rect.top
   const cardTop = below + CARD_H + 8 > rect.hostHeight ? rect.top - CARD_H - 10 : Math.max(40, below)
 
   return (
     <div ref={hostRef} className="absolute inset-0 z-[6]">
-      {/* 压暗层：2026-07-11 悬案已破——「类不上屏」真因是 r3f Canvas 初始化自 suspend 让 React 把整棵
-          外壳 display:none（hideInstance），类本身无辜；Canvas 已上 FencedCanvas 围栏，此处回归 token 类。 */}
       <div className="absolute inset-0 bg-nomi-ink/45" onClick={finish} />
       <div
         className="pointer-events-none absolute rounded-nomi border-2 border-nomi-paper shadow-nomi-md"
         style={{ left: rect.left - 4, top: rect.top - 4, width: rect.width + 8, height: rect.height + 8 }}
       />
       <div
-        className="absolute w-64 rounded-nomi border border-nomi-line bg-nomi-paper p-3 shadow-nomi-lg"
-        style={{ left: cardLeft, top: cardTop }}
+        className="absolute rounded-nomi border border-nomi-line bg-nomi-paper p-3 shadow-nomi-lg"
+        style={{ left: cardLeft, top: cardTop, width: CARD_W }}
       >
         <div className="text-caption font-medium text-nomi-ink">{t3d(current.titleKey)}</div>
         <div className="mt-1 text-micro leading-relaxed text-nomi-ink-60">{t3d(current.bodyKey)}</div>
@@ -124,5 +142,3 @@ export function Scene3DCoachMarks({ onDone }: { onDone: () => void }): JSX.Eleme
     </div>
   )
 }
-
-export { hasSeenScene3DCoach }
