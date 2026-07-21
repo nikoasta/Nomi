@@ -68,7 +68,10 @@
     "test:system": "node scripts/test-system.mjs",
     "test:system:ci": "node scripts/test-system.mjs ci",
     "test:system:full": "node scripts/test-system.mjs full-local",
-    "test:system:release": "node scripts/test-system.mjs release"
+    "test:system:release": "node scripts/test-system.mjs release",
+    "upstream:plan": "node scripts/integrate-upstream-update.mjs",
+    "upstream:merge": "node scripts/integrate-upstream-update.mjs --apply",
+    "upstream:continue": "node scripts/integrate-upstream-update.mjs --continue"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^1.2.12",

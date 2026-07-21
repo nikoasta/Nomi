@@ -1,91 +1,133 @@
 #!/usr/bin/env node
 import { execFileSync, spawnSync } from "node:child_process";
-import fs from "node:fs";
-import os from "node:os";
-import path from "node:path";
 
-const args = new Map(
-  process.argv.slice(2).flatMap((arg) => {
-    if (arg === "--apply") return [["apply", "true"]];
-    const match = arg.match(/^--([^=]+)=(.*)$/);
-    return match ? [[match[1], match[2]]] : [];
-  }),
-);
-
-function git(args, options = {}) {
-  return execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...options }).trim();
+const flags = new Set();
+const values = new Map();
+for (const arg of process.argv.slice(2)) {
+  const match = arg.match(/^--([^=]+)=(.*)$/);
+  if (match) values.set(match[1], match[2]);
+  else if (arg.startsWith("--")) flags.add(arg.slice(2));
 }
 
-function runGit(args) {
-  const result = spawnSync("git", args, { stdio: "inherit" });
-  if (result.status !== 0) process.exit(result.status ?? 1);
+function git(args, options = {}) {
+  return execFileSync("git", args, {
+    encoding: "utf8",
+    stdio: ["ignore", "pipe", "pipe"],
+    ...options,
+  }).trim();
+}
+
+function tryGit(args) {
+  try {
+    return git(args);
+  } catch {
+    return "";
+  }
+}
+
+function run(command, args) {
+  const result = spawnSync(command, args, { stdio: "inherit" });
+  return result.status ?? 1;
+}
+
+function fail(message) {
+  console.error(message);
+  process.exit(1);
 }
 
 function currentBranch() {
   return git(["branch", "--show-current"]) || "HEAD";
 }
 
-function isDirty() {
-  return git(["status", "--porcelain"]).length > 0;
+function timestamp() {
+  return new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
 }
 
-const upstream = args.get("upstream") || "origin/main";
-const source = args.get("source") || currentBranch();
-const target =
-  args.get("target") ||
-  `update-integration-${new Date().toISOString().slice(0, 10).replaceAll("-", "")}`;
-const apply = args.get("apply") === "true";
+const upstream = values.get("upstream") || "origin/main";
+const branch = values.get("branch") || "update-integration";
+const remote = upstream.includes("/") ? upstream.slice(0, upstream.indexOf("/")) : "origin";
+const apply = flags.has("apply");
+const continueMerge = flags.has("continue");
+const verify = flags.has("verify");
 
-runGit(["fetch", "origin", "--prune"]);
-runGit(["config", "rerere.enabled", "true"]);
+if (apply && continueMerge) fail("Use either --apply or --continue, not both.");
 
-const upstreamHead = git(["rev-parse", "--short", upstream]);
-const sourceHead = git(["rev-parse", "--short", source]);
-const commits = git(["rev-list", "--reverse", `${upstream}..${source}`])
-  .split("\n")
-  .map((line) => line.trim())
-  .filter(Boolean);
-
-const todoPath = path.join(os.tmpdir(), "nomi-update-integration-commits.txt");
-fs.writeFileSync(todoPath, `${commits.join("\n")}${commits.length ? "\n" : ""}`);
-
-console.log(`Upstream: ${upstream} (${upstreamHead})`);
-console.log(`Source:   ${source} (${sourceHead})`);
-console.log(`Target:   ${target}`);
-console.log(`Commits to replay: ${commits.length}`);
-console.log(`Commit list: ${todoPath}`);
-
-if (!apply) {
-  console.log("");
-  console.log("Dry run only. To apply:");
-  console.log(
-    `  node scripts/integrate-upstream-update.mjs --source=${source} --target=${target} --upstream=${upstream} --apply`,
-  );
-  process.exit(0);
+if (run("git", ["fetch", remote, "--prune"]) !== 0) {
+  fail(`Unable to fetch ${remote}.`);
 }
 
-if (isDirty()) {
-  console.error("Refusing to apply with a dirty worktree. Commit, stash, or clean unrelated changes first.");
-  process.exit(1);
-}
+git(["rev-parse", "--verify", upstream]);
+git(["rev-parse", "--verify", branch]);
 
-if (commits.length === 0) {
-  console.log("Nothing to replay.");
-  process.exit(0);
-}
+const current = currentBranch();
+const upstreamHead = git(["rev-parse", "--short=12", upstream]);
+const branchHead = git(["rev-parse", "--short=12", branch]);
+const mergeBase = git(["merge-base", upstream, branch]);
+const [behind, ahead] = git(["rev-list", "--left-right", "--count", `${upstream}...${branch}`])
+  .split(/\s+/)
+  .map(Number);
+const dirty = git(["status", "--porcelain"]).length > 0;
+const mergeInProgress = Boolean(tryGit(["rev-parse", "--verify", "MERGE_HEAD"]));
 
-runGit(["switch", "-c", target, upstream]);
+console.log(`Upstream:    ${upstream} (${upstreamHead})`);
+console.log(`Branch:      ${branch} (${branchHead})`);
+console.log(`Merge base:  ${mergeBase.slice(0, 12)}`);
+console.log(`Divergence:  ${behind} upstream / ${ahead} corporate commits`);
+console.log(`Worktree:    ${dirty ? "dirty" : "clean"}${mergeInProgress ? " · merge in progress" : ""}`);
 
-for (const commit of commits) {
-  const result = spawnSync("git", ["cherry-pick", "--empty=drop", commit], { stdio: "inherit" });
-  if (result.status !== 0) {
-    console.error("");
-    console.error(`Stopped while replaying ${commit}. Resolve conflicts, then run:`);
-    console.error("  git cherry-pick --continue");
-    console.error("After that, continue with the remaining commits from:");
-    console.error(`  ${todoPath}`);
-    process.exit(result.status ?? 1);
+if (!apply && !continueMerge) {
+  console.log(behind === 0 ? "\nAlready current with upstream." : "\nPlan ready. No files changed.");
+  if (behind > 0) {
+    console.log(`Run: pnpm upstream:merge${verify ? " -- --verify" : ""}`);
   }
+  process.exit(0);
 }
 
-console.log("Upstream integration replay complete.");
+if (current !== branch) {
+  fail(`Refusing to update ${branch} while ${current} is checked out. Switch to ${branch} first.`);
+}
+
+if (continueMerge) {
+  if (!mergeInProgress) fail("No upstream merge is in progress.");
+  const unresolved = git(["diff", "--name-only", "--diff-filter=U"]);
+  if (unresolved) {
+    fail(`Resolve and stage these conflicts before continuing:\n${unresolved}`);
+  }
+  if (run("git", ["commit", "--no-edit"]) !== 0) process.exit(1);
+  if (verify && run("pnpm", ["run", "gates"]) !== 0) process.exit(1);
+  console.log("Upstream merge completed.");
+  process.exit(0);
+}
+
+if (mergeInProgress) {
+  fail("A merge is already in progress. Resolve it, stage the files, then run pnpm upstream:continue.");
+}
+if (dirty) {
+  fail("Refusing to merge with a dirty worktree. Commit or stash unrelated work first.");
+}
+if (behind === 0) {
+  console.log("Already current with upstream. Nothing to merge.");
+  process.exit(0);
+}
+
+const backup = values.get("backup") || `backup/${branch.replaceAll("/", "-")}-before-${upstreamHead}-${timestamp()}`;
+if (tryGit(["show-ref", "--verify", `refs/heads/${backup}`])) {
+  fail(`Backup branch already exists: ${backup}`);
+}
+git(["branch", backup, branch]);
+console.log(`Backup:      ${backup}`);
+
+const mergeStatus = run("git", ["merge", "--no-ff", "--no-edit", upstream]);
+if (mergeStatus !== 0) {
+  const unresolved = tryGit(["diff", "--name-only", "--diff-filter=U"]);
+  console.error("\nUpstream merge paused for conflict resolution.");
+  if (unresolved) console.error(`Unresolved files:\n${unresolved}`);
+  console.error("Keep upstream structure, preserve Everville contracts, regenerate generated files, then run:");
+  console.error("  git add <resolved-files>");
+  console.error("  pnpm upstream:continue -- --verify");
+  console.error(`Recovery ref: ${backup}`);
+  process.exit(mergeStatus);
+}
+
+if (verify && run("pnpm", ["run", "gates"]) !== 0) process.exit(1);
+console.log(`Upstream merge complete. Recovery ref: ${backup}`);
